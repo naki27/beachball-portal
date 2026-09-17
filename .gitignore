@@ -1,0 +1,20 @@
+# 依存関係・ビルド（コンテナのボリュームの置き場所として空のフォルダができるので必ず入れる）
+node_modules/
+.next/
+
+# 環境変数（.env.example から各自が作る）
+.env
+.env.*
+!.env.example
+
+# ローカルのファイル保存先（STORAGE_DRIVER=local）
+.local-storage/
+
+# テストの出力
+playwright-report/
+test-results/
+coverage/
+
+# OS・エディタ
+.DS_Store
+Thumbs.db

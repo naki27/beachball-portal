@@ -1,0 +1,61 @@
+# 開発用コンテナ一式。VS Code（または tools/setup-mac.sh）が起動するので、手で docker compose を叩く必要はない
+name: beach-entry
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sleep infinity
+    volumes:
+      - ..:/workspaces/beach-entry:cached
+      # 数の多い・書き込みの多いディレクトリは Mac と共有しない（速さのため。Mac 用のバイナリとも混ざらない）
+      - node_modules:/workspaces/beach-entry/node_modules
+      - next-cache:/workspaces/beach-entry/.next
+      - pnpm-store:/home/node/.local/share/pnpm/store
+      - playwright-browsers:/home/node/.cache/ms-playwright
+      # Claude Code のログイン情報と設定（作り直してもログインし直さなくてよい）
+      - claude-config:/home/node/.claude
+    environment:
+      CLAUDE_CONFIG_DIR: /home/node/.claude
+    ports:
+      # Mac のブラウザから開く。APP_BIND=0.0.0.0 は同じ Wi-Fi のスマホで試すときだけ（tools/setup-mac.sh --lan）
+      - "${APP_BIND:-127.0.0.1}:3000:3000" # Next.js
+      - "127.0.0.1:4983:4983" # Drizzle Studio
+      - "127.0.0.1:9323:9323" # Playwright のレポート
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: beach
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d beach"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:v1.31
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: 1000
+    ports:
+      - "127.0.0.1:8025:8025" # 受信箱の画面
+
+volumes:
+  node_modules:
+  next-cache:
+  pnpm-store:
+  playwright-browsers:
+  claude-config:
+  pgdata:
