@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # コンテナを作ったとき（作り直したときも）に 1 回だけ動く。何度流してもよい
 set -euo pipefail
-cd /workspaces/beach-entry
+cd /workspaces/beachball-portal
 
 # 名前付きボリュームのうち、リポジトリの中に重ねたものは root の持ち物で作られるので node に渡す
 sudo chown node:node node_modules .next
 
 # Mac のファイルは持ち主の番号がコンテナと違うことがあり、git が「dubious ownership」で止まるのを防ぐ
-sudo git config --system --add safe.directory /workspaces/beach-entry
+sudo git config --system --add safe.directory /workspaces/beachball-portal
 
 if [ ! -f package.json ]; then
   echo "package.json がまだないので、依存関係のインストールを飛ばします（L-03 で作る）"

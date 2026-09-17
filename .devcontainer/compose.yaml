@@ -1,5 +1,5 @@
 # 開発用コンテナ一式。VS Code（または tools/setup-mac.sh）が起動するので、手で docker compose を叩く必要はない
-name: beach-entry
+name: beachball-portal
 
 services:
   app:
@@ -8,10 +8,10 @@ services:
       dockerfile: Dockerfile
     command: sleep infinity
     volumes:
-      - ..:/workspaces/beach-entry:cached
+      - ..:/workspaces/beachball-portal:cached
       # 数の多い・書き込みの多いディレクトリは Mac と共有しない（速さのため。Mac 用のバイナリとも混ざらない）
-      - node_modules:/workspaces/beach-entry/node_modules
-      - next-cache:/workspaces/beach-entry/.next
+      - node_modules:/workspaces/beachball-portal/node_modules
+      - next-cache:/workspaces/beachball-portal/.next
       - pnpm-store:/home/node/.local/share/pnpm/store
       - playwright-browsers:/home/node/.cache/ms-playwright
       # Claude Code のログイン情報と設定（作り直してもログインし直さなくてよい）

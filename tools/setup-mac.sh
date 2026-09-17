@@ -14,7 +14,7 @@
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-workspace=/workspaces/beach-entry
+workspace=/workspaces/beachball-portal
 rebuild=0
 open_vscode=1
 export APP_BIND=127.0.0.1
@@ -37,11 +37,11 @@ fail() { printf '\n[中断] %s\n' "$1" >&2; exit 1; }
 [ -f "$repo/.devcontainer/devcontainer.json" ] || fail ".devcontainer/devcontainer.json がありません: $repo"
 case "$repo" in
   "$HOME"/Library/*)
-    fail "iCloud Drive の中です。~/dev/beach-entry などに移してください: $repo" ;;
+    fail "iCloud Drive の中です。~/dev/beachball-portal などに移してください: $repo" ;;
   "$HOME"/Documents/*|"$HOME"/Desktop/*)
-    echo "注意: 書類・デスクトップは iCloud Drive で同期されることがあります。~/dev/beach-entry などを勧めます" ;;
+    echo "注意: 書類・デスクトップは iCloud Drive で同期されることがあります。~/dev/beachball-portal などを勧めます" ;;
   "$HOME"/*) ;;
-  *) fail "リポジトリをホームフォルダの下（例: ~/dev/beach-entry）に置いてください。Colima はホームの下だけをコンテナと共有します: $repo" ;;
+  *) fail "リポジトリをホームフォルダの下（例: ~/dev/beachball-portal）に置いてください。Colima はホームの下だけをコンテナと共有します: $repo" ;;
 esac
 command -v brew >/dev/null 2>&1 || fail "Homebrew がありません。docs/setup.md の「1-1. Homebrew」を先にやってください"
 

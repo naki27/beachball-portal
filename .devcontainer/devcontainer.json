@@ -1,10 +1,10 @@
 // 開発環境の定義。変えたら全員が「コンテナーのリビルド」をする（docs/setup.md の「環境を変えるとき」）
 {
-  "name": "beach-entry",
+  "name": "beachball-portal",
   "dockerComposeFile": "compose.yaml",
   "service": "app",
   "runServices": ["app", "db", "mailpit"],
-  "workspaceFolder": "/workspaces/beach-entry",
+  "workspaceFolder": "/workspaces/beachball-portal",
   "remoteUser": "node",
   "shutdownAction": "stopCompose",
   "postCreateCommand": "bash .devcontainer/post-create.sh",

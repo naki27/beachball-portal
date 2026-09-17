@@ -20,7 +20,7 @@ Mac
 ├─ VS Code ─────────┐（つなぐ）
 └─ Colima（Linux の VM） │
    ├─ app      ←──────┘ ここで開発する。Node.js 24・pnpm・Claude Code・psql
-   │                      ~/dev/beach-entry を /workspaces/beach-entry として共有
+   │                      ~/dev/beachball-portal を /workspaces/beachball-portal として共有
    ├─ db       Postgres 16（app からは db:5432。Mac には公開しない）
    └─ mailpit  メールの受け皿（app からは mailpit:1025）
 ```
@@ -30,7 +30,7 @@ Mac
 - **ファイルの編集・git・pnpm・claude は、コンテナにつながった VS Code の中（エディタとターミナル）で行う**。Mac のターミナル・Finder・ほかのエディタでリポジトリの中を変えない
   - 理由: Mac 側の変更はコンテナに伝わらないことがあり、`pnpm dev` の自動の再読み込みが効かなくなる。コンテナの中で変えれば確実に伝わる
   - 例外: 最初の `git clone` と、Mac のターミナルで実行する `bash tools/setup-mac.sh`
-- リポジトリはホームフォルダの下の `~/dev/beach-entry` に置く（Colima はホームの下だけを共有する。iCloud Drive の下は避ける）
+- リポジトリはホームフォルダの下の `~/dev/beachball-portal` に置く（Colima はホームの下だけを共有する。iCloud Drive の下は避ける）
 - コンテナに足りないものがあっても `sudo apt install` で済ませない。作り直すと消えるので、`.devcontainer/Dockerfile` に書いて全員にそろえる（「4. 環境を変えるとき」）
 
 ---
@@ -95,8 +95,8 @@ Mac
 
 ```bash
 mkdir -p ~/dev && cd ~/dev
-git clone git@github.com:<OWNER>/beach-entry.git
-cd beach-entry
+git clone git@github.com:naki27/beachball-portal.git
+cd beachball-portal
 ```
 
 ### 1-4. セットアップのコマンド
@@ -114,12 +114,12 @@ bash tools/setup-mac.sh
 5. コンテナをビルドして起動する（初回は 10〜20 分）。中で `.devcontainer/post-create.sh` が動き、`pnpm install`・`.env` の作成・Playwright のブラウザの準備をする
 6. コンテナにつながった VS Code を開く
 
-- 確認: VS Code のウィンドウの左下に `Dev Container: beach-entry`（日本語の表示なら「開発コンテナー」）と出る
-- VS Code が開かないとき: VS Code で `~/dev/beach-entry` を開き、右下に出る「コンテナーで再度開く」を押す（出なければコマンドパレット（⇧⌘P）で `Dev Containers: Reopen in Container`）
+- 確認: VS Code のウィンドウの左下に `Dev Container: beachball-portal`（日本語の表示なら「開発コンテナー」）と出る
+- VS Code が開かないとき: VS Code で `~/dev/beachball-portal` を開き、右下に出る「コンテナーで再度開く」を押す（出なければコマンドパレット（⇧⌘P）で `Dev Containers: Reopen in Container`）
 
 ### 1-5. Claude Code にログインする（コンテナの中）
 
-VS Code のメニューの「ターミナル → 新しいターミナル」で、コンテナの中のターミナルを開く（場所が `/workspaces/beach-entry` になっている）。
+VS Code のメニューの「ターミナル → 新しいターミナル」で、コンテナの中のターミナルを開く（場所が `/workspaces/beachball-portal` になっている）。
 
 ```bash
 claude
@@ -158,10 +158,10 @@ L-03 のあとなら、さらに `pnpm dev` → http://localhost:3000 が開き�
 Mac のターミナルで:
 
 ```bash
-cd ~/dev/beach-entry && bash tools/setup-mac.sh
+cd ~/dev/beachball-portal && bash tools/setup-mac.sh
 ```
 
-Colima とコンテナを起動して VS Code を開く（起動済みなら数秒）。Colima が起動していれば、VS Code の「最近使ったもの」の `beach-entry [Dev Container]` から開いてもよい。
+Colima とコンテナを起動して VS Code を開く（起動済みなら数秒）。Colima が起動していれば、VS Code の「最近使ったもの」の `beachball-portal [Dev Container]` から開いてもよい。
 
 続けて、コンテナの中のターミナルで:
 
@@ -203,7 +203,7 @@ pnpm db:migrate   # L-04 のあと
 | `Cannot connect to the Docker daemon` | Mac のターミナルで `colima status` → 止まっていれば `bash tools/setup-mac.sh` |
 | ファイルを保存しても `pnpm dev` の画面が変わらない | Mac 側（Finder・Mac のエディタ・Mac のターミナルの git）で変えていないか確かめ、コンテナの中でやり直す。それでもだめなら `WATCHPACK_POLLING=true pnpm dev --webpack` |
 | `Permission denied` や `Operation not permitted` がたまに出る（git・大量のファイルの書き込み） | もう一度実行する（Colima のファイル共有（virtiofs）の既知の問題）。頻繁に出るならメンバーに相談する |
-| git が `dubious ownership` で止まる | コンテナの中で `sudo git config --system --add safe.directory /workspaces/beach-entry` |
+| git が `dubious ownership` で止まる | コンテナの中で `sudo git config --system --add safe.directory /workspaces/beachball-portal` |
 | `git push` が `Permission denied (publickey)` | Mac のターミナルで `ssh-add --apple-use-keychain ~/.ssh/id_ed25519` → `bash tools/setup-mac.sh`（VS Code のウィンドウが開き直る） |
 | コミットで `Please tell me who you are` | Mac のターミナルで 1-2 の `git config --global` をして、VS Code のウィンドウを開き直す（Mac の設定がコンテナに写される） |
 | `port is already allocated`（3000・8025 など） | Mac でほかに動いているもの（別の開発サーバーなど）を止める。使っているものは Mac のターミナルで `lsof -iTCP:3000 -sTCP:LISTEN` |

@@ -14,5 +14,5 @@
 - 次への申し送り・既知の課題:
   - 開発マシンが Mac ではなく **Windows 11**（WSL2 の Ubuntu 24.04 あり。Docker は Rancher Desktop で停止中。Node は WSL に 18 のみ、pnpm・gh・GitHub の SSH 鍵はなし）。`tools/setup-mac.sh` は Mac 専用（`uname` で止まる）。Dev Container を Windows（Rancher Desktop + WSL2）で使うか、WSL の中で直接動かすかを決めてから L-03 に進む
   - 元のファイルはすべて CRLF だったので、コピー後に LF へ直した（`.gitattributes` は `eol=lf`）
-  - GitHub への push は未（`gh` と SSH 鍵の準備が必要。`docs/setup.md` の `<OWNER>` も未置換）
+  - GitHub への push は未（リモートは https://github.com/naki27/beachball-portal.git）
 - 使った枠（/usage の変化）: 未計測（この環境では /usage を見られない）
