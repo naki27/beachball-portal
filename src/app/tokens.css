@@ -1,0 +1,21 @@
+/*
+  色と動きの長さの CSS 変数（設計書 §4.3・§4.5・§5.17）。
+  値の決定・協会ごとの色の差し替え・prefers-reduced-motion の扱いは A-06 で作る。
+  ここにある値は、それまでの仮の値。
+*/
+:root {
+  /* 色（協会ごとに差し替える） */
+  --color-background: #ffffff;
+  --color-foreground: #171717;
+  --color-primary: #1d4ed8;
+  --color-on-primary: #ffffff;
+  --color-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --color-danger: #b91c1c;
+  --color-success: #15803d;
+
+  /* 動きの長さ */
+  --motion-fast: 120ms;
+  --motion-normal: 200ms;
+  --motion-slow: 320ms;
+}

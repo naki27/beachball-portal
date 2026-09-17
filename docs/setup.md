@@ -242,3 +242,29 @@ Mac に公開するポート（どれも Mac の中からだけ開ける。`--la
 | Mailpit の SMTP | `mailpit:1025` |
 
 Colima の代わりに、すでにライセンスのある Docker Desktop などを使う場合は `USE_CURRENT_DOCKER=1 bash tools/setup-mac.sh`。コンテナの中身は同じになる。
+
+---
+
+## 7. Windows で開発するとき（Rancher Desktop）
+
+Mac の代わりに Windows 11 で開発するときの違い。コンテナの中身（`.devcontainer/`）は同じ。
+
+| Windows に入れるもの | 用途 |
+|---|---|
+| Rancher Desktop（コンテナエンジンは dockerd（moby）、WSL 統合をオン） | Colima の代わり（無料・Apache 2.0） |
+| Git for Windows | `git` と、`.sh` を動かす Git Bash |
+| VS Code・Dev Containers 拡張 | コンテナにつないで編集する |
+
+- リポジトリは `C:\Users\<名前>\dev\beachball-portal` に置く（`git clone https://github.com/naki27/beachball-portal.git`。push は HTTPS + Git Credential Manager）
+- `tools/setup-mac.sh` は使わない。代わりに Git Bash（または PowerShell）でリポジトリの直下から:
+
+  ```bash
+  "/c/Program Files/Rancher Desktop/resources/resources/win32/bin/rdctl.exe" start --no-modal-dialogs   # Rancher Desktop の起動（起動済みなら不要）
+  docker compose -f .devcontainer/compose.yaml up -d --build   # app・db・mailpit を起動（2 回目からは数秒）
+  docker compose -f .devcontainer/compose.yaml exec app bash   # コンテナの中のシェル
+  ```
+
+  初回だけ、コンテナの中で `bash .devcontainer/post-create.sh` を流す（VS Code の「コンテナーで再度開く」から入った場合は自動で流れる）
+- **自動再読み込み**: Windows のフォルダはコンテナに 9p で共有され、ファイル変更の通知が届かない。`pnpm dev` の代わりに **`pnpm dev:poll`**（webpack + polling）を使う。Windows 側のエディタで直しても画面が変わる
+- 改行は `.gitattributes` で LF に統一している。Windows 側の `git` で作業してよい（`core.autocrlf` は未設定のまま）
+- Mac 用の「5. 困ったとき」はほぼ同じ。`colima` は Rancher Desktop の再起動に読み替える

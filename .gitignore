@@ -1,6 +1,10 @@
 # 依存関係・ビルド（コンテナのボリュームの置き場所として空のフォルダができるので必ず入れる）
 node_modules/
 .next/
+/out/
+/build/
+*.tsbuildinfo
+next-env.d.ts
 
 # 環境変数（.env.example から各自が作る）
 .env
@@ -15,6 +19,14 @@ playwright-report/
 test-results/
 coverage/
 
+# ログ
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
 # OS・エディタ
 .DS_Store
 Thumbs.db
+*.pem
+.vercel
