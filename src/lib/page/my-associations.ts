@@ -1,6 +1,8 @@
 import { getDb } from "@/db/client";
+import { withTenant } from "@/db/tenant";
 import { getMembership } from "@/lib/auth/principal";
 import { type AssociationLink, listAllAssociations, listMyAssociations } from "@/lib/repo/associations";
+import { listTeamsAdminedBy } from "@/lib/repo/teams";
 import { type Principal, ROLE_LABEL } from "@/lib/authz";
 
 // 協会をまたぐ画面（/・/mypage・協会の切り替えメニュー）で使う、ログイン中の人の協会（設計書 §5.14）
@@ -33,4 +35,12 @@ export async function loadSwitchableAssociations(principal: Principal): Promise<
   const db = getDb();
   const list = principal.isPlatformAdmin ? await listAllAssociations(db) : await listMyAssociations(db, principal.userId);
   return list.length >= 2 ? list : [];
+}
+
+// マイページの協会の枠: 代表者を務めるチーム（§5.3）。協会ごとに withTenant で読む（§5.14「協会をまたぐ画面」）
+export async function loadAdminTeams(principal: Principal, associationId: string): Promise<{ id: string; name: string }[]> {
+  if (!principal.userId) return [];
+  const userId = principal.userId;
+  const teams = await withTenant(associationId, (tx) => listTeamsAdminedBy(tx, associationId, userId), { userId });
+  return teams.map((t) => ({ id: t.id, name: t.name }));
 }

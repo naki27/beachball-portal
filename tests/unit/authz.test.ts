@@ -100,6 +100,13 @@ describe("権限表（§3.2）", () => {
     expect(can("team_admin", "viewPlayerPersonal")).toBe(true);
   });
 
+  it("チーム情報の編集は代表者から。選手・登録者はできない（§5.11）", () => {
+    expect(can("player", "editTeam")).toBe(false);
+    expect(can("registered", "editTeam")).toBe(false);
+    expect(can("team_admin", "editTeam")).toBe(true);
+    expect(can("association_admin", "editTeam")).toBe(true);
+  });
+
   it("誰でも見られるものと、運営管理者だけのもの", () => {
     expect(can("anonymous", "viewPublic")).toBe(true);
     expect(can("anonymous", "viewTodo")).toBe(false);

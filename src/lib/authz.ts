@@ -117,6 +117,8 @@ export const ACTIONS = {
   viewPlayerPersonal: { label: "選手の生年月日・年齢・性別", minRole: "team_admin", selfRole: "player" },
   viewMembershipStatus: { label: "協会員かどうか", minRole: "team_admin", selfRole: "player" },
   viewTeamContact: { label: "チームの連絡先（メール・電話）", minRole: "team_admin" },
+  // §5.11「チームの作り方」: 協会員の登録をするチームかは代表者が設定し、テナント管理者も変えられる
+  editTeam: { label: "チーム情報の編集（協会員の登録をするチームかどうかを含む）", minRole: "team_admin" },
   // 締切・定員の条件は deadline.ts で判定し、満たさなければ 409（403 と混ぜない）
   manageEntries: { label: "大会への申込・変更・取消", minRole: "team_admin" },
   manageRoster: { label: "選手一覧の編集・選手の招待", minRole: "team_admin" },

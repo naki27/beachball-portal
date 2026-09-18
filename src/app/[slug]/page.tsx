@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { OpenTournaments } from "@/components/top/open-tournaments";
 import { type TodoItem, YourTodos } from "@/components/top/your-todos";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -20,6 +21,13 @@ export default async function AssociationTop({ params }: Props) {
       <h1 className="text-2xl font-bold">{association.name}</h1>
       {principal.userId ? <YourTodos items={todos} /> : null}
       <OpenTournaments />
+      {principal.userId ? (
+        <p>
+          <Link href={`/${association.slug}/teams/new`} className="font-semibold underline underline-offset-2">
+            チームを登録する
+          </Link>
+        </p>
+      ) : null}
     </main>
   );
 }

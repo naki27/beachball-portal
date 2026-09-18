@@ -56,7 +56,7 @@ test("運営管理者は協会を作り、名前を変え、切り替えて入�
     await page.getByLabel("確認番号（6 けた）").fill(await latestCode(request, email));
     await expect(page).toHaveURL(/\/platform$/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("運営管理", { timeout: 15_000 });
-    await expect(page.getByText("早良区協会")).toBeVisible();
+    await expect(page.getByRole("main").getByText("早良区協会")).toBeVisible();
 
     // 協会を作る
     await page.locator("form[data-hydrated]").first().waitFor();

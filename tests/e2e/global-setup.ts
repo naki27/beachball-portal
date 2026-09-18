@@ -13,6 +13,8 @@ import {
   platformAdmins,
   rateLimits,
   sessions,
+  teamAdmins,
+  teams,
   users,
 } from "../../src/db/schema";
 import { SAWARA_ASSOCIATION_ID } from "../../src/db/seed";
@@ -32,8 +34,13 @@ const PATHS = [
   "/login/help",
   "/dev/ui",
   "/platform",
+  "/platform/associations/00000000-0000-4000-8000-000000000000",
   "/invitations",
   "/mypage",
+  "/sawara/teams/new",
+  // チームのページ（動的な URL）。ない ID なので 404 になるだけ
+  "/sawara/teams/00000000-0000-4000-8000-000000000000",
+  "/sawara/teams/00000000-0000-4000-8000-000000000000/edit",
   "/robots.txt",
 ];
 
@@ -57,6 +64,7 @@ async function resetTestState(): Promise<void> {
         await tx.delete(associationAdminInvitations).where(eq(associationAdminInvitations.associationId, id));
         await tx.delete(categoryPresets).where(eq(categoryPresets.associationId, id));
         await tx.delete(associationSlugHistory).where(eq(associationSlugHistory.associationId, id));
+        await tx.delete(teams).where(eq(teams.associationId, id)); // 代表者・名簿の行は cascade で消える
       });
       await db.update(sessions).set({ enteredAssociationId: null, enteredUntil: null }).where(eq(sessions.enteredAssociationId, id));
       await db.delete(adminAccessLogs).where(eq(adminAccessLogs.associationId, id));
@@ -67,7 +75,11 @@ async function resetTestState(): Promise<void> {
     const leftovers = await db.select({ id: users.id }).from(users).where(like(users.email, "e2e-%@example.com"));
     const ids = leftovers.map((u) => u.id);
     await withTenantOn(db, SAWARA_ASSOCIATION_ID, async (tx) => {
-      if (ids.length > 0) await tx.delete(associationAdmins).where(inArray(associationAdmins.userId, ids));
+      if (ids.length > 0) {
+        await tx.delete(associationAdmins).where(inArray(associationAdmins.userId, ids));
+        await tx.delete(teamAdmins).where(inArray(teamAdmins.userId, ids));
+        await tx.delete(teams).where(inArray(teams.createdBy, ids));
+      }
       await tx.delete(associationAdminInvitations).where(like(associationAdminInvitations.email, "e2e-%@example.com"));
     });
     await db.delete(mailLogs).where(like(mailLogs.toEmail, "e2e-%@example.com"));
@@ -83,7 +95,22 @@ async function resetTestState(): Promise<void> {
 }
 
 // API も初回はコンパイルに数秒かかるので、空の POST で先にコンパイルさせる（Origin の検査で 403 になるだけ）
-const API_PATHS = ["/api/auth/request", "/api/auth/verify", "/api/auth/logout", "/api/me"];
+// 動的な URL はない ID で（Origin の検査か 405 で止まる）
+const NO_ID = "00000000-0000-4000-8000-000000000000";
+const API_PATHS = [
+  "/api/auth/request",
+  "/api/auth/verify",
+  "/api/auth/logout",
+  "/api/me",
+  "/api/me/invitations",
+  `/api/me/invitations/${NO_ID}/accept`,
+  "/api/platform/associations",
+  `/api/platform/associations/${NO_ID}`,
+  `/api/platform/associations/${NO_ID}/enter`,
+  `/api/platform/associations/${NO_ID}/admin-invitations`,
+  "/api/sawara/teams",
+  `/api/sawara/teams/${NO_ID}`,
+];
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
   await resetTestState();

@@ -4,7 +4,7 @@ import { LogoutButton } from "@/components/layout/logout-button";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { denyPage } from "@/lib/page/forbidden";
-import { loadMyAssociations } from "@/lib/page/my-associations";
+import { loadAdminTeams, loadMyAssociations } from "@/lib/page/my-associations";
 import { listMyPendingInvitations } from "@/lib/repo/invitations";
 import { findUserProfile } from "@/lib/repo/users";
 import { DisplayNameForm } from "./display-name-form";
@@ -12,7 +12,7 @@ import { DisplayNameForm } from "./display-name-form";
 export const metadata: Metadata = { title: "マイページ" };
 
 // マイページ（設計書 §5.3）。テナントに属さない画面。協会ごとに枠を分ける（協会の列挙は §5.14「協会をまたぐ画面」）
-// 協会の枠の中身（代表者を務めるチーム・申込・選手として所属するチーム）は A-14 以降で足す
+// 協会の枠: 代表者を務めるチーム（A-14）。申込・選手として所属するチームは後のタスクで足す
 export default async function MyPage() {
   const principal = await getPrincipal();
   if (!principal.userId) denyPage();
@@ -22,6 +22,7 @@ export default async function MyPage() {
     loadMyAssociations(principal),
     listMyPendingInvitations(db, principal.userId),
   ]);
+  const adminTeams = await Promise.all(associations.map((a) => loadAdminTeams(principal, a.id)));
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
@@ -41,7 +42,7 @@ export default async function MyPage() {
           まだどの協会にも登録していません。協会から案内されたページを開いて、チームや選手を登録してください。
         </p>
       ) : (
-        associations.map((a) => (
+        associations.map((a, i) => (
           <section
             key={a.id}
             aria-labelledby={`association-${a.id}`}
@@ -51,9 +52,29 @@ export default async function MyPage() {
               {a.name}
             </h2>
             {a.roles.length > 0 ? <p className="text-sm text-muted">{a.roles.join("・")}</p> : null}
-            <p>
+            {adminTeams[i].length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <h3 className="font-semibold">代表者を務めるチーム</h3>
+                <ul className="flex flex-col gap-2">
+                  {adminTeams[i].map((t) => (
+                    <li key={t.id}>
+                      <Link
+                        href={`/${a.slug}/teams/${t.id}`}
+                        className="flex min-h-12 items-center rounded-md border border-border px-4 font-semibold no-underline hover:bg-surface"
+                      >
+                        {t.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <p className="flex flex-wrap gap-x-4 gap-y-2">
               <Link href={`/${a.slug}`} className="font-semibold underline underline-offset-2">
                 {a.name}のページへ
+              </Link>
+              <Link href={`/${a.slug}/teams/new`} className="font-semibold underline underline-offset-2">
+                チームを登録する
               </Link>
             </p>
           </section>

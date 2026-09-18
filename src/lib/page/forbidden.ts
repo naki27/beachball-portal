@@ -19,7 +19,8 @@ export function assertAccessOrDeny(result: AccessResult): void {
 const WHO_BY_PATH: ReadonlyArray<[RegExp, string]> = [
   [/^\/platform(\/|$)/, ROLE_LABEL.platform_admin],
   [/^\/[^/]+\/admin(\/|$)/, ROLE_LABEL.association_admin],
-  [/^\/[^/]+\/teams\/[^/]+\/(roster|entries|admins|invitations|membership|export)(\/|$)/, ROLE_LABEL.team_admin],
+  [/^\/[^/]+\/teams\/new$/, ROLE_LABEL.registered],
+  [/^\/[^/]+\/teams\/[^/]+\/(edit|roster|entries|admins|invitations|membership|export)(\/|$)/, ROLE_LABEL.team_admin],
   [/^\/[^/]+\/teams\/[^/]+(\/|$)/, ROLE_LABEL.player],
   [/^\/(mypage|invitations|account)(\/|$)/, ROLE_LABEL.registered],
   [/^\/$/, ROLE_LABEL.registered],

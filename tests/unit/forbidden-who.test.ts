@@ -10,6 +10,8 @@ describe("whoCanSee", () => {
     expect(whoCanSee("/sawara/admin/tournaments?tab=1")).toBe("協会の管理者");
     expect(whoCanSee("/sawara/teams/abc/roster")).toBe("チームの代表者");
     expect(whoCanSee("/sawara/teams/abc")).toBe("チームの選手");
+    expect(whoCanSee("/sawara/teams/abc/edit")).toBe("チームの代表者");
+    expect(whoCanSee("/sawara/teams/new")).toBe("ログインした人");
     expect(whoCanSee("/mypage")).toBe("ログインした人");
     expect(whoCanSee("/invitations")).toBe("ログインした人");
     expect(whoCanSee("/")).toBe("ログインした人");
