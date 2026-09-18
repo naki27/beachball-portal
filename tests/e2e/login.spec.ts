@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./fixtures";
 
 // ログイン①: 確認番号の発行（設計書 §5.1・§9.2・§11.3）。メールは Mailpit（コンテナの中から http://mailpit:8025）で確かめる
 const MAILPIT = process.env.MAILPIT_URL ?? "http://mailpit:8025";

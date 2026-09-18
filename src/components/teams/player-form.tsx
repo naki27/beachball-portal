@@ -13,26 +13,24 @@ import { parsePlayerInput, PLAYER_KANA_MAX, PLAYER_NAME_MAX, type PlayerField, S
 
 export type PlayerFormValues = { name: string; kana: string; birthDate: string | null; sex: "male" | "female" | "" };
 
-type ApiBody = { error?: { message?: string; field?: PlayerField } };
+// 送り先。extra は本文に足す値（{ kind: "individual" }・{ self: true } など）。応答に redirectTo があればそちらへ
+export type PlayerFormSubmit = {
+  url: string;
+  method: "POST" | "PATCH";
+  extra?: Record<string, unknown>;
+  successPath: string;
+  label: string;
+  pendingLabel: string;
+};
+
+type ApiBody = { redirectTo?: string; error?: { message?: string; field?: PlayerField } };
 
 const FIELD_LABEL: Record<PlayerField, string> = { name: "氏名", kana: "ふりがな", birthDate: "生年月日", sex: "性別" };
 const FIELD_ID: Record<PlayerField, string> = { name: "player-name", kana: "player-kana", birthDate: "player-birth-year", sex: "player-sex-male" };
 
-// 選手の追加・修正（設計書 §5.11「名簿の管理」）。本人の情報を入力する（サジェストは使わない）
+// 本人の情報（氏名・ふりがな・生年月日・性別）の入力（設計書 §5.11）。選手の追加・修正、個人で登録、自分を選手として登録
 // 生年月日の部品が「◯歳で合っていますか？」を出している間は送れない（§4.3）
-export function PlayerForm({
-  slug,
-  teamId,
-  mode,
-  teamMemberId,
-  initial,
-}: {
-  slug: string;
-  teamId: string;
-  mode: "create" | "edit";
-  teamMemberId?: string;
-  initial: PlayerFormValues;
-}) {
+export function PlayerForm({ submit, initial }: { submit: PlayerFormSubmit; initial: PlayerFormValues }) {
   const router = useRouter();
   const hydrated = useHydrated();
   const [values, setValues] = useState(initial);
@@ -61,15 +59,14 @@ export function PlayerForm({
     setErrors({});
     setPending(true);
     try {
-      const url = mode === "create" ? `/api/${slug}/teams/${teamId}/members` : `/api/${slug}/teams/${teamId}/members/${teamMemberId}`;
-      const response = await fetch(url, {
-        method: mode === "create" ? "POST" : "PATCH",
+      const response = await fetch(submit.url, {
+        method: submit.method,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(parsed.value),
+        body: JSON.stringify({ ...parsed.value, ...submit.extra }),
       });
       const body = (await response.json().catch(() => null)) as ApiBody | null;
       if (response.ok) {
-        router.push(`/${slug}/teams/${teamId}/members?${mode === "create" ? "added" : "updated"}=1`);
+        router.push(body?.redirectTo ?? submit.successPath);
         router.refresh();
         return;
       }
@@ -142,8 +139,8 @@ export function PlayerForm({
           </p>
         ) : null}
       </fieldset>
-      <Button type="submit" fullWidth pending={pending} pendingLabel={mode === "create" ? "追加しています…" : "保存しています…"}>
-        {mode === "create" ? "選手一覧に追加する" : "保存する"}
+      <Button type="submit" fullWidth pending={pending} pendingLabel={submit.pendingLabel}>
+        {submit.label}
       </Button>
     </form>
   );

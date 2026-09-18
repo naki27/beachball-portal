@@ -39,11 +39,13 @@ const PATHS = [
   "/invitations",
   "/mypage",
   "/sawara/teams/new",
+  "/sawara/teams/new?kind=individual",
   // チームのページ（動的な URL）。ない ID なので 404 になるだけ
   "/sawara/teams/00000000-0000-4000-8000-000000000000",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/edit",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/members",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/members/new",
+  "/sawara/teams/00000000-0000-4000-8000-000000000000/members/new?self=1",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/members/00000000-0000-4000-8000-000000000000/edit",
   "/robots.txt",
 ];

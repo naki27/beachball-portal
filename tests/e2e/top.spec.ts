@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./fixtures";
 import { eq } from "drizzle-orm";
 import { closeDb, createDb } from "../../src/db/client";
 import { loadEnv, requireEnv } from "../../src/db/env";

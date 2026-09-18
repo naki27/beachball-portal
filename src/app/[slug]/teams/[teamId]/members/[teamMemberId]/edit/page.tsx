@@ -13,6 +13,7 @@ type Props = { params: Promise<{ slug: string; teamId: string; teamMemberId: str
 export const metadata: Metadata = { title: "選手の情報の修正" };
 
 // 選手の情報の修正（§5.11）。代表者だけ。人物はほかのチームとも共有されている
+// 個人登録（kind = individual）では「あなたの登録情報の修正」
 export default async function EditPlayerPage({ params }: Props) {
   const { slug, teamId, teamMemberId } = await params;
   const association = await requireAssociation(slug);
@@ -25,21 +26,30 @@ export default async function EditPlayerPage({ params }: Props) {
     teamId,
     teamMemberId,
   ).catch(pageErrorFrom);
+  const individual = team.kind === "individual";
+  const backPath = individual ? `/${association.slug}/teams/${team.id}` : `/${association.slug}/teams/${team.id}/members`;
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
       <p>
-        <Link href={`/${association.slug}/teams/${team.id}/members`} className="underline underline-offset-2">
-          ← 選手一覧
+        <Link href={backPath} className="underline underline-offset-2">
+          ← {individual ? "あなたの登録情報" : "選手一覧"}
         </Link>
       </p>
-      <h1 className="text-2xl font-bold">選手の情報の修正</h1>
-      <p className="text-sm text-muted">この方がほかのチームの選手一覧にもいる場合、そちらにも同じ内容が反映されます。</p>
+      <h1 className="text-2xl font-bold">{individual ? "あなたの登録情報の修正" : "選手の情報の修正"}</h1>
+      <p className="text-sm text-muted">
+        {individual
+          ? "ほかのチームの選手一覧にもあなたが載っている場合、そちらにも同じ内容が反映されます。"
+          : "この方がほかのチームの選手一覧にもいる場合、そちらにも同じ内容が反映されます。"}
+      </p>
       <PlayerForm
-        slug={association.slug}
-        teamId={team.id}
-        mode="edit"
-        teamMemberId={teamMemberId}
+        submit={{
+          url: `/api/${association.slug}/teams/${team.id}/members/${teamMemberId}`,
+          method: "PATCH",
+          successPath: `${backPath}?updated=1`,
+          label: "保存する",
+          pendingLabel: "保存しています…",
+        }}
         initial={{ name: player.name, kana: player.kana ?? "", birthDate: player.birthDate, sex: player.sex }}
       />
     </main>

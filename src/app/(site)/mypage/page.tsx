@@ -4,7 +4,7 @@ import { LogoutButton } from "@/components/layout/logout-button";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { denyPage } from "@/lib/page/forbidden";
-import { loadAdminTeams, loadMyAssociations } from "@/lib/page/my-associations";
+import { loadAdminTeams, loadIndividualRegistration, loadMyAssociations } from "@/lib/page/my-associations";
 import { listMyPendingInvitations } from "@/lib/repo/invitations";
 import { findUserProfile } from "@/lib/repo/users";
 import { DisplayNameForm } from "./display-name-form";
@@ -23,6 +23,7 @@ export default async function MyPage() {
     listMyPendingInvitations(db, principal.userId),
   ]);
   const adminTeams = await Promise.all(associations.map((a) => loadAdminTeams(principal, a.id)));
+  const individuals = await Promise.all(associations.map((a) => loadIndividualRegistration(principal, a.id)));
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
@@ -52,6 +53,17 @@ export default async function MyPage() {
               {a.name}
             </h2>
             {a.roles.length > 0 ? <p className="text-sm text-muted">{a.roles.join("・")}</p> : null}
+            {individuals[i] ? (
+              <div className="flex flex-col gap-2">
+                <h3 className="font-semibold">あなたの登録情報</h3>
+                <Link
+                  href={`/${a.slug}/teams/${individuals[i].teamId}`}
+                  className="flex min-h-12 items-center rounded-md border border-border px-4 font-semibold no-underline hover:bg-surface"
+                >
+                  {individuals[i].person?.name ?? "登録情報を見る"}
+                </Link>
+              </div>
+            ) : null}
             {adminTeams[i].length > 0 ? (
               <div className="flex flex-col gap-2">
                 <h3 className="font-semibold">代表者を務めるチーム</h3>
@@ -76,6 +88,11 @@ export default async function MyPage() {
               <Link href={`/${a.slug}/teams/new`} className="font-semibold underline underline-offset-2">
                 チームを登録する
               </Link>
+              {!individuals[i] ? (
+                <Link href={`/${a.slug}/teams/new?kind=individual`} className="font-semibold underline underline-offset-2">
+                  個人で登録する
+                </Link>
+              ) : null}
             </p>
           </section>
         ))

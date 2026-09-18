@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./fixtures";
 import { eq, inArray } from "drizzle-orm";
 import { closeDb, createDb } from "../../src/db/client";
 import { loadEnv, requireEnv } from "../../src/db/env";

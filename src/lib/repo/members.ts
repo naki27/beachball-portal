@@ -1,4 +1,4 @@
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, ne, or } from "drizzle-orm";
 import { type MemberSex, type MemberStatus, members } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 import { type ReadOptions, tenantScope } from "./scope";
@@ -102,4 +102,22 @@ export function listMatchCandidates(
       ),
     )
     .orderBy(members.createdAt);
+}
+
+// そのアカウントに紐づいた人物（協会内で 1 アカウント = 1 人物・§5.15）。統合済み・削除済みは除く
+export async function findMemberByUserId(tx: Tx, associationId: string, userId: string): Promise<Member | null> {
+  const [row] = await tx
+    .select()
+    .from(members)
+    .where(and(tenantScope(members, associationId), eq(members.userId, userId), ne(members.status, "merged")))
+    .limit(1);
+  return row ?? null;
+}
+
+// 人物にアカウントを紐づける（招待の承諾・本人の登録・§5.15）。null で解除
+export async function setMemberUser(tx: Tx, associationId: string, memberId: string, userId: string | null): Promise<void> {
+  await tx
+    .update(members)
+    .set({ userId, updatedAt: new Date() })
+    .where(and(tenantScope(members, associationId), eq(members.id, memberId)));
 }

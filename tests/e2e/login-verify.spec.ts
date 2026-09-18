@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./fixtures";
 
 // ログイン②: 照合とセッション（設計書 §9.2・§5.2）。番号は Mailpit から取り出す
 const MAILPIT = process.env.MAILPIT_URL ?? "http://mailpit:8025";

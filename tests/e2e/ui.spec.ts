@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./fixtures";
 
 // 共通部品の一覧（開発用）。スマホ幅で横にはみ出さないことと、スクリーンショットを残す（§4.3「検証」）
 test("/dev/ui が開き、横にはみ出さない。部品が動く", async ({ page }, testInfo) => {

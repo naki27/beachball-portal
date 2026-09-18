@@ -3,11 +3,20 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: A-17 選手一覧（A-12 は人の確認待ち）
-- 次のタスク: A-18 個人登録と「自分を選手として登録する」
+- 最後に終わったタスク: A-18 個人登録と「自分を選手として登録する」（A-12 は人の確認待ち）
+- 次のタスク: A-19 選手の招待［M］
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### A-18（2026-09-18）
+- やったこと: `/[slug]/teams/new` に「チームで登録／個人で登録」の切り替え（`?kind=individual`）。個人で登録は本人の情報だけ・`kind = individual`・名前は本人の氏名・常に協会員の登録をする・1 協会 1 つ（409）・自分のアカウントに紐づけ、すでに紐づいた人物があれば確認だけ（`SelfConfirm`）。チームのページは個人登録なら「あなたの登録情報」（タブは「登録情報」）。選手の追加に「自分を選手として登録する」（`?self=1`。紐づいた人物があれば確認だけ）。マイページの枠に「あなたの登録情報」と「個人で登録する」。`src/lib/teams/self.ts`（`registerIndividual`・`registerSelfAsPlayer`・`getMyPerson`）、`PlayerForm` は送り先を `submit` で受ける形に。API: `POST /api/[slug]/teams { kind: "individual" }`、`POST …/members { self: true }`。ADR 0012
+- 動作確認: lint / typecheck / test（TZ 2 回・239 本。1 協会で個人登録は 1 つまで・1 アカウント = 1 人物・同じ人物がほかの人に紐づいていれば新しい人物を要確認で）、E2E 48 本（個人で登録 → マイページ → 2 つ目は不可 → チームに自分を選手として（確認だけ））
+- 次への申し送り・既知の課題:
+  - **E2E は `tests/e2e/fixtures.ts` の `test` を使う**（`@playwright/test` の `test` は使わない）。テストごとにログインのレート制限の行を消す。ログインが 20 回を超えて「◯時まで送れません」で落ちていたため
+  - 個人登録の連絡先の編集は P0 ではできない（ADR 0012）。`teams.name` は作成時の氏名のまま
+  - `/` とマイページの役割の表示は、個人登録だけの人にも「チームの代表者」と出る（`getMembership` はチームの種類を持たない）。気になれば後で直す
+- 使った枠（/usage の変化）: 未計測
+
 ### A-17（2026-09-18）
 - やったこと: `/[slug]/teams/[id]/members`（1 人 = 1 カード。代表者には生年月日「1965年（昭和40年）5月3日」・年齢・性別と「修正する」「選手一覧から外す」、本人が 30 分以内に外した行に「◯◯さんを外しました［元に戻す］」。選手にはほかの人の生年月日・年齢・性別を返さない）、`…/members/new`（同意の文言・和暦の生年月日・保存時に名寄せ）、`…/members/[tmId]/edit`。`src/lib/teams/{roster,access,errors,player-input}.ts`（`authorizeTeam` = 404 → 403 の共通の入口。`editTeam` もこれを使う）、`src/lib/repo/team-members.ts`。API: `GET/POST …/members`、`PATCH …/members/[tmId]`、`POST …/leave|undo-leave`。ADR 0011
 - 動作確認: lint / typecheck / test（TZ 2 回・231 本。§5.11 の受け入れ条件: 2 チームに同じ人でも `members` は 1 件・外しても `members` は残る・別の代表者は戻せない 403・30 分後は 409・代表者でない人は 403・別の協会は 404）、E2E 46 本（4 人追加 → 外す → 元に戻す → 別のチームに同じ人 → `members` は 1 件）
@@ -34,14 +43,4 @@
   - 選手一覧への追加（A-17）は `resolveMember(tx, associationId, person)`（choice は none）。申込の選手枠（B 系）は picked / declined を渡す。picked の人物を選んでよいか（代表者を務めるチームの選手か）は呼ぶ側で確かめる
   - `entry_players.match_type` は表の `matchType` をそのまま入れる。`unmatched`（人物の物理削除後）は削除の処理の側で
   - 候補の行は生年月日を含む。画面や API にそのまま返さない
-- 使った枠（/usage の変化）: 未計測
-
-### A-14（2026-09-18）
-- やったこと: `/[slug]/teams/new`（チームで登録。チーム名だけで作れる・「協会員の登録をするチーム」は既定で外す・同名は 409 で警告し「別のチームとして登録する」）、`/[slug]/teams/[teamId]`（骨組み: 名前・協会員の登録・連絡先は代表者から・「チーム情報を変える」）、`…/edit`。`src/lib/teams/{team-input,teams}.ts`（`registerTeam` は作成と `team_admins`（granted_by NULL）を 1 トランザクション、`editTeam` は 404 → 403 → 400）、`src/lib/repo/roles.ts`（`getMembership` の中身を切り出し）、`src/lib/page/require-team.ts`、`src/lib/api/tenant.ts`（`/api/[slug]/…` の入口）、`src/lib/ids.ts`。`ACTIONS.editTeam`。API: `POST /api/[slug]/teams`、`PATCH /api/[slug]/teams/[teamId]`。マイページの協会の枠に代表者を務めるチームと「チームを登録する」。ADR 0008
-- 動作確認: lint / typecheck / test（TZ 2 回・162 本。代表者でない人の編集は 403、別の協会のチーム ID は 404）、E2E 42 本（未ログインで 403 → ログイン → チーム名だけで登録 → マイページ → 同名の警告 → 別の協会のチームは 404）
-- 次への申し送り・既知の課題:
-  - `next.config.ts` の `onDemandEntries`（開発時だけ・1 時間）でページを捨てないようにした。既定のままだと E2E の途中で再コンパイルが走ってログインなどが時間切れになっていた。global-setup も API を含めて温める
-  - ログアウトのボタンは読み込み（ハイドレーション）が済むまで押せない（メニューは `<details>` で先に開けるため）
-  - 活動地域は列がないので入れていない（ADR 0008）。チームの無効化・削除、代表者の委譲は後のタスク
-  - dev サーバーが重くなったら（RSS 3GB 超・待機中も CPU 90%）コンテナの中で `pnpm dev:poll` を立て直す
 - 使った枠（/usage の変化）: 未計測

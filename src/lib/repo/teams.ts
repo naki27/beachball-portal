@@ -97,3 +97,13 @@ export async function listTeamsAdminedBy(tx: Tx, associationId: string, userId: 
     .orderBy(asc(teams.name));
   return rows.map((r) => r.team);
 }
+
+// その人の個人登録（kind = individual・削除されていない）。1 協会 1 つ（teams_individual_uk・§5.11）
+export async function findIndividualTeamOf(tx: Tx, associationId: string, userId: string): Promise<Team | null> {
+  const [row] = await tx
+    .select()
+    .from(teams)
+    .where(and(tenantScope(teams, associationId), eq(teams.kind, "individual"), eq(teams.createdBy, userId)))
+    .limit(1);
+  return row ?? null;
+}

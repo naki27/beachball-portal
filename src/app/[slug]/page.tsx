@@ -26,6 +26,10 @@ export default async function AssociationTop({ params }: Props) {
           <Link href={`/${association.slug}/teams/new`} className="font-semibold underline underline-offset-2">
             チームを登録する
           </Link>
+          {"　"}
+          <Link href={`/${association.slug}/teams/new?kind=individual`} className="font-semibold underline underline-offset-2">
+            個人で登録する
+          </Link>
         </p>
       ) : null}
     </main>
