@@ -5,6 +5,8 @@ const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000";
 
 export default defineConfig({
   testDir: "tests/e2e",
+  // dev サーバーはログインの流れが 4 つ以上同時に走ると詰まるので、並列は 2 まで
+  workers: 2,
   // 使うページを先に一度ずつ開いて dev サーバーにコンパイルさせる（tests/e2e/global-setup.ts）
   globalSetup: "./tests/e2e/global-setup.ts",
   // dev サーバー（コンパイルと polling）は応答が遅れることがあるので、既定より長く待つ（テスト 60 秒・期待 10 秒）

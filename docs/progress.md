@@ -3,11 +3,21 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: A-10 テナント管理者の同時ログインの制限
-- 次のタスク: A-11 運営管理者とテナントの作成
+- 最後に終わったタスク: A-11 運営管理者とテナントの作成
+- 次のタスク: A-12 テナント管理者の招待
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### A-11（2026-09-18）
+- やったこと: `0006`: `platform_association_stats()` を作り直し（`admins`・`pending_admin_invitations` を追加）、`platform_association_admins()`（テナント管理者のメール・表示名。運営管理者のときだけ）。`src/lib/platform/associations.ts`（`createAssociationTenant`: 協会 → `setTenant` → プリセット 18 件 → 招待の行 → `admin_access_logs`、`updateAssociation`: スラッグ変更で旧スラッグを履歴へ、`enterTenant` / `leaveTenant`: `sessions.entered_*`＋記録。`PlatformError` は 400/409）、`src/lib/repo/{platform,admin-access-logs}.ts`、`src/lib/api/platform.ts`（`requirePlatformAdmin`）。API: `GET/POST /api/platform/associations`、`PATCH /api/platform/associations/[id]`、`POST/DELETE …/[id]/enter`。画面: `/platform`（一覧・件数・作成）、`/platform/associations/[id]`（件数・管理者・入る／出る・名前と URL）。`[slug]` layout に「運営管理者として ◯◯ を表示中」の帯（出る）。`jsonError` に 400・429
+- 動作確認: lint / typecheck / test（TZ 2 回・129 本）、E2E 36 本（運営管理者でログイン → 協会を作る → 一覧 → スラッグ変更で 308 → 入る → 帯 → 出る）
+- 次への申し送り・既知の課題:
+  - 招待のメール送信・承諾・取り消しは A-12（作成時は `association_admin_invitations` の行だけ入る。作成画面の文言もそのとき直す）
+  - `platform_association_stats()` の `open_tournaments` は B-01 で。「アクセス記録」「運営者宛ての問い合わせ」の画面は A-22 以降
+  - E2E は並列 2（`workers: 2`）にした。4 つ以上のログインの流れが同時に走ると dev サーバーが詰まる。全体で 3 分ほど
+  - ローカルで `/platform` を触るには `.env` の `SUPER_ADMIN_EMAILS` に自分のアドレスを入れて `pnpm db:seed`
+- 使った枠（/usage の変化）: 未計測
+
 ### A-10（2026-09-18）
 - やったこと: `0005` の `SECURITY DEFINER` 関数 `current_user_is_association_admin()`（どこかの協会の管理者か。RLS 下で読むため）。`verifyLoginCode()` を並べ替え: 一致 → users を決める → 管理者なら users の行をロック → 30 分以内に操作のある有効なセッションがあれば `admin_session_exists`（番号は使用済みにしない。API は 409）、なければ古いセッションを終了 → ここで番号を使用済みに → セッション作成。`session.ts`: 管理者は `last_seen_at` を 1 分に 1 回更新（ほかは 1 日 1 回）、`endUserSessions(db, userId, { exceptSessionId })`、`activeSessionsOf`。`pnpm dev:grant-admin <メール> <スラッグ>`
 - 動作確認: lint / typecheck / test（TZ 2 回・125 本。§9.2 の受け入れ条件 4 つ＋1 分の更新＋まとめて終了）、E2E 32 本（2 つのブラウザで 409 → A のログアウト → B が同じ番号で入る）
@@ -24,24 +34,4 @@
   - ページから `forbidden.tsx` へ値は渡せない（React の cache は境界の描画で共有されない）。403 の「誰なら見られるか」は `whoCanSee()` の URL の表。画面を足すときに規則を足す（ADR 0003 を訂正済み）
   - E2E はローカルの IP 単位のレート制限（20/時）に当たるので、global-setup がテスト前にログイン系の `rate_limits` の行を消す。API も先に POST してコンパイルさせる
   - `/mypage` はまだない（A-13）。戻り先の ④ は今は 404 になる
-- 使った枠（/usage の変化）: 未計測
-
-### A-08（2026-09-18）
-- やったこと: `src/lib/auth/`: `cookies.ts`（名前と属性は 1 か所。`APP_BASE_URL` が https のときだけ `__Host-`・`Secure`）、`login-input.ts`（ブラウザでも使う正規化）、`login-code.ts`（乱数・HMAC・SHA-256。サーバー専用）、`rate-limit.ts`（`rate_limits` の UPSERT。メール 5/時・IP 20/時・全体 150/時）、`request-login-code.ts`（登録済みかどうかを見ないので文言も所要時間も同じ。番号は HMAC だけ保存。応答の前に送り `mail_logs` に sent/failed。再送は同じ試行 ID で、待ち時間 30→60→120 秒）、`login-client.ts`（sessionStorage を `useSyncExternalStore` で読む。`safeNext`）。`src/lib/api/{csrf,request}.ts`。`POST /api/auth/request`（Origin 検査 → 形式 400 → レート制限 429 → 発行 → Cookie `login_attempt` 15 分）。画面 `/login`（同意の一文）・`/login/code`（6 桁 1 欄・自動照合・間違えたら全選択・「あと N 秒で送れます」・もう一度送る）・`/login/help`（§11.3。ドメインのコピー・送り直し・問い合わせへ）。`src/hooks/use-hydrated.ts`（E2E が押してよい印 `data-hydrated`）、`tests/e2e/global-setup.ts`（ページを温める）
-- 動作確認: lint / typecheck / test（TZ 2 回・111 本）、E2E 28 本 ×2（Mailpit に「【早良区協会】確認番号 123456」が届くところまで）
-- 次への申し送り・既知の課題:
-  - CSRF の Origin 検査は `Host`（前段があれば `x-forwarded-host`）と比べる。`request.url` は dev サーバーが localhost に書き換えるので使わない
-  - `useSyncExternalStore` の getSnapshot は同じ値を返し続けること（`Date.now()` を毎回返すと「Maximum update depth exceeded」）
-  - dev サーバー（webpack + polling）はコード変更後の初回のページ遷移でコンパイル中の応答を返すことがある。E2E は global-setup で温め、クライアント部品を押す前に `[data-hydrated]` を待つ（`networkidle` は HMR で終わらない）
-  - キャリアの受信設定ページの URL（`help-form.tsx`）は人が確かめる。送信ドメインの表示は `MAIL_FROM` から
-  - `POST /api/auth/verify`（照合・セッション・戻り先）は A-09。`/login/code` はそれを呼ぶ形で作ってある
-- 使った枠（/usage の変化）: 未計測
-
-### A-07（2026-09-18）
-- やったこと: `src/lib/mail/`: `types.ts`（§11 の種別・`MailSender`）、`sender.ts`（`console` / `smtp`。`MAIL_PROVIDER=mailpit` は smtp の別名、接続先は `SMTP_URL`。console は本番で拒否。Brevo は X-01）、`outbox.ts`（`enqueueMail(tx, …)`。業務と同じトランザクションで `mail_logs` に queued。app_user は insert だけなので id はコードで作り RETURNING を使わない）、`templates.ts`（送る直前に組み立て。件名は【協会名】/【サイト名】。`test` と、A-08 用の `composeLoginCodeMail`）、`queue.ts`（`for update skip locked`。失敗は 1・5・15・60・180 分後に再試行、5 回で failed。雛形がない種別は再試行せず failed。エラー欄はメールアドレスを消す）。`pnpm job:mail`（app_job。失敗があれば exit 1）・`pnpm mail:test <宛先>`。nodemailer を追加
-- 動作確認: lint / typecheck / test（TZ 2 回・97 本）、`pnpm mail:test` → `pnpm job:mail` → Mailpit の API で「【早良区協会】テスト送信」を確認
-- 次への申し送り・既知の課題:
-  - drizzle のエラー文（`DrizzleQueryError.message`）にはクエリの引数（宛先など）が入る。ログに出すときは `sanitizeError()` か `cause.code` だけにする
-  - §11.2 の「当日の送信数が上限の 8 割で警告」は Brevo と一緒に X-01 で
-  - `mail_logs` を管理画面で読む関数（§5.14）はまだない。必要になったタスクで `SECURITY DEFINER` を足す
 - 使った枠（/usage の変化）: 未計測

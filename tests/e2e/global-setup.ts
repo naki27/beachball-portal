@@ -17,6 +17,7 @@ const PATHS = [
   "/login/code",
   "/login/help",
   "/dev/ui",
+  "/platform",
   "/robots.txt",
 ];
 
