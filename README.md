@@ -16,10 +16,11 @@ DB の準備（`pnpm db:roles` → `pnpm db:migrate`）は L-04 で足す。
 
 ## 進め方
 
-- タスクは `p0-tasks.md`（設計書と同じ場所にある）を 1 つずつ。エージェント向けの決まりは [CLAUDE.md](CLAUDE.md)
+- タスクは [docs/p0-tasks.md](docs/p0-tasks.md) を 1 つずつ。エージェント向けの決まりは [CLAUDE.md](CLAUDE.md)（元は [docs/agent_prompt.md](docs/agent_prompt.md) の F。A〜D の受け入れ条件・E のステップ用プロンプトもここ）
 - 進み具合と申し送り: [docs/progress.md](docs/progress.md)
 - 設計書: [docs/design/](docs/design/)（節ごと。一覧は [docs/design/index.md](docs/design/index.md)。元は `docs/design.md` v0.9.5）
 - 決定の記録: [docs/adr/](docs/adr/)
+- 設計書ができるまでの記録: [docs/history/](docs/history/)（`decisions-v0.9*.md`・`review-v0.8.md`。タスクでは読まない）
 - 運用手順: `docs/ops.md`（A-29 で作る）
 - プライバシーポリシー・利用規約: [docs/legal/](docs/legal/)
 

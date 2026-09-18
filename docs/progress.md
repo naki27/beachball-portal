@@ -8,6 +8,10 @@
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000
 
 ## 申し送り（新しいものを上に）
+### 資料の移行（2026-09-18）
+- やったこと: 手元の `beachapp/` から `docs/p0-tasks.md`・`docs/agent_prompt.md`・`docs/history/`（`decisions-v0.9*.md`・`review-v0.8.md`）を移した（LF に統一、中身は同じ）。README の案内を更新
+- 次への申し送り: `beachapp/` のほかのファイルは L-02 で移し済み（`repo-template/` はリポジトリ側が新しい）。今後は `beachapp/` を見ずにリポジトリの `docs/` を使う
+
 ### L-03（2026-09-17）
 - やったこと: Next.js 16.3.5（App Router・TypeScript strict・Tailwind 4・ESLint 9・`src/`）を pnpm で作って移設。`engines` `>=24 <25`・`.nvmrc` `24`・`packageManager` `pnpm@12.4.2`。Vitest 5（`tests/unit/`・`vitest.config.mts`）と Playwright 1.63（`tests/e2e/`。WebKit 375×667・Chromium 360×640）。scripts: `dev` / `dev:poll` / `build` / `lint` / `typecheck` / `test`（TZ 2 回）/ `test:e2e`。`src/lib/site.ts` の `SITE_NAME`、`src/app/tokens.css`（CSS 変数の器）、仮のトップページ、ユニット 1 本・E2E 1 本
 - 動作確認: `pnpm lint` / `pnpm typecheck` / `pnpm test` / `pnpm test:e2e` が通る。Windows のブラウザで http://localhost:3000 が開き、375px で横にはみ出さない（E2E で検査）
