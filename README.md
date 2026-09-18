@@ -13,6 +13,8 @@
 3. `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 。http://localhost:3000/api/health が `{"ok":true}` なら DB につながっている
 4. テスト: `pnpm lint` / `pnpm typecheck` / `pnpm test`（Vitest。`TZ=UTC` と `TZ=Asia/Tokyo` の 2 回。`tests/db/` は Postgres が要る）/ `pnpm test:e2e`（Playwright。WebKit 375×667 と Chromium 360×640）。E2E のレポートは `pnpm exec playwright show-report --host 0.0.0.0` → http://localhost:9323
 
+CI: GitHub Actions（[.github/workflows/ci.yml](.github/workflows/ci.yml)）が pull request と main への push で lint → typecheck → test を流す（Postgres はサービスコンテナ。デプロイは入れない）。
+
 DB のほかのコマンド: `pnpm db:generate`（`src/db/schema.ts` からマイグレーションを作る）/ `pnpm db:studio`（→ http://localhost:4983 ）/ `pnpm db:reset`（ローカルだけ。DB を消して作り直す）。
 
 ## 進め方
