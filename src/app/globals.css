@@ -1,9 +1,27 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
+/*
+  tokens.css の変数を Tailwind のクラス名（bg-primary・text-muted・border-border など）で使えるようにする。
+  同じ名前を参照しているが、tokens.css の :root（レイヤーなし）が Tailwind の @layer theme より優先されるので循環しない
+*/
 @theme inline {
   --color-background: var(--color-background);
   --color-foreground: var(--color-foreground);
+  --color-surface: var(--color-surface);
+  --color-primary: var(--color-primary);
+  --color-primary-strong: var(--color-primary-strong);
+  --color-on-primary: var(--color-on-primary);
+  --color-muted: var(--color-muted);
+  --color-border: var(--color-border);
+  --color-danger: var(--color-danger);
+  --color-danger-surface: var(--color-danger-surface);
+  --color-success: var(--color-success);
+  --color-success-surface: var(--color-success-surface);
+  --color-warning: var(--color-warning);
+  --color-info-surface: var(--color-info-surface);
+  --color-highlight: var(--color-highlight);
+  --color-focus: var(--color-focus);
 }
 
 html {
@@ -24,4 +42,47 @@ body {
     Meiryo,
     sans-serif;
   overflow-wrap: anywhere;
+}
+
+/* キーボード操作の見える印（すべての操作できる要素で同じ） */
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* 動きの部品（§4.5）。長さは tokens.css の変数。「視差効果を減らす」では 0ms になり、文字の表示だけが残る */
+.bb-shake {
+  animation: bb-shake var(--motion-slow) ease-in-out 1;
+}
+.bb-slide-in {
+  animation: bb-slide-in var(--motion-base) ease-out 1;
+}
+.bb-fade-out {
+  animation: bb-fade-out var(--motion-base) ease-in 1 forwards;
+}
+.bb-draw {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: bb-draw var(--motion-slow) ease-out 1 forwards;
+}
+.bb-spin {
+  animation: bb-spin var(--motion-spin) linear infinite;
+}
+.bb-highlight {
+  animation: bb-highlight 1s ease-out 1;
+}
+
+/* ボタンを押した瞬間: 色が濃くなり、わずかに沈む（§4.5） */
+.bb-pressable {
+  transition:
+    transform var(--motion-fast) ease-out,
+    background-color var(--motion-fast) ease-out;
+}
+.bb-pressable:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bb-pressable:active:not(:disabled) {
+    transform: none;
+  }
 }

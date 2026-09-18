@@ -1,15 +1,8 @@
-import type { Metadata } from "next";
 import { requireAssociation } from "@/lib/page/require-association";
 
 type Props = { params: Promise<{ slug: string }> };
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const association = await requireAssociation(slug);
-  return { title: association.name };
-}
-
-// 協会のトップ（仮）。大会一覧・「あなたのやること」は B-06・A-13 で作る
+// 協会のトップ（仮）。大会一覧・「あなたのやること」は B-06・A-13 で作る。タブの題名は layout の既定（協会名）
 export default async function AssociationTop({ params }: Props) {
   const { slug } = await params;
   const association = await requireAssociation(slug);

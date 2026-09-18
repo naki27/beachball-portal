@@ -33,7 +33,8 @@ DB のほかのコマンド: `pnpm db:generate`（`src/db/schema.ts` からマ�
 |---|---|
 | `src/app/` | Next.js（App Router）の画面と API。`globals.css`・`tokens.css`（色と動きの CSS 変数） |
 | `src/lib/` | 正規化・名寄せ・日付・年齢・締切・部門・会員・認可・メール。`site.ts`（サイト名）。`repo/`（DB の読み書き）、`resolve-association.ts`（URL の協会の解決） |
-| `src/components/` | 画面の共通部品（エラー画面・ボタンの見た目など） |
+| `src/components/` | 画面の共通部品。`ui/`（ボタン・入力欄・メッセージなど。一覧は開発時の http://localhost:3000/dev/ui ）、`layout/`（ヘッダ・フッタ）、エラー画面 |
+| `src/hooks/` | React の hook（入力の一時保存 `useDraft` など） |
 | `src/proxy.ts` | すべてのリクエストの前で動く（元の URL をヘッダで渡すだけ。DB には触らない） |
 | `src/db/` | Drizzle の `schema.ts`・`migrations/`・接続プール（`client.ts`）・`withTenant`（`tenant.ts`）・DB のスクリプト（`scripts/`） |
 | `tests/unit/`・`tests/e2e/` | Vitest・Playwright |

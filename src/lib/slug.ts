@@ -23,6 +23,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   "site-contact",
   "_next",
   "static",
+  "dev",
   "robots.txt",
   "favicon.ico",
   "sitemap.xml",

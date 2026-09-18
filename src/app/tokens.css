@@ -1,21 +1,99 @@
 /*
-  色と動きの長さの CSS 変数（設計書 §4.3・§4.5・§5.17）。
-  値の決定・協会ごとの色の差し替え・prefers-reduced-motion の扱いは A-06 で作る。
-  ここにある値は、それまでの仮の値。
+  色と動きのデザイントークン（設計書 §4.3・§4.5・§5.17）。
+  色は協会ごとに差し替える（P1。associations.theme_colors）。画面の部品はここの変数だけを使い、色を直書きしない。
 */
 :root {
-  /* 色（協会ごとに差し替える） */
+  /* 色 */
   --color-background: #ffffff;
   --color-foreground: #171717;
+  --color-surface: #f5f5f4; /* 骨組み・帯の下地 */
   --color-primary: #1d4ed8;
+  --color-primary-strong: #1e40af; /* 押した瞬間 */
   --color-on-primary: #ffffff;
   --color-muted: #6b7280;
-  --color-border: #e5e7eb;
+  --color-border: #d1d5db;
   --color-danger: #b91c1c;
+  --color-danger-surface: #fef2f2;
   --color-success: #15803d;
+  --color-success-surface: #f0fdf4;
+  --color-warning: #c2410c; /* 締切が近い（橙） */
+  --color-info-surface: #eff6ff;
+  --color-highlight: #fef9c3; /* 内容が変わった箇所（薄い黄色） */
+  --color-focus: #1d4ed8;
 
-  /* 動きの長さ */
+  /* 動きの長さ（§4.5「実装」）。揺れ・スライド・チェックの描画はこれを使う */
   --motion-fast: 120ms;
-  --motion-normal: 200ms;
-  --motion-slow: 320ms;
+  --motion-base: 200ms;
+  --motion-slow: 300ms;
+  --motion-spin: 800ms;
+}
+
+/* OS の「視差効果を減らす」: 揺れ・スライドをなくし、色と文字の変化だけにする（§4.5 原則 5） */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+    --motion-spin: 0ms;
+  }
+}
+
+/* 入力の誤り: 1 回だけ小さく横に揺れる */
+@keyframes bb-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+/* 帯・メッセージが上から入る */
+@keyframes bb-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 行がふわっと消える */
+@keyframes bb-fade-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* 緑のチェックが描かれる */
+@keyframes bb-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* 送信中の回転アイコン */
+@keyframes bb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 内容が変わった箇所を薄い黄色で 1 秒強調 */
+@keyframes bb-highlight {
+  from {
+    background-color: var(--color-highlight);
+  }
+  to {
+    background-color: transparent;
+  }
 }

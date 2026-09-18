@@ -1,16 +1,26 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { SiteHeader } from "@/components/layout/site-header";
 import { requireAssociation } from "@/lib/page/require-association";
 
-// 協会の画面（/[slug]/…）。スラッグから協会を決め、なければ 404、旧スラッグなら 308（§5.14）
-// 協会名のヘッダ・ナビなどの共通部品は A-06 で足す
-export default async function AssociationLayout({
-  children,
-  params,
-}: {
-  children: ReactNode;
-  params: Promise<{ slug: string }>;
-}) {
+type Props = { children: ReactNode; params: Promise<{ slug: string }> };
+
+// タブの題名: 協会のページは「ページ名｜協会名」。協会のトップはページ名なしで協会名だけ
+// absolute にしないと、ルートの layout の template（｜サイト名）が協会名に重なる
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  await requireAssociation(slug);
-  return <>{children}</>;
+  const association = await requireAssociation(slug);
+  return { title: { absolute: association.name, template: `%s｜${association.name}` } };
+}
+
+// 協会の画面（/[slug]/…）。スラッグから協会を決め、なければ 404、旧スラッグなら 308（§5.14）。ヘッダは協会名
+export default async function AssociationLayout({ children, params }: Props) {
+  const { slug } = await params;
+  const association = await requireAssociation(slug);
+  return (
+    <>
+      <SiteHeader title={association.name} href={`/${association.slug}`} />
+      {children}
+    </>
+  );
 }
