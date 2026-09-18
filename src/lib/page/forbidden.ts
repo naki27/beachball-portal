@@ -22,6 +22,7 @@ const WHO_BY_PATH: ReadonlyArray<[RegExp, string]> = [
   [/^\/[^/]+\/teams\/[^/]+\/(roster|entries|admins|invitations|membership|export)(\/|$)/, ROLE_LABEL.team_admin],
   [/^\/[^/]+\/teams\/[^/]+(\/|$)/, ROLE_LABEL.player],
   [/^\/(mypage|invitations|account)(\/|$)/, ROLE_LABEL.registered],
+  [/^\/$/, ROLE_LABEL.registered],
 ];
 
 export function whoCanSee(pathname: string): string {

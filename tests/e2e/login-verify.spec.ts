@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 // ログイン②: 照合とセッション（設計書 §9.2・§5.2）。番号は Mailpit から取り出す
 const MAILPIT = process.env.MAILPIT_URL ?? "http://mailpit:8025";
@@ -13,6 +13,9 @@ async function latestCode(request: Parameters<Parameters<typeof test>[2]>[0]["re
   }
   throw new Error("確認番号のメールが届かない");
 }
+
+// ログイン中のヘッダ右上のメニュー（マイページ・協会の切り替え・ログアウト）
+const headerMenu = (page: Page) => page.locator("header summary", { hasText: "メニュー" });
 
 test("番号を入れるとログインし、元のページに戻る。開き直してもログインしたまま。ログアウトで切れる", async ({ page, request, context }, testInfo) => {
   const email = `e2e-verify-${testInfo.workerIndex}-${Date.now()}@example.com`;
@@ -39,7 +42,7 @@ test("番号を入れるとログインし、元のページに戻る。開き�
   await codeField.fill(code);
   await expect(page).toHaveURL(/\/sawara\/admin$/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("このページは協会の管理者だけが見られます", { timeout: 15_000 });
-  await expect(page.getByRole("button", { name: "ログアウト" })).toBeVisible({ timeout: 15_000 });
+  await expect(headerMenu(page)).toBeVisible({ timeout: 15_000 });
 
   // Cookie は HttpOnly・SameSite=Lax・Path=/
   const session = (await context.cookies()).find((c) => c.name === "session");
@@ -49,11 +52,12 @@ test("番号を入れるとログインし、元のページに戻る。開き�
 
   // 開き直してもログインしたまま
   await page.goto("/sawara");
-  await expect(page.getByRole("button", { name: "ログアウト" })).toBeVisible({ timeout: 15_000 });
+  await expect(headerMenu(page)).toBeVisible({ timeout: 15_000 });
 
-  // ログアウトで切れる
+  // ログアウトで切れる（ヘッダのメニューから。協会のページからはその協会のトップへ）
+  await headerMenu(page).click();
   await page.getByRole("button", { name: "ログアウト" }).click();
-  await expect(page).toHaveURL(/\/$/, { timeout: 15_000 });
+  await expect(page).toHaveURL(/\/sawara$/, { timeout: 15_000 });
   await expect(page.getByRole("link", { name: "ログイン" })).toBeVisible({ timeout: 15_000 });
   await page.goto("/sawara/admin");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("このページを見るにはログインが必要です");

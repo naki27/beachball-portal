@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { asc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { associations } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
@@ -28,4 +28,27 @@ export async function resolveAssociationSlug(db: Reader, slug: string): Promise<
   );
   const row = result.rows[0];
   return row ? { associationId: row.association_id, currentSlug: row.slug, redirected: row.redirected } : null;
+}
+
+export type AssociationLink = { id: string; name: string; slug: string };
+
+// ログイン中の人が役割（協会の管理者・チームの代表者・選手）を持つ協会（設計書 §5.14「協会をまたぐ画面」）
+// SECURITY DEFINER 関数 my_association_ids() が app.user_id（SET LOCAL）の人の分だけを返す。名前の順
+export async function listMyAssociations(db: Reader, userId: string): Promise<AssociationLink[]> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select set_config('app.user_id', ${userId}, true)`);
+    return tx
+      .select({ id: associations.id, name: associations.name, slug: associations.slug })
+      .from(associations)
+      .where(inArray(associations.id, sql`(select my_association_ids())`))
+      .orderBy(asc(associations.name));
+  });
+}
+
+// すべての協会（運営管理者の切り替えメニュー用・§5.14「テナントの切り替え」）。名前の順
+export async function listAllAssociations(db: Reader): Promise<AssociationLink[]> {
+  return db
+    .select({ id: associations.id, name: associations.name, slug: associations.slug })
+    .from(associations)
+    .orderBy(asc(associations.name));
 }

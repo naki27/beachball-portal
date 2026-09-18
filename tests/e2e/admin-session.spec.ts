@@ -62,11 +62,12 @@ test("テナント管理者は同時に 1 つまで: 別の端末は断られ、
     await expect(pageA.getByRole("heading", { level: 1 })).toHaveText("早良区協会の管理", { timeout: 15_000 });
 
     // 端末 A でログアウト → 端末 B は同じ番号で入れる
+    await pageA.locator("header summary", { hasText: "メニュー" }).click();
     await pageA.getByRole("button", { name: "ログアウト" }).click();
-    await expect(pageA).toHaveURL(/\/$/, { timeout: 15_000 });
+    await expect(pageA).toHaveURL(/\/sawara$/, { timeout: 15_000 });
     await pageB.getByRole("button", { name: "ログイン" }).click();
     await expect(pageB).toHaveURL(/\/sawara$/, { timeout: 15_000 });
-    await expect(pageB.getByRole("button", { name: "ログアウト" })).toBeVisible({ timeout: 15_000 });
+    await expect(pageB.locator("header summary", { hasText: "メニュー" })).toBeVisible({ timeout: 15_000 });
   } finally {
     await deviceA.close();
     await deviceB.close();

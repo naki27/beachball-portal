@@ -71,8 +71,9 @@ test("運営管理者が招待し、本人が参加すると協会の管理者�
     expect(body.Text).not.toMatch(/\/login/);
 
     // 運営管理者はログアウト → 本人がログイン → /invitations
+    await page.locator("header summary", { hasText: "メニュー" }).click();
     await page.getByRole("button", { name: "ログアウト" }).click();
-    await expect(page).toHaveURL(/\/$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/login$/, { timeout: 15_000 });
     await loginAs(page, request, inviteeEmail, "/invitations");
     await expect(page).toHaveURL(/\/invitations$/, { timeout: 15_000 });
     await expect(page.getByText("早良区協会の管理者として招待されています")).toBeVisible({ timeout: 15_000 });

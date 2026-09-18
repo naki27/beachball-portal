@@ -12,10 +12,11 @@ describe("whoCanSee", () => {
     expect(whoCanSee("/sawara/teams/abc")).toBe("チームの選手");
     expect(whoCanSee("/mypage")).toBe("ログインした人");
     expect(whoCanSee("/invitations")).toBe("ログインした人");
+    expect(whoCanSee("/")).toBe("ログインした人");
   });
 
   it("当たらなければ一般の言い方", () => {
     expect(whoCanSee("/sawara/something")).toBe("権限のある人");
-    expect(whoCanSee("/")).toBe("権限のある人");
+    expect(whoCanSee("/sawara")).toBe("権限のある人");
   });
 });

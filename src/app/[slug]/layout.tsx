@@ -28,7 +28,7 @@ export default async function AssociationLayout({ children, params }: Props) {
   return (
     <>
       {entered ? <EnteredBanner associationId={association.id} associationName={association.name} /> : null}
-      <SiteHeader title={association.name} href={`/${association.slug}`} right={<AuthMenu currentPath={currentPath} />} />
+      <SiteHeader title={association.name} href={`/${association.slug}`} right={<AuthMenu currentPath={currentPath} currentSlug={association.slug} />} />
       {children}
     </>
   );

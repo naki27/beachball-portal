@@ -1,12 +1,23 @@
 import Link from "next/link";
 import { getPrincipal } from "@/lib/auth/principal";
-import { LogoutButton } from "./logout-button";
+import { loadSwitchableAssociations } from "@/lib/page/my-associations";
+import { UserMenu } from "./user-menu";
 
-// ヘッダの右側: 未ログインなら「ログイン」（元のページに戻れるように next を付ける）、ログイン中なら「ログアウト」
-// マイページ・協会の切り替えのメニューは A-13
-export async function AuthMenu({ currentPath }: { currentPath: string }) {
+// ヘッダの右側: 未ログインなら「ログイン」（元のページに戻れるように next を付ける）、ログイン中ならメニュー
+// currentSlug: 協会のページなら表示中の協会（切り替えメニューで印を付け、ログアウト後はその協会のトップへ）
+export async function AuthMenu({ currentPath, currentSlug = null }: { currentPath: string; currentSlug?: string | null }) {
   const principal = await getPrincipal();
-  if (principal.userId) return <LogoutButton />;
+  if (principal.userId) {
+    const associations = await loadSwitchableAssociations(principal);
+    return (
+      <UserMenu
+        associations={associations.map((a) => ({ name: a.name, slug: a.slug }))}
+        currentSlug={currentSlug}
+        showPlatform={principal.isPlatformAdmin}
+        logoutTo={currentSlug ? `/${currentSlug}` : "/login"}
+      />
+    );
+  }
   return (
     <Link
       href={`/login?next=${encodeURIComponent(currentPath)}`}

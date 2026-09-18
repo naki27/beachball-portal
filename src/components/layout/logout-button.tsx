@@ -5,7 +5,8 @@ import { useState } from "react";
 import { clearAllDrafts } from "@/lib/draft";
 
 // ログアウト。セッションを消し、入力の一時保存（生年月日を含む）もブラウザから消す（§4.3）
-export function LogoutButton() {
+// 移る先: 協会のページからはその協会のトップ、協会に属さないページからはログイン画面（/ は未ログインだと 403 のため）
+export function LogoutButton({ redirectTo = "/login" }: { redirectTo?: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -20,7 +21,7 @@ export function LogoutButton() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      router.push("/");
+      router.push(redirectTo);
       router.refresh(); // サーバー側の描画（ヘッダのログイン状態）を取り直す
     }
   }

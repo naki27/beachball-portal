@@ -33,6 +33,7 @@ const PATHS = [
   "/dev/ui",
   "/platform",
   "/invitations",
+  "/mypage",
   "/robots.txt",
 ];
 
@@ -82,7 +83,7 @@ async function resetTestState(): Promise<void> {
 }
 
 // API も初回はコンパイルに数秒かかるので、空の POST で先にコンパイルさせる（Origin の検査で 403 になるだけ）
-const API_PATHS = ["/api/auth/request", "/api/auth/verify", "/api/auth/logout"];
+const API_PATHS = ["/api/auth/request", "/api/auth/verify", "/api/auth/logout", "/api/me"];
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
   await resetTestState();

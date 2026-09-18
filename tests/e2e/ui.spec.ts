@@ -45,7 +45,7 @@ test("/dev/ui が開き、横にはみ出さない。部品が動く", async ({ 
 });
 
 test("フッタにプライバシーポリシーと利用規約への案内がある", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/sawara");
   await expect(page.getByRole("link", { name: "プライバシーポリシー" })).toHaveAttribute("href", "/privacy");
   await expect(page.getByRole("link", { name: "利用規約" })).toHaveAttribute("href", "/terms");
 });
