@@ -1,7 +1,7 @@
 import { getPrincipal } from "@/lib/auth/principal";
 import type { Principal } from "@/lib/authz";
 import type { Association } from "@/lib/repo/associations";
-import { TeamError } from "@/lib/teams/teams";
+import { TeamError } from "@/lib/teams/errors";
 import { isSameOrigin } from "./csrf";
 import { jsonError } from "./errors";
 import { resolveAssociationForApi } from "./resolve";

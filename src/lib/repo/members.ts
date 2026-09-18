@@ -40,6 +40,21 @@ export async function createMember(tx: Tx, associationId: string, input: NewMemb
   return row;
 }
 
+// 人物の情報の修正（§5.11「名簿の管理」）。正規化列も一緒に更新する。削除済みか、ほかの協会の行なら false
+export async function updateMemberPerson(
+  tx: Tx,
+  associationId: string,
+  memberId: string,
+  input: Pick<NewMember, "name" | "kana" | "birthDate" | "sex" | "nameNormalized" | "kanaNormalized">,
+): Promise<boolean> {
+  const rows = await tx
+    .update(members)
+    .set({ ...input, updatedAt: new Date() })
+    .where(and(tenantScope(members, associationId), eq(members.id, memberId)))
+    .returning({ id: members.id });
+  return rows.length > 0;
+}
+
 // 論理削除（§5.16）。削除済みか、ほかの協会の行なら false
 export async function softDeleteMember(
   tx: Tx,

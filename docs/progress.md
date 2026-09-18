@@ -3,11 +3,21 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: A-16 生年月日の入力部品（和暦）（A-12 は人の確認待ち）
-- 次のタスク: A-17 選手一覧［M］（最初に計画を出して承認を待つ）
+- 最後に終わったタスク: A-17 選手一覧（A-12 は人の確認待ち）
+- 次のタスク: A-18 個人登録と「自分を選手として登録する」
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### A-17（2026-09-18）
+- やったこと: `/[slug]/teams/[id]/members`（1 人 = 1 カード。代表者には生年月日「1965年（昭和40年）5月3日」・年齢・性別と「修正する」「選手一覧から外す」、本人が 30 分以内に外した行に「◯◯さんを外しました［元に戻す］」。選手にはほかの人の生年月日・年齢・性別を返さない）、`…/members/new`（同意の文言・和暦の生年月日・保存時に名寄せ）、`…/members/[tmId]/edit`。`src/lib/teams/{roster,access,errors,player-input}.ts`（`authorizeTeam` = 404 → 403 の共通の入口。`editTeam` もこれを使う）、`src/lib/repo/team-members.ts`。API: `GET/POST …/members`、`PATCH …/members/[tmId]`、`POST …/leave|undo-leave`。ADR 0011
+- 動作確認: lint / typecheck / test（TZ 2 回・231 本。§5.11 の受け入れ条件: 2 チームに同じ人でも `members` は 1 件・外しても `members` は残る・別の代表者は戻せない 403・30 分後は 409・代表者でない人は 403・別の協会は 404）、E2E 46 本（4 人追加 → 外す → 元に戻す → 別のチームに同じ人 → `members` は 1 件）
+- 次への申し送り・既知の課題:
+  - 個人登録（A-18）は `addPlayer` が `kind = individual` を 409 にしている。本人の登録は別の口（`registerIndividual`）で作る
+  - `TeamError` は `src/lib/teams/errors.ts` に移した。画面では `pageErrorFrom(error)`（404 → notFound、403 → forbidden）
+  - 選手一覧の追加では一時保存（`useDraft`）を使っていない（ADR 0011）
+  - E2E は令和生まれ（15 歳未満）を入れると「合っていますか？」が出るので `confirmAge` で押す
+- 使った枠（/usage の変化）: 未計測
+
 ### A-16（2026-09-18）
 - やったこと: `src/components/ui/birth-date-field.tsx`（昭和・平成・令和・西暦のボタン（既定は昭和）、年・月・日の数字の欄、「（1965年）・61歳」、元号の範囲外はその場で誤り、15 歳未満か 80 歳以上は「◯歳で合っていますか？」［はい、合っています］。親には `{ date, ready }`）、`src/lib/wareki.ts`（`parseBirthDateParts`・`formatBirthDateLong`「1965年（昭和40年）5月3日」・`partsFromDate`）、`src/lib/age.ts`（`ageAt`。B-02 の規則とテストを先に入れた）。`/dev/ui` に部品と値の表示。ADR 0010
 - 動作確認: lint / typecheck / test（TZ 2 回・218 本。元号の境界 4 つ・範囲外・年齢の確認の境目・2/29）、E2E 44 本（`/dev/ui` で昭和5年と平成5年を入れ比べ → 確認 → 昭和65年は誤り）
@@ -34,14 +44,4 @@
   - ログアウトのボタンは読み込み（ハイドレーション）が済むまで押せない（メニューは `<details>` で先に開けるため）
   - 活動地域は列がないので入れていない（ADR 0008）。チームの無効化・削除、代表者の委譲は後のタスク
   - dev サーバーが重くなったら（RSS 3GB 超・待機中も CPU 90%）コンテナの中で `pnpm dev:poll` を立て直す
-- 使った枠（/usage の変化）: 未計測
-
-### A-13（2026-09-18）
-- やったこと: `/`（役割を持つ協会の一覧と役割。リダイレクトしない・未ログインは 403）、`/mypage`（協会ごとの枠・返事待ちの招待の件数・ログインのアドレス・表示名の変更・ログアウト）、ヘッダ右上の「メニュー」（マイページ・運営管理・協会を切り替える（2 つ以上のときだけ。運営管理者は全協会）・ログアウト）、協会のトップの骨組み（「あなたのやること」はログイン中かつ項目があるときだけ・「受付中の大会」は空の案内）。`listMyAssociations`（`my_association_ids()`）・`listAllAssociations`、`src/lib/repo/users.ts`、`src/lib/account/display-name.ts`。API: `PATCH /api/me`（表示名）、`GET /api/me/associations`。ADR 0007（メニューの形・ログアウト後の行き先・表示名 30 文字）
-- 動作確認: lint / typecheck / test（TZ 2 回・145 本）、E2E 40 本（2 つの協会の管理者でログイン → `/` に両方 → メニューで切り替え → マイページで表示名を変更）
-- 次への申し送り・既知の課題:
-  - ログアウトはヘッダの「メニュー」の中に移した。E2E では `page.locator("header summary", { hasText: "メニュー" })` を開いてから押す。ログアウト後は協会のページならその協会のトップ、それ以外は `/login`
-  - マイページの協会の枠の中身（代表者を務めるチーム）は A-14 で `src/app/(site)/mypage/page.tsx` の枠に足す。「あなたのやること」の中身は `src/app/[slug]/page.tsx` の `todos`（B-06・D 系）
-  - 表示名の上限 30 文字は §14-13 を読まずに決めた（ADR 0007）。食い違えば直す
-  - ファイルを直したあとの最初の E2E は、dev サーバーの再コンパイルでログインの照合が 15 秒を超えて落ちることがある。もう一度流すと通る
 - 使った枠（/usage の変化）: 未計測

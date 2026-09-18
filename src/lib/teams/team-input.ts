@@ -18,9 +18,17 @@ export type TeamField = "name" | "kana" | "contactEmail" | "contactPhone";
 
 export type TeamInputResult = { ok: true; value: TeamInput } | { ok: false; field: TeamField; message: string };
 
-function text(value: unknown): string {
+// 文字の欄を整える: NFKC・続く空白は 1 つ・前後の空白を除く。文字列でなければ空
+export function cleanText(value: unknown): string {
   return typeof value === "string" ? value.normalize("NFKC").replace(/\s+/g, " ").trim() : "";
 }
+
+// ふりがなの形（ひらがな・カタカナ・長音・中黒・空白）
+export function isKana(value: string): boolean {
+  return /^[\p{Script=Hiragana}\p{Script=Katakana}ー・ ]+$/u.test(value);
+}
+
+const text = cleanText;
 
 export function parseTeamInput(raw: Record<string, unknown>): TeamInputResult {
   const name = text(raw.name);
@@ -29,7 +37,7 @@ export function parseTeamInput(raw: Record<string, unknown>): TeamInputResult {
 
   const kana = text(raw.kana);
   if ([...kana].length > TEAM_KANA_MAX) return { ok: false, field: "kana", message: `ふりがなは${TEAM_KANA_MAX}文字以内で入力してください` };
-  if (kana && !/^[\p{Script=Hiragana}\p{Script=Katakana}ー・ ]+$/u.test(kana)) {
+  if (kana && !isKana(kana)) {
     return { ok: false, field: "kana", message: "ふりがなはひらがなで入力してください" };
   }
 

@@ -30,6 +30,15 @@ export default async function TeamPage({ params, searchParams }: Props) {
         {team.kana ? <p className="text-sm text-muted">{team.kana}</p> : null}
       </div>
 
+      <p>
+        <Link
+          href={`/${association.slug}/teams/${team.id}/members`}
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-border px-4 font-semibold no-underline"
+        >
+          選手一覧
+        </Link>
+      </p>
+
       <section aria-labelledby="team-info" className="flex flex-col gap-3">
         <h2 id="team-info" className="text-lg font-bold">
           チーム情報

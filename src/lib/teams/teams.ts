@@ -1,11 +1,13 @@
 import type { Db } from "@/db/client";
 import { withTenantOn } from "@/db/tenant";
-import { can, type Principal, resolveRole } from "@/lib/authz";
-import { isUuid } from "@/lib/ids";
+import type { Principal } from "@/lib/authz";
 import { normalizeName } from "@/lib/normalize";
-import { readAssociationRoles } from "@/lib/repo/roles";
-import { addTeamAdmin, createTeam, findTeam, listTeamNames, listTeamsAdminedBy, type Team, updateTeam } from "@/lib/repo/teams";
+import { addTeamAdmin, createTeam, listTeamNames, listTeamsAdminedBy, type Team, updateTeam } from "@/lib/repo/teams";
+import { authorizeTeam } from "./access";
+import { TeamError } from "./errors";
 import { parseTeamInput, type TeamInput } from "./team-input";
+
+export { TeamError };
 
 // チームの作成と代表者・チーム情報の編集（設計書 §5.11「チームの作り方」・§5.15）
 
@@ -15,16 +17,6 @@ export type SameNameInfo = {
   // そのうち自分が代表者を務めるチーム（誤って新規作成するのを防ぐため、リンクを出す）
   mine: { id: string; name: string }[];
 };
-
-export class TeamError extends Error {
-  constructor(
-    readonly status: 400 | 403 | 404 | 409,
-    message: string,
-    readonly extra: Record<string, unknown> = {},
-  ) {
-    super(message);
-  }
-}
 
 // 同名のチーム。表記の揺れ（全角・半角、空白、大文字・小文字、ひらがな・カタカナ）は normalize.ts で吸収する
 export async function findSameNameTeams(db: Db, associationId: string, userId: string, name: string): Promise<SameNameInfo> {
@@ -77,16 +69,11 @@ export async function editTeam(
   teamId: string,
   raw: Record<string, unknown>,
 ): Promise<Team> {
-  if (!isUuid(teamId)) throw new TeamError(404, "チームが見つかりません");
   return withTenantOn(
     db,
     associationId,
     async (tx) => {
-      const team = await findTeam(tx, associationId, teamId);
-      if (!team) throw new TeamError(404, "チームが見つかりません");
-      const roles = await readAssociationRoles(tx, associationId, principal.userId);
-      const role = resolveRole(principal, roles, { associationId, teamId });
-      if (!can(role, "editTeam")) throw new TeamError(403, "チームの代表者だけが変えられます");
+      await authorizeTeam(tx, principal, associationId, teamId, "editTeam");
       const parsed = parseTeamInput(raw);
       if (!parsed.ok) throw new TeamError(400, parsed.message, { field: parsed.field });
       const updated = await updateTeam(tx, associationId, teamId, parsed.value);

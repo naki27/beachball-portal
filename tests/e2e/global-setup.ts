@@ -10,6 +10,7 @@ import {
   associationSlugHistory,
   categoryPresets,
   mailLogs,
+  members,
   platformAdmins,
   rateLimits,
   sessions,
@@ -41,6 +42,9 @@ const PATHS = [
   // チームのページ（動的な URL）。ない ID なので 404 になるだけ
   "/sawara/teams/00000000-0000-4000-8000-000000000000",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/edit",
+  "/sawara/teams/00000000-0000-4000-8000-000000000000/members",
+  "/sawara/teams/00000000-0000-4000-8000-000000000000/members/new",
+  "/sawara/teams/00000000-0000-4000-8000-000000000000/members/00000000-0000-4000-8000-000000000000/edit",
   "/robots.txt",
 ];
 
@@ -78,8 +82,10 @@ async function resetTestState(): Promise<void> {
       if (ids.length > 0) {
         await tx.delete(associationAdmins).where(inArray(associationAdmins.userId, ids));
         await tx.delete(teamAdmins).where(inArray(teamAdmins.userId, ids));
-        await tx.delete(teams).where(inArray(teams.createdBy, ids));
+        await tx.delete(teams).where(inArray(teams.createdBy, ids)); // 選手一覧の行は cascade で消える
       }
+      // E2E が名簿に入れた人物（氏名が E2E… で始まる。正規化後は小文字）
+      await tx.delete(members).where(like(members.nameNormalized, "e2e%"));
       await tx.delete(associationAdminInvitations).where(like(associationAdminInvitations.email, "e2e-%@example.com"));
     });
     await db.delete(mailLogs).where(like(mailLogs.toEmail, "e2e-%@example.com"));
@@ -110,6 +116,10 @@ const API_PATHS = [
   `/api/platform/associations/${NO_ID}/admin-invitations`,
   "/api/sawara/teams",
   `/api/sawara/teams/${NO_ID}`,
+  `/api/sawara/teams/${NO_ID}/members`,
+  `/api/sawara/teams/${NO_ID}/members/${NO_ID}`,
+  `/api/sawara/teams/${NO_ID}/members/${NO_ID}/leave`,
+  `/api/sawara/teams/${NO_ID}/members/${NO_ID}/undo-leave`,
 ];
 
 export default async function globalSetup(config: FullConfig): Promise<void> {

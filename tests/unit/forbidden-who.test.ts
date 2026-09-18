@@ -8,7 +8,9 @@ describe("whoCanSee", () => {
     expect(whoCanSee("/platform/associations/x")).toBe("運営管理者");
     expect(whoCanSee("/sawara/admin")).toBe("協会の管理者");
     expect(whoCanSee("/sawara/admin/tournaments?tab=1")).toBe("協会の管理者");
-    expect(whoCanSee("/sawara/teams/abc/roster")).toBe("チームの代表者");
+    expect(whoCanSee("/sawara/teams/abc/members")).toBe("チームの選手");
+    expect(whoCanSee("/sawara/teams/abc/members/new")).toBe("チームの代表者");
+    expect(whoCanSee("/sawara/teams/abc/members/xyz/edit")).toBe("チームの代表者");
     expect(whoCanSee("/sawara/teams/abc")).toBe("チームの選手");
     expect(whoCanSee("/sawara/teams/abc/edit")).toBe("チームの代表者");
     expect(whoCanSee("/sawara/teams/new")).toBe("ログインした人");
