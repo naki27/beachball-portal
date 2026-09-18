@@ -8,6 +8,7 @@ import { Message } from "@/components/ui/message";
 import { TextField } from "@/components/ui/text-field";
 import { UndoBar } from "@/components/ui/undo-bar";
 import { useDraft } from "@/hooks/use-draft";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { draftKey } from "@/lib/draft";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -22,6 +23,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 const DEMO_DRAFT_KEY = draftKey({ associationId: "dev", screen: "ui-gallery" });
 
 export function UiGallery() {
+  const hydrated = useHydrated(); // E2E がハイドレーション後に押すための印
   const [pending, setPending] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -39,7 +41,7 @@ export function UiGallery() {
   ].filter((e): e is NonNullable<typeof e> => e !== null);
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-10" data-hydrated={hydrated || undefined}>
       <Section title="ボタン">
         <div className="flex flex-col gap-3">
           <Button

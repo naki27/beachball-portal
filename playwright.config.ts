@@ -5,6 +5,8 @@ const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000";
 
 export default defineConfig({
   testDir: "tests/e2e",
+  // 使うページを先に一度ずつ開いて dev サーバーにコンパイルさせる（tests/e2e/global-setup.ts）
+  globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

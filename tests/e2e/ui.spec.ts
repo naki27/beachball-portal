@@ -5,6 +5,7 @@ test("/dev/ui が開き、横にはみ出さない。部品が動く", async ({ 
   await page.goto("/dev/ui");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("部品の一覧（開発用）");
   await expect(page).toHaveTitle(/部品の一覧（開発用）｜/);
+  await page.locator("[data-hydrated]").waitFor(); // ハイドレーション前に押すと何も起きない
 
   // 送信中: 文字が変わり、押せなくなる
   const submit = page.getByRole("button", { name: /申し込む/ });

@@ -35,6 +35,14 @@ export type MailEnv = {
   NODE_ENV?: string;
 };
 
+// アプリ用の送信口（確認番号のメールなど、応答の前に直接送るもの）。最初に使うときに作り、globalThis に 1 つ置く
+const store = globalThis as unknown as { __beachballMailSender?: MailSender };
+
+export function getMailSender(): MailSender {
+  store.__beachballMailSender ??= createMailSender();
+  return store.__beachballMailSender;
+}
+
 export function createMailSender(env: MailEnv = process.env): MailSender {
   const provider = env.MAIL_PROVIDER ?? "console";
   const from = env.MAIL_FROM ?? "noreply@localhost";

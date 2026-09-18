@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 // 入力欄（§4.3・§4.5）。誤りがあれば赤枠になり 1 回だけ揺れ、欄の下に理由を出す
 // inputMode・autoComplete は使う画面が正しく付ける（メールは type="email" inputMode="email" autoComplete="email"）
@@ -10,7 +10,7 @@ export function TextField({
   error,
   className = "",
   ...rest
-}: InputHTMLAttributes<HTMLInputElement> & {
+}: ComponentProps<"input"> & {
   id: string;
   label: ReactNode;
   // 入力欄の下に常時出す短い注意書き（例: 全角の英数字は半角に変換されます）

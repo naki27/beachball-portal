@@ -2,6 +2,23 @@
 
 `docs/progress.md` から移した古い申し送り（新しいものを上に）。タスクでは読まない。
 
+### A-05（2026-09-18）
+- やったこと: `src/lib/slug.ts`（予約語・形式・`redirectTargetFor`・`slugFromUrl`）、`src/lib/resolve-association.ts`（解決順 ①〜④の 1 か所。React `cache`）、`0004` の `SECURITY DEFINER` 関数 `resolve_association_slug()`（旧スラッグの表は RLS 下なので）、`src/lib/page/require-association.ts`（layout と page が呼ぶ。404 は `notFound()`、旧スラッグは `permanentRedirect` = 308）、`src/lib/api/{resolve,errors}.ts`（API は 404 の JSON / 308 の Response）。`src/lib/authz.ts`（ロール・包含・§3.2 の権限表をデータで持つ `can()`・`checkAccess()`。P1 の 2 段階目は `AdminPolicy` に足す）、`src/lib/auth/principal.ts`（A-09 までアンノウン固定）。403 は `forbidden()`（`experimental.authInterrupts`）＋ `src/lib/page/forbidden.ts` で理由を渡す。エラーページ: `not-found.tsx` / `forbidden.tsx`（ルートと `[slug]`）、`error.tsx`、`global-error.tsx`、部品 `src/components/{error-screen,forbidden-screen,conflict-screen}.tsx`・`button-classes.ts`。`src/proxy.ts`（`x-url` を付けるだけ）。`robots.ts`・meta の noindex・`X-Robots-Tag`。画面 `/[slug]`（協会のトップの仮）と `/[slug]/admin`（403 の確認用）。ADR 0003
+- 動作確認: lint / typecheck / test（TZ 2 回・86 本）、E2E 16 本（WebKit・Chromium）、curl で `/sawara` 200・`/nothing` 404・`/admin` 404・`/sawara/admin` 403・robots.txt・`X-Robots-Tag`
+- 次への申し送り・既知の課題:
+  - 403 / 404 の中身はクライアント側で RSC の payload から描画される（HTML の静的な部分には入らない）。Playwright は `127.0.0.1` で開くので `next.config.ts` に `allowedDevOrigins: ["127.0.0.1"]` を入れた（開発時だけ効く）
+  - ログインのボタンは `/login?next=<元の URL>`。A-08 の `/login` は `next` を受けてログイン後に戻す（外部の URL は拒否）
+  - `getPrincipal()` / `getMembership()` は仮（アンノウン固定）。A-09・A-13 で本物にする。`sessionState: "expired"` の 403 も A-09 から
+  - `ConflictScreen`（409）は部品だけ。使うのは B-07 以降（`contactHref` は A-22 の URL）
+  - コンテナを `docker compose up` で作り直したら `bash .devcontainer/post-create.sh` を流す（Playwright の OS ライブラリが消えて E2E が落ちる）
+- 使った枠（/usage の変化）: 未計測
+
+### A-04（2026-09-18）
+- やったこと: `src/lib/date.ts`（`PlainDate`・`todayInTokyo`・`startOfDayTokyo`・`endOfDayTokyo` は付録 D のとおり。加えて DB の date 型／フォーム用に `formatPlainDate`・`parsePlainDate`（存在しない日付は null）・`isValidPlainDate`・`comparePlainDate`）、`src/lib/normalize.ts`（付録 B のとおり）。テスト: §8.2 の 10 例すべて＋補足、日付は瞬間を固定して境界（UTC 15:00）と往復を検査
+- 動作確認: lint / typecheck / test（TZ 2 回・44 本）
+- 次への申し送り: DB の `timezone = 'Asia/Tokyo'` は設定しない（業務の日付はすべて `date.ts` で日本時間に解釈し、SQL の `current_date` / `age()` は使わない方針・§6.3）。年齢は B-02 の `age.ts`
+- 使った枠（/usage の変化）: 未計測
+
 ### A-03（2026-09-18）
 - やったこと: `0003_rls-and-grants.sql`（テナント表 11 個に enable + force + policy `<表>_tenant`。式は関数 `current_association_id()` = `nullif(current_setting('app.association_id', true), '')::uuid` の 1 か所。表ごとの grant（app_user / app_job / app_backup / app_definer）。`SECURITY DEFINER` 関数 `my_association_ids()`・`my_pending_invitations()`・`platform_association_stats()`（所有者 app_definer。execute は関数ごとに revoke → app_user に grant）。`db:roles` に app_definer への `usage, create` と `grant app_definer to app_owner` を追加。`src/db/tenant.ts` に `setTenant` / `withTenantOn(db, …)` / `withTenant`。`src/lib/repo/{scope,teams,members}.ts`（`(tx, associationId, …)` で省略不可、削除済みの除外が既定。`includeDeleted` は削除済み画面だけ）。seed は `withTenantOn` の中で入れる（FORCE で所有者にも効く）。テスト: `tests/db/rls.test.ts`（SET LOCAL なし 0 件・別協会は見えない・別協会へ書けない 42501・所有者にも効く・grant）、`tests/unit/repo-types.test.ts`（`@ts-expect-error`）。ADR 0002（新しい表に同じ形で足す手順）
 - 動作確認: `db:roles` → `db:migrate`、`db:reset` の一連、lint / typecheck / test（TZ 2 回・22 本）、`/api/health` ok
