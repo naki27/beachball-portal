@@ -3,7 +3,7 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: L-03 Next.js の雛形とテストの土台
+- 最後に終わったタスク: L-03 Next.js の雛形とテストの土台（人の確認待ち。OK が出てから L-04 に着手）
 - 次のタスク: L-04 ローカルの Postgres・Mailpit と DB の土台
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000
 
@@ -20,5 +20,5 @@
 ### L-02（2026-09-17）
 - やったこと: テンプレート・`docs/design.md`・`tools/split-design.sh`・`docs/legal/templates.md` をコピー。`CLAUDE.md`、`git init -b main`、`.gitignore`、`docs/design/`（節 80・付録 A の表 40）、`docs/adr/README.md`、`README.md`。リポジトリ名を beachball-portal に変更し、GitHub（https://github.com/naki27/beachball-portal.git・HTTPS）に push
 - 動作確認: `bash tools/split-design.sh docs/design.md docs/design` が通り、「読む設計書」のファイルはすべてある
-- 次への申し送り・既知の課題: 開発マシンは Windows 11。Rancher Desktop + `docker compose` で Dev Container を動かす（`docs/setup.md` §7）。元のファイルは CRLF だったので LF に統一
+- 次への申し送り・既知の課題: 開発マシンは Windows 11。Rancher Desktop + `docker compose` で Dev Container を動かす（`docs/setup.md` §7）。改行は LF（`.gitattributes`）。L-02 のコミットメッセージの「元のファイルは CRLF」は誤りで、元から LF だった（Git Bash の `grep -c $''` は LF のファイルでも全行に当たる。CR は `tr -cd '' < f | wc -c` で数える）
 - 使った枠（/usage の変化）: 未計測
