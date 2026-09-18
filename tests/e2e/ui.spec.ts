@@ -57,3 +57,38 @@ test("タブの題名: 協会のページは「ページ名｜協会名」", asy
   await expect(page).toHaveTitle("管理｜早良区協会");
   await expect(page.getByRole("link", { name: "早良区協会" }).first()).toHaveAttribute("href", "/sawara");
 });
+
+test("生年月日（和暦）: 昭和5年と平成5年を入れ比べる。年齢の確認・元号の範囲外", async ({ page }) => {
+  await page.goto("/dev/ui");
+  await page.locator("[data-hydrated]").waitFor();
+  const eras = page.getByRole("radiogroup", { name: "生年月日の元号" });
+  const demo = page.getByTestId("birth-demo");
+
+  // 既定は昭和。昭和5年4月1日 → 1930 年・90 歳を超えるので「合っていますか？」、押すまで次へ進めない
+  await expect(eras.getByRole("radio", { name: "昭和" })).toBeChecked();
+  await page.getByLabel("年", { exact: true }).fill("5");
+  await page.getByLabel("月", { exact: true }).fill("4");
+  await page.getByLabel("日", { exact: true }).fill("1");
+  await expect(page.getByText(/^（1930年）・\d+歳$/)).toBeVisible();
+  await expect(page.getByText(/^\d+歳で合っていますか？$/)).toBeVisible();
+  await expect(demo).toContainText("進めない");
+
+  // 平成に切り替える → 1993 年。確認は要らず、次へ進める。確認ページの表示
+  await eras.getByText("平成", { exact: true }).click();
+  await expect(page.getByText(/^（1993年）・\d+歳$/)).toBeVisible();
+  await expect(page.getByText(/合っていますか？/)).toHaveCount(0);
+  await expect(demo).toContainText("1993-04-01");
+  await expect(demo).toContainText("1993年（平成5年）4月1日");
+  await expect(demo).toContainText("進める");
+
+  // 昭和に戻して「はい、合っています」→ 次へ進める
+  await eras.getByText("昭和", { exact: true }).click();
+  await page.getByRole("button", { name: "はい、合っています" }).click();
+  await expect(demo).toContainText("1930-04-01");
+  await expect(demo).not.toContainText("進めない");
+
+  // 元号の範囲外はその場で誤り
+  await page.getByLabel("年", { exact: true }).fill("65");
+  await expect(page.getByText("昭和は64年までです")).toBeVisible();
+  await expect(page.getByLabel("年", { exact: true })).toHaveAttribute("aria-invalid", "true");
+});

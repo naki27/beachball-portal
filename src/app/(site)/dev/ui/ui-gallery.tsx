@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
+import { type BirthDateValue, BirthDateField } from "@/components/ui/birth-date-field";
 import { Button } from "@/components/ui/button";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { DelayedSkeleton } from "@/components/ui/loading";
@@ -9,7 +10,9 @@ import { TextField } from "@/components/ui/text-field";
 import { UndoBar } from "@/components/ui/undo-bar";
 import { useDraft } from "@/hooks/use-draft";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { parsePlainDate } from "@/lib/date";
 import { draftKey } from "@/lib/draft";
+import { formatBirthDateLong } from "@/lib/wareki";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -32,6 +35,8 @@ export function UiGallery() {
   const [loading, setLoading] = useState(false);
   const [memo, setMemo] = useState("");
   const draft = useDraft<string>(DEMO_DRAFT_KEY, { onRestore: setMemo });
+  const [birth, setBirth] = useState<BirthDateValue>({ date: null, ready: false });
+  const birthDate = birth.date ? parsePlainDate(birth.date) : null;
 
   const emailError = showErrors && !email.includes("@") ? "メールアドレスの形で入力してください" : null;
   const nameError = showErrors && name.trim() === "" ? "氏名を入力してください" : null;
@@ -164,6 +169,18 @@ export function UiGallery() {
         >
           一時保存を消す（送信の完了・ログアウトのとき）
         </Button>
+      </Section>
+
+      <Section title="生年月日（和暦）">
+        <BirthDateField id="demo-birth" onChange={setBirth} />
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm" data-testid="birth-demo">
+          <dt className="text-muted">保存する値</dt>
+          <dd>{birth.date ?? "（まだ）"}</dd>
+          <dt className="text-muted">確認ページ</dt>
+          <dd>{birthDate ? formatBirthDateLong(birthDate) : "（まだ）"}</dd>
+          <dt className="text-muted">次へ</dt>
+          <dd>{birth.ready ? "進める" : "進めない"}</dd>
+        </dl>
       </Section>
     </div>
   );
