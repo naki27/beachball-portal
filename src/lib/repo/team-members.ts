@@ -147,3 +147,9 @@ export async function listTeamNamesOfMember(tx: Tx, associationId: string, membe
     .orderBy(asc(teams.name));
   return rows.map((r) => r.name);
 }
+
+// 現役の選手のうち、本人のアカウントに紐づいている人（代表者の候補・§5.11「代表者の委譲」）
+export async function listLinkedRoster(tx: Tx, associationId: string, teamId: string): Promise<{ memberId: string; name: string; userId: string }[]> {
+  const rows = await listActiveRoster(tx, associationId, teamId);
+  return rows.filter((r): r is RosterRow & { userId: string } => r.userId !== null).map((r) => ({ memberId: r.memberId, name: r.name, userId: r.userId }));
+}

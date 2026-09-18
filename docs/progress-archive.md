@@ -178,3 +178,12 @@
   - `entry_players.match_type` は表の `matchType` をそのまま入れる。`unmatched`（人物の物理削除後）は削除の処理の側で
   - 候補の行は生年月日を含む。画面や API にそのまま返さない
 - 使った枠（/usage の変化）: 未計測
+
+### A-16（2026-09-18）
+- やったこと: `src/components/ui/birth-date-field.tsx`（昭和・平成・令和・西暦のボタン（既定は昭和）、年・月・日の数字の欄、「（1965年）・61歳」、元号の範囲外はその場で誤り、15 歳未満か 80 歳以上は「◯歳で合っていますか？」［はい、合っています］。親には `{ date, ready }`）、`src/lib/wareki.ts`（`parseBirthDateParts`・`formatBirthDateLong`「1965年（昭和40年）5月3日」・`partsFromDate`）、`src/lib/age.ts`（`ageAt`。B-02 の規則とテストを先に入れた）。`/dev/ui` に部品と値の表示。ADR 0010
+- 動作確認: lint / typecheck / test（TZ 2 回・218 本。元号の境界 4 つ・範囲外・年齢の確認の境目・2/29）、E2E 44 本（`/dev/ui` で昭和5年と平成5年を入れ比べ → 確認 → 昭和65年は誤り）
+- 次への申し送り・既知の課題:
+  - 使う画面は `ready` が true になるまで送信・次へを押させない。サーバー側でも生年月日の形・今日より前を確かめる（部品の検査だけにしない）
+  - B-02 は `deadline.ts` だけでよい（`ageAt` はある）
+  - 生年月日の一時保存（§4.3「通信」）は使う画面の `useDraft` で。部品は値を持つだけ
+- 使った枠（/usage の変化）: 未計測

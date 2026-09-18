@@ -44,6 +44,7 @@ const PATHS = [
   "/sawara/teams/00000000-0000-4000-8000-000000000000",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/edit",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/members",
+  "/sawara/teams/00000000-0000-4000-8000-000000000000/admins",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/members/new",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/members/new?self=1",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/members/00000000-0000-4000-8000-000000000000/edit",
@@ -126,6 +127,7 @@ const API_PATHS = [
   `/api/sawara/teams/${NO_ID}/invitations/${NO_ID}`,
   `/api/sawara/teams/${NO_ID}/invitations/${NO_ID}/resend`,
   `/api/sawara/members/${NO_ID}/link`,
+  `/api/sawara/teams/${NO_ID}/admins/${NO_ID}`,
   `/api/me/invitations/${NO_ID}/reject`,
 ];
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TeamStatusControls } from "@/components/teams/team-status-controls";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { withTenant } from "@/db/tenant";
@@ -72,6 +73,11 @@ export default async function TeamPage({ params, searchParams }: Props) {
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
       {created === "1" ? <Message kind="success" title="チームを登録しました。あなたがこのチームの代表者です" /> : null}
       {updated === "1" ? <Message kind="success" title="チーム情報を保存しました" /> : null}
+      {team.status === "inactive" ? (
+        <Message kind="info" title="このチームは無効になっています">
+          大会に申し込めず、招待もできません。代表者は「有効に戻す」でいつでも戻せます。
+        </Message>
+      ) : null}
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold break-words">{team.name}</h1>
         {team.kana ? <p className="text-sm text-muted">{team.kana}</p> : null}
@@ -103,13 +109,17 @@ export default async function TeamPage({ params, searchParams }: Props) {
           ) : null}
         </dl>
         {canEdit ? (
-          <p>
+          <p className="flex flex-wrap gap-x-4 gap-y-2">
             <Link href={`/${association.slug}/teams/${team.id}/edit`} className="font-semibold underline underline-offset-2">
               チーム情報を変える
+            </Link>
+            <Link href={`/${association.slug}/teams/${team.id}/admins`} className="font-semibold underline underline-offset-2">
+              代表者
             </Link>
           </p>
         ) : null}
       </section>
+      {canEdit ? <TeamStatusControls slug={association.slug} teamId={team.id} status={team.status} /> : null}
     </main>
   );
 }

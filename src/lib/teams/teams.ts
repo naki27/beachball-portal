@@ -2,7 +2,11 @@ import type { Db } from "@/db/client";
 import { withTenantOn } from "@/db/tenant";
 import type { Principal } from "@/lib/authz";
 import { normalizeName } from "@/lib/normalize";
-import { addTeamAdmin, createTeam, listTeamNames, listTeamsAdminedBy, type Team, updateTeam } from "@/lib/repo/teams";
+import type { TeamStatus } from "@/db/schema";
+import { roleIncludes } from "@/lib/authz";
+import { countOpenEntries } from "@/lib/repo/entries";
+import { cancelOpenTeamInvitations } from "@/lib/repo/team-invitations";
+import { addTeamAdmin, createTeam, listTeamNames, listTeamsAdminedBy, setTeamStatusRow, type Team, updateTeam } from "@/lib/repo/teams";
 import { authorizeTeam } from "./access";
 import { TeamError } from "./errors";
 import { parseTeamInput, type TeamInput } from "./team-input";
@@ -79,6 +83,39 @@ export async function editTeam(
       const updated = await updateTeam(tx, associationId, teamId, parsed.value);
       if (!updated) throw new TeamError(404, "チームが見つかりません");
       return updated;
+    },
+    { userId: principal.userId },
+  );
+}
+
+// 無効化・有効に戻す（§5.11「チームの無効化と削除」）。代表者とテナント管理者
+// 締切前で取り消していない申込が残っていれば、代表者は無効化できない（409。テナント管理者はできるが、申込は自動で取り消さない）
+// 無効化したら返事待ちの招待をすべて取り消す。代表者の行は残す（有効に戻したときにそのまま使える）
+export async function setTeamStatus(
+  db: Db,
+  principal: Principal & { userId: string },
+  associationId: string,
+  teamId: string,
+  status: TeamStatus,
+  now: Date = new Date(),
+): Promise<{ cancelledInvitations: number }> {
+  return withTenantOn(
+    db,
+    associationId,
+    async (tx) => {
+      const { team, role } = await authorizeTeam(tx, principal, associationId, teamId, "editTeam");
+      if (team.kind === "individual") throw new TeamError(409, "個人の登録は無効にできません");
+      if (team.status === status) return { cancelledInvitations: 0 };
+      if (status === "inactive") {
+        if (!roleIncludes(role, "association_admin") && (await countOpenEntries(tx, associationId, teamId, now)) > 0) {
+          throw new TeamError(409, "締切前の申し込みが残っています。先に申し込みを取り消してください");
+        }
+        await setTeamStatusRow(tx, associationId, teamId, "inactive");
+        const cancelledInvitations = await cancelOpenTeamInvitations(tx, associationId, teamId, now);
+        return { cancelledInvitations };
+      }
+      await setTeamStatusRow(tx, associationId, teamId, "active");
+      return { cancelledInvitations: 0 };
     },
     { userId: principal.userId },
   );
