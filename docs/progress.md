@@ -3,11 +3,20 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: A-14 チームの作成と代表者
-- 次のタスク: A-15 名寄せ
+- 最後に終わったタスク: A-15 名寄せ
+- 次のタスク: A-16 生年月日の入力部品（和暦）
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### A-15（2026-09-18）
+- やったこと: `src/lib/matching.ts`（純粋な判定 `decideMatch(keys, choice, candidates)`・「ルールと記録の対応」の表 `MATCH_OUTCOMES`・`matchKeysOf`（正規化は normalize.ts）・`findMatch`（候補を引いて判定）・`resolveMember`（判定どおりに結びつける／新しく作り、要確認は新しい側だけ。既存の人物は変えない））。`listMatchCandidates`（`src/lib/repo/members.ts`。同じ協会・active / needs_review・未削除で、氏名一致、またはふりがな（空でないとき）＋生年月日一致）。`createMember` に `status`。ADR 0009（ルールの順・別名は使わない）
+- 動作確認: lint / typecheck / test（TZ 2 回・191 本。§8.3 のルール 0〜7 と表・探索対象・「ふりがなが空同士ならルール 5 を使わない」）
+- 次への申し送り・既知の課題:
+  - 選手一覧への追加（A-17）は `resolveMember(tx, associationId, person)`（choice は none）。申込の選手枠（B 系）は picked / declined を渡す。picked の人物を選んでよいか（代表者を務めるチームの選手か）は呼ぶ側で確かめる
+  - `entry_players.match_type` は表の `matchType` をそのまま入れる。`unmatched`（人物の物理削除後）は削除の処理の側で
+  - 候補の行は生年月日を含む。画面や API にそのまま返さない
+- 使った枠（/usage の変化）: 未計測
+
 ### A-14（2026-09-18）
 - やったこと: `/[slug]/teams/new`（チームで登録。チーム名だけで作れる・「協会員の登録をするチーム」は既定で外す・同名は 409 で警告し「別のチームとして登録する」）、`/[slug]/teams/[teamId]`（骨組み: 名前・協会員の登録・連絡先は代表者から・「チーム情報を変える」）、`…/edit`。`src/lib/teams/{team-input,teams}.ts`（`registerTeam` は作成と `team_admins`（granted_by NULL）を 1 トランザクション、`editTeam` は 404 → 403 → 400）、`src/lib/repo/roles.ts`（`getMembership` の中身を切り出し）、`src/lib/page/require-team.ts`、`src/lib/api/tenant.ts`（`/api/[slug]/…` の入口）、`src/lib/ids.ts`。`ACTIONS.editTeam`。API: `POST /api/[slug]/teams`、`PATCH /api/[slug]/teams/[teamId]`。マイページの協会の枠に代表者を務めるチームと「チームを登録する」。ADR 0008
 - 動作確認: lint / typecheck / test（TZ 2 回・162 本。代表者でない人の編集は 403、別の協会のチーム ID は 404）、E2E 42 本（未ログインで 403 → ログイン → チーム名だけで登録 → マイページ → 同名の警告 → 別の協会のチームは 404）
@@ -36,14 +45,4 @@
   - 選手・代表者の招待（`team_invitations`）への返事は A-19。`/invitations` には表示だけ出る
   - E2E の global-setup がテストの残骸（`e2e-%` のアカウント・協会・招待）を毎回消す。タイムアウトで止まったテストは finally まで進まないため
   - 運営画面の招待の欄は `getByLabel("メールアドレス", { exact: true })` で取る（連絡先の欄と重なる）
-- 使った枠（/usage の変化）: 未計測
-
-### A-11（2026-09-18）
-- やったこと: `0006`: `platform_association_stats()` を作り直し（`admins`・`pending_admin_invitations` を追加）、`platform_association_admins()`（テナント管理者のメール・表示名。運営管理者のときだけ）。`src/lib/platform/associations.ts`（`createAssociationTenant`: 協会 → `setTenant` → プリセット 18 件 → 招待の行 → `admin_access_logs`、`updateAssociation`: スラッグ変更で旧スラッグを履歴へ、`enterTenant` / `leaveTenant`: `sessions.entered_*`＋記録。`PlatformError` は 400/409）、`src/lib/repo/{platform,admin-access-logs}.ts`、`src/lib/api/platform.ts`（`requirePlatformAdmin`）。API: `GET/POST /api/platform/associations`、`PATCH /api/platform/associations/[id]`、`POST/DELETE …/[id]/enter`。画面: `/platform`（一覧・件数・作成）、`/platform/associations/[id]`（件数・管理者・入る／出る・名前と URL）。`[slug]` layout に「運営管理者として ◯◯ を表示中」の帯（出る）。`jsonError` に 400・429
-- 動作確認: lint / typecheck / test（TZ 2 回・129 本）、E2E 36 本（運営管理者でログイン → 協会を作る → 一覧 → スラッグ変更で 308 → 入る → 帯 → 出る）
-- 次への申し送り・既知の課題:
-  - 招待のメール送信・承諾・取り消しは A-12（作成時は `association_admin_invitations` の行だけ入る。作成画面の文言もそのとき直す）
-  - `platform_association_stats()` の `open_tournaments` は B-01 で。「アクセス記録」「運営者宛ての問い合わせ」の画面は A-22 以降
-  - E2E は並列 2（`workers: 2`）にした。4 つ以上のログインの流れが同時に走ると dev サーバーが詰まる。全体で 3 分ほど
-  - ローカルで `/platform` を触るには `.env` の `SUPER_ADMIN_EMAILS` に自分のアドレスを入れて `pnpm db:seed`
 - 使った枠（/usage の変化）: 未計測
