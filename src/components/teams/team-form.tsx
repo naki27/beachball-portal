@@ -31,11 +31,14 @@ export function TeamForm({
   mode,
   teamId,
   initial,
+  successPath,
 }: {
   slug: string;
   mode: "create" | "edit";
   teamId?: string;
   initial: TeamFormValues;
+  // 保存後の移動先（省略時: 作成はチームのページ、編集はチームのページの ?updated=1）
+  successPath?: string;
 }) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -69,7 +72,7 @@ export function TeamForm({
       });
       const body = (await response.json().catch(() => null)) as ApiBody | null;
       if (response.ok) {
-        router.push(mode === "create" ? (body?.redirectTo ?? `/${slug}`) : `/${slug}/teams/${teamId}?updated=1`);
+        router.push(successPath ?? (mode === "create" ? (body?.redirectTo ?? `/${slug}`) : `/${slug}/teams/${teamId}?updated=1`));
         router.refresh();
         return;
       }
