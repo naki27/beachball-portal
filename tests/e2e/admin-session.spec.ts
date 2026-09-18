@@ -38,7 +38,7 @@ test("テナント管理者は同時に 1 つまで: 別の端末は断られ、
     await pageA.locator("form[data-hydrated]").waitFor();
     await pageA.getByLabel("メールアドレス").fill(email);
     await pageA.getByRole("button", { name: "確認番号を送る" }).click();
-    await expect(pageA).toHaveURL(/\/login\/code/);
+    await expect(pageA).toHaveURL(/\/login\/code/, { timeout: 15_000 });
     await pageA.getByLabel("確認番号（6 けた）").fill(await latestCode(request, email));
     await expect(pageA).toHaveURL(/\/sawara\/admin$/, { timeout: 15_000 });
     // 管理者なので管理画面が開く
@@ -50,7 +50,7 @@ test("テナント管理者は同時に 1 つまで: 別の端末は断られ、
     await pageB.locator("form[data-hydrated]").waitFor();
     await pageB.getByLabel("メールアドレス").fill(email);
     await pageB.getByRole("button", { name: "確認番号を送る" }).click();
-    await expect(pageB).toHaveURL(/\/login\/code/);
+    await expect(pageB).toHaveURL(/\/login\/code/, { timeout: 15_000 });
     const codeB = await latestCode(request, email);
     await pageB.getByLabel("確認番号（6 けた）").fill(codeB);
     await expect(

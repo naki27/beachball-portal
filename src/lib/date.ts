@@ -56,3 +56,11 @@ export function parsePlainDate(value: string): PlainDate | null {
 export function comparePlainDate(a: PlainDate, b: PlainDate): number {
   return a.year - b.year || a.month - b.month || a.day - b.day;
 }
+
+const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"] as const;
+
+// 「9月17日（木）」の形（§4.3「日付には曜日を付ける」）。年は付けない（年をまたぐときは呼ぶ側で足す）
+export function formatDateWithWeekday(d: PlainDate): string {
+  const weekday = WEEKDAYS_JA[new Date(Date.UTC(d.year, d.month - 1, d.day)).getUTCDay()];
+  return `${d.month}月${d.day}日（${weekday}）`;
+}

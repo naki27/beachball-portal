@@ -17,7 +17,7 @@ CI: GitHub Actions（[.github/workflows/ci.yml](.github/workflows/ci.yml)）が 
 
 メール: 業務の処理は `mail_logs` に積むだけで、送るのは `pnpm job:mail`（本番は数分おきのジョブ。ローカルでは手で流す）。試すには `pnpm mail:test you@example.com` → `pnpm job:mail` → http://localhost:8025 。
 
-開発用: `pnpm dev:grant-admin you@example.com sawara`（自分を早良区協会の管理者にする）。運営管理者は `.env` の `SUPER_ADMIN_EMAILS` に入れて `pnpm db:seed`。
+開発用: `pnpm dev:grant-admin you@example.com sawara`（自分を早良区協会の管理者にする）。運営管理者は `.env` の `SUPER_ADMIN_EMAILS` に入れて `pnpm db:seed` → http://localhost:3000/platform で協会を作り、管理者を招待する（招待のメールは `pnpm job:mail` で Mailpit へ → そのアドレスでログイン → http://localhost:3000/invitations で参加）。
 
 DB のほかのコマンド: `pnpm db:generate`（`src/db/schema.ts` からマイグレーションを作る）/ `pnpm db:studio`（→ http://localhost:4983 ）/ `pnpm db:reset`（ローカルだけ。DB を消して作り直す）。
 

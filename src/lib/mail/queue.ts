@@ -1,7 +1,7 @@
 import { and, eq, lte } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { mailLogs } from "@/db/schema";
-import type { Tx } from "@/db/tenant";
+import { setTenant, type Tx } from "@/db/tenant";
 import { findAssociationById } from "@/lib/repo/associations";
 import { composeMail, hasTemplate } from "./templates";
 import type { MailSender } from "./types";
@@ -50,7 +50,14 @@ async function deliver(tx: Tx, row: QueuedRow, sender: MailSender, now: Date, ba
 
   try {
     const association = row.associationId ? await findAssociationById(tx, row.associationId) : null;
-    const composed = composeMail(row.mailType, row.params, { associationName: association?.name ?? null, baseUrl });
+    // 協会に属するメールは、その協会に固定してから ID で行を読む（テナントの表は RLS の下）
+    if (row.associationId) await setTenant(tx, row.associationId);
+    const composed = await composeMail(
+      row.mailType,
+      row.params,
+      { associationName: association?.name ?? null, associationSlug: association?.slug ?? null, baseUrl },
+      tx,
+    );
     const result = await sender.send({ to: row.toEmail, ...composed });
     await tx
       .update(mailLogs)

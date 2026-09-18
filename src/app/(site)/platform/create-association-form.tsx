@@ -42,7 +42,7 @@ export function CreateAssociationForm() {
       });
       const body = (await response.json().catch(() => null)) as (ApiError & { association?: { name: string } }) | null;
       if (response.ok) {
-        setNotice({ kind: "success", title: `${body?.association?.name ?? "協会"}を作りました。最初の管理者への招待は A-12 で送ります` });
+        setNotice({ kind: "success", title: `${body?.association?.name ?? "協会"}を作りました。最初の管理者に招待のメールを送ります` });
         setName("");
         setSlug("");
         setContactEmail("");

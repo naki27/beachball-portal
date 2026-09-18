@@ -5,7 +5,10 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/db/client";
 import { associations } from "@/db/schema";
 import { requirePlatformAdminPage } from "@/lib/page/platform";
+import { listAdminInvitations } from "@/lib/platform/admin-invitations";
+import { MAX_ADMINS_PER_ASSOCIATION } from "@/lib/platform/associations";
 import { listAssociationAdmins, listAssociationStats } from "@/lib/repo/platform";
+import { AdminManagement } from "./admin-management";
 import { AssociationSettingsForm } from "./association-settings-form";
 import { EnterTenantControls } from "./enter-tenant-controls";
 
@@ -13,7 +16,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export const metadata: Metadata = { title: "協会の設定" };
 
-// 協会ごとの運営画面（§4.2 #24）。名前・スラッグの変更、テナント管理者の一覧（招待・解除は A-12）、切り替えて入る
+// 協会ごとの運営画面（§4.2 #24）。名前・スラッグの変更、テナント管理者の招待・解除、切り替えて入る
 export default async function PlatformAssociationPage({ params }: Props) {
   const principal = await requirePlatformAdminPage();
   const { id } = await params;
@@ -23,6 +26,7 @@ export default async function PlatformAssociationPage({ params }: Props) {
 
   const stats = (await listAssociationStats(db, principal.userId)).find((s) => s.associationId === id) ?? null;
   const admins = (await listAssociationAdmins(db, principal.userId)).filter((a) => a.associationId === id);
+  const invitations = await listAdminInvitations(db, principal.userId, id);
   const entered = principal.enteredAssociationId === id;
 
   return (
@@ -53,21 +57,13 @@ export default async function PlatformAssociationPage({ params }: Props) {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">協会の管理者</h2>
-        {admins.length === 0 ? (
-          <p className="text-muted">まだいません（招待は A-12）</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {admins.map((a) => (
-              <li key={a.userId} className="rounded-md border border-border px-4 py-2">
-                <span className="font-semibold">{a.displayName ?? "（表示名なし）"}</span>
-                <span className="ml-2 text-sm text-muted">{a.email}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {stats && stats.pendingAdminInvitations > 0 ? (
-          <p className="text-sm text-muted">返事待ちの招待: {stats.pendingAdminInvitations}</p>
-        ) : null}
+        <AdminManagement
+          associationId={id}
+          admins={admins.map((a) => ({ userId: a.userId, email: a.email, displayName: a.displayName }))}
+          invitations={invitations.map((i) => ({ id: i.id, email: i.email, status: i.status, expiresAt: i.expiresAt.toISOString() }))}
+          pendingCount={stats?.pendingAdminInvitations ?? 0}
+          maxAdmins={MAX_ADMINS_PER_ASSOCIATION}
+        />
       </section>
 
       <section className="flex flex-col gap-3">

@@ -1,8 +1,22 @@
 import type { FullConfig } from "@playwright/test";
-import { like, or } from "drizzle-orm";
+import { eq, inArray, like, or } from "drizzle-orm";
 import { closeDb, createDb } from "../../src/db/client";
 import { loadEnv } from "../../src/db/env";
-import { rateLimits } from "../../src/db/schema";
+import {
+  adminAccessLogs,
+  associationAdminInvitations,
+  associationAdmins,
+  associations,
+  associationSlugHistory,
+  categoryPresets,
+  mailLogs,
+  platformAdmins,
+  rateLimits,
+  sessions,
+  users,
+} from "../../src/db/schema";
+import { SAWARA_ASSOCIATION_ID } from "../../src/db/seed";
+import { withTenantOn } from "../../src/db/tenant";
 
 // 1. dev サーバー（webpack + polling）は、初めて開くページをその場でコンパイルする。テストの途中でコンパイルが走ると、
 //    クライアント側の画面遷移が途中の応答を受けて error 境界に落ちることがある（開発時だけの揺らぎ）。
@@ -18,18 +32,50 @@ const PATHS = [
   "/login/help",
   "/dev/ui",
   "/platform",
+  "/invitations",
   "/robots.txt",
 ];
 
 // 2. ログインのレート制限（IP 単位 20 回/時など）は、E2E を繰り返すと同じ IP で上限に達する。
 //    テストの前にログイン系の数えた行を消す（テスト用の DB だけ。本番の DB に向けない）
-async function resetLoginRateLimits(): Promise<void> {
+// 3. タイムアウトで止まった E2E は後片付け（finally）まで進まない。e2e-… のアカウントとその役割・招待を消しておく
+//    （残ると、早良区協会の管理者と招待の「5 名まで」に当たる）
+async function resetTestState(): Promise<void> {
   loadEnv();
   const url = process.env.MIGRATION_DATABASE_URL;
   if (!url) return;
   const db = createDb(url, { max: 1 });
   try {
     await db.delete(rateLimits).where(or(like(rateLimits.key, "login_request:%"), like(rateLimits.key, "login_verify:%")));
+
+    // E2E が作った協会（スラッグ e2e-…）ごと消す
+    const e2eAssociations = await db.select({ id: associations.id }).from(associations).where(like(associations.slug, "e2e-%"));
+    for (const { id } of e2eAssociations) {
+      await withTenantOn(db, id, async (tx) => {
+        await tx.delete(associationAdmins).where(eq(associationAdmins.associationId, id));
+        await tx.delete(associationAdminInvitations).where(eq(associationAdminInvitations.associationId, id));
+        await tx.delete(categoryPresets).where(eq(categoryPresets.associationId, id));
+        await tx.delete(associationSlugHistory).where(eq(associationSlugHistory.associationId, id));
+      });
+      await db.update(sessions).set({ enteredAssociationId: null, enteredUntil: null }).where(eq(sessions.enteredAssociationId, id));
+      await db.delete(adminAccessLogs).where(eq(adminAccessLogs.associationId, id));
+      await db.delete(mailLogs).where(eq(mailLogs.associationId, id));
+      await db.delete(associations).where(eq(associations.id, id));
+    }
+
+    const leftovers = await db.select({ id: users.id }).from(users).where(like(users.email, "e2e-%@example.com"));
+    const ids = leftovers.map((u) => u.id);
+    await withTenantOn(db, SAWARA_ASSOCIATION_ID, async (tx) => {
+      if (ids.length > 0) await tx.delete(associationAdmins).where(inArray(associationAdmins.userId, ids));
+      await tx.delete(associationAdminInvitations).where(like(associationAdminInvitations.email, "e2e-%@example.com"));
+    });
+    await db.delete(mailLogs).where(like(mailLogs.toEmail, "e2e-%@example.com"));
+    if (ids.length > 0) {
+      await db.delete(sessions).where(inArray(sessions.userId, ids));
+      await db.delete(adminAccessLogs).where(inArray(adminAccessLogs.userId, ids));
+      await db.delete(platformAdmins).where(inArray(platformAdmins.userId, ids));
+      await db.delete(users).where(inArray(users.id, ids));
+    }
   } finally {
     await closeDb(db);
   }
@@ -39,7 +85,7 @@ async function resetLoginRateLimits(): Promise<void> {
 const API_PATHS = ["/api/auth/request", "/api/auth/verify", "/api/auth/logout"];
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
-  await resetLoginRateLimits();
+  await resetTestState();
   const baseURL = config.projects[0]?.use.baseURL ?? "http://127.0.0.1:3000";
   for (const path of PATHS) {
     try {

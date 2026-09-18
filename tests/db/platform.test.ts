@@ -8,6 +8,7 @@ import {
   associations,
   associationSlugHistory,
   categoryPresets,
+  mailLogs,
   platformAdmins,
   sessions,
   users,
@@ -50,6 +51,7 @@ afterAll(async () => {
       await tx.delete(associationSlugHistory).where(eq(associationSlugHistory.associationId, id));
     });
     await owner.delete(adminAccessLogs).where(eq(adminAccessLogs.associationId, id));
+    await owner.delete(mailLogs).where(eq(mailLogs.associationId, id));
     await owner.delete(associations).where(eq(associations.id, id));
   }
   await owner.delete(adminAccessLogs).where(eq(adminAccessLogs.userId, platformUserId));

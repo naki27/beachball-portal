@@ -4,6 +4,7 @@ import { associationAdminInvitations, associations, associationSlugHistory, cate
 import { setTenant } from "@/db/tenant";
 import { hashSessionId } from "@/lib/auth/session";
 import { normalizeEmail } from "@/lib/auth/login-input";
+import { enqueueMail } from "@/lib/mail/outbox";
 import { DEFAULT_CATEGORY_PRESETS } from "@/lib/presets/default";
 import { logAdminAccess } from "@/lib/repo/admin-access-logs";
 import { type Association, resolveAssociationSlug } from "@/lib/repo/associations";
@@ -72,8 +73,8 @@ function validateAdminEmails(emails: string[]): string[] {
   return normalized;
 }
 
-// テナントの作成（§5.14）。協会の行・プリセットのコピー・最初の管理者への招待の行・記録を 1 つのトランザクションで
-// 招待のメールは A-12（送信待ちに積む）
+// テナントの作成（§5.14）。協会の行・プリセットのコピー・最初の管理者への招待の行と招待のメール（送信待ち）・記録を
+// 1 つのトランザクションで
 export async function createAssociationTenant(
   db: Db,
   actorUserId: string,
@@ -110,6 +111,12 @@ export async function createAssociationTenant(
         email,
         invitedBy: actorUserId,
         expiresAt: new Date(now.getTime() + ADMIN_INVITATION_DAYS * 24 * 60 * 60 * 1000),
+      });
+      await enqueueMail(tx, {
+        associationId: association.id,
+        mailType: "association_admin_invitation",
+        toEmail: email,
+        params: { invitationId: id },
       });
       invitationIds.push(id);
     }

@@ -1,12 +1,19 @@
+import { eq } from "drizzle-orm";
+import type { Db } from "@/db/client";
+import { associationAdminInvitations } from "@/db/schema";
+import type { Tx } from "@/db/tenant";
+import { formatDateWithWeekday, todayInTokyo } from "@/lib/date";
 import { SITE_NAME } from "@/lib/site";
 import type { MailType, OutgoingMail } from "./types";
 
-// メールの本文（設計書 §11）。送る直前に params の ID から組み立てる。本文にリンクを載せるのは §11 の表で決めたものだけ
+// メールの本文（設計書 §11）。送る直前に params の ID から組み立てる（本文は保存しない）。本文にリンクを載せるのは §11 の表で決めたものだけ
 // 件名の先頭は【協会名】、協会に属さないメールは【サイト名】
+// 雛形は tx（協会に属するメールなら、その協会に固定したトランザクション）で ID から行を読む
 
 export type ComposeContext = {
   // 協会に属さないメールは null
   associationName: string | null;
+  associationSlug: string | null;
   baseUrl: string;
 };
 
@@ -20,11 +27,26 @@ export function subjectWithBrand(ctx: Pick<ComposeContext, "associationName">, s
   return `【${brandOf(ctx)}】${subject}`;
 }
 
-type Template = (params: Record<string, unknown>, ctx: ComposeContext) => Composed;
+type Template = (params: Record<string, unknown>, ctx: ComposeContext, tx: Tx | Db) => Promise<Composed>;
+
+function associationTopUrl(ctx: ComposeContext): string {
+  return ctx.associationSlug ? `${ctx.baseUrl}/${ctx.associationSlug}/` : `${ctx.baseUrl}/`;
+}
+
+function untilText(expiresAt: Date): string {
+  return `${formatDateWithWeekday(todayInTokyo(expiresAt))}まで`;
+}
+
+async function loadAdminInvitation(tx: Tx | Db, params: Record<string, unknown>) {
+  const id = typeof params.invitationId === "string" ? params.invitationId : "";
+  const [row] = await tx.select().from(associationAdminInvitations).where(eq(associationAdminInvitations.id, id)).limit(1);
+  if (!row) throw new Error("招待がありません");
+  return row;
+}
 
 // 送信待ちから送る種別の雛形。ここにないものは送れず failed になる（各タスクで足す）
 const TEMPLATES: Partial<Record<MailType, Template>> = {
-  test: (params, ctx) => ({
+  test: async (params, ctx) => ({
     subject: subjectWithBrand(ctx, "テスト送信"),
     text: [
       `これは ${brandOf(ctx)} のテストメールです。`,
@@ -34,16 +56,65 @@ const TEMPLATES: Partial<Record<MailType, Template>> = {
       "このメールに心当たりがない場合は、無視してください。",
     ].join("\n"),
   }),
+
+  // テナント管理者の招待（§5.14・§11）: 協会名・協会のトップの URL・ログインに使うアドレス・期限・いつものブラウザで
+  association_admin_invitation: async (params, ctx, tx) => {
+    const invitation = await loadAdminInvitation(tx, params);
+    const brand = brandOf(ctx);
+    return {
+      subject: subjectWithBrand(ctx, "協会の管理者への招待"),
+      text: [
+        `${brand} の管理者として招待されました。`,
+        "",
+        "次の手順で参加してください。",
+        `1. いつものブラウザ（Safari・Chrome）で ${associationTopUrl(ctx)} を開く`,
+        `2. 「ログイン」から、このメールを受け取ったアドレス（${invitation.email}）でログインする`,
+        "3. 「招待」の画面で「参加する」を押す",
+        "",
+        `期限: ${untilText(invitation.expiresAt)}`,
+        "",
+        "ホーム画面に追加したアプリや LINE の中ではなく、いつものブラウザで使ってください（管理者は同時に 1 つの端末でしかログインできません）。",
+        "このメールに心当たりがない場合は、招待の画面で「心当たりがない」を選ぶか、無視してください。",
+      ].join("\n"),
+    };
+  },
+
+  association_admin_invitation_rejected: async (params, ctx, tx) => {
+    const invitation = await loadAdminInvitation(tx, params);
+    return {
+      subject: subjectWithBrand(ctx, "管理者への招待が断られました"),
+      text: [
+        `${brandOf(ctx)} の管理者への招待（${invitation.email}）は「心当たりがない」と返事がありました。`,
+        "メールアドレスを確かめてください。",
+      ].join("\n"),
+    };
+  },
+
+  association_admin_invitation_expired: async (params, ctx, tx) => {
+    const invitation = await loadAdminInvitation(tx, params);
+    return {
+      subject: subjectWithBrand(ctx, "管理者への招待の期限が切れました"),
+      text: [
+        `${brandOf(ctx)} の管理者への招待（${invitation.email}）は期限（${untilText(invitation.expiresAt)}）が過ぎました。`,
+        "必要なら、運営管理の画面からもう一度送ってください。",
+      ].join("\n"),
+    };
+  },
 };
 
 export function hasTemplate(mailType: string): mailType is MailType {
   return mailType in TEMPLATES;
 }
 
-export function composeMail(mailType: MailType, params: Record<string, unknown>, ctx: ComposeContext): Composed {
+export async function composeMail(
+  mailType: MailType,
+  params: Record<string, unknown>,
+  ctx: ComposeContext,
+  tx: Tx | Db,
+): Promise<Composed> {
   const template = TEMPLATES[mailType];
   if (!template) throw new Error(`メールの雛形がありません: ${mailType}`);
-  return template(params, ctx);
+  return template(params, ctx, tx);
 }
 
 // 確認番号のメール（§11 の login_code / email_change_code）。送信待ちには積まず、応答の前に直接送る（A-08）

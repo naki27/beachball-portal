@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   comparePlainDate,
   endOfDayTokyo,
+  formatDateWithWeekday,
   formatPlainDate,
   isValidPlainDate,
   parsePlainDate,
@@ -63,6 +64,14 @@ describe("formatPlainDate / parsePlainDate", () => {
     expect(isValidPlainDate({ year: 2026, month: 12, day: 31 })).toBe(true);
     expect(isValidPlainDate({ year: 2026, month: 0, day: 1 })).toBe(false);
     expect(isValidPlainDate({ year: 2026, month: 1, day: 1.5 })).toBe(false);
+  });
+});
+
+describe("formatDateWithWeekday", () => {
+  it("「9月17日（木）」の形。曜日は暦どおり", () => {
+    expect(formatDateWithWeekday({ year: 2026, month: 1, day: 1 })).toBe("1月1日（木）");
+    expect(formatDateWithWeekday({ year: 2026, month: 9, day: 30 })).toBe("9月30日（水）");
+    expect(formatDateWithWeekday({ year: 2027, month: 1, day: 31 })).toBe("1月31日（日）");
   });
 });
 

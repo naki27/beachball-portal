@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { closeDb, createDb } from "../../src/db/client";
 import { loadEnv, requireEnv } from "../../src/db/env";
 import {
@@ -8,6 +8,7 @@ import {
   associations,
   associationSlugHistory,
   categoryPresets,
+  mailLogs,
   platformAdmins,
   sessions,
   users,
@@ -64,6 +65,7 @@ test("運営管理者は協会を作り、名前を変え、切り替えて入�
     await page.getByLabel(/最初の管理者のメールアドレス/).fill(`first-admin-${stamp}@example.com`);
     await page.getByRole("button", { name: "協会を作る" }).click();
     await expect(page.getByText(`E2E 協会 ${stamp}を作りました`)).toBeVisible({ timeout: 15_000 });
+    // 最初の管理者への招待のメールが送信待ちに積まれる（送るのは job:mail）
     const link = page.getByRole("link", { name: `E2E 協会 ${stamp}` });
     await expect(link).toBeVisible({ timeout: 15_000 });
     const [row] = await owner.select({ id: associations.id }).from(associations).where(eq(associations.slug, slug));
@@ -88,13 +90,20 @@ test("運営管理者は協会を作り、名前を変え、切り替えて入�
     await page.getByRole("button", { name: "出る" }).click();
     await expect(page.getByText(/運営管理者として .* を表示中/)).toHaveCount(0, { timeout: 15_000 });
   } finally {
+    // 途中で止まっていても、スラッグから協会を探して消す
+    if (!createdId) {
+      const found = await owner.select({ id: associations.id }).from(associations).where(inArray(associations.slug, [slug, newSlug]));
+      createdId = found[0]?.id ?? null;
+    }
     if (createdId) {
+      await owner.update(sessions).set({ enteredAssociationId: null, enteredUntil: null }).where(eq(sessions.enteredAssociationId, createdId));
       await withTenantOn(owner, createdId, async (tx) => {
         await tx.delete(categoryPresets).where(eq(categoryPresets.associationId, createdId!));
         await tx.delete(associationAdminInvitations).where(eq(associationAdminInvitations.associationId, createdId!));
         await tx.delete(associationSlugHistory).where(eq(associationSlugHistory.associationId, createdId!));
       });
       await owner.delete(adminAccessLogs).where(eq(adminAccessLogs.associationId, createdId));
+      await owner.delete(mailLogs).where(eq(mailLogs.associationId, createdId));
       await owner.delete(associations).where(eq(associations.id, createdId));
     }
     await owner.delete(adminAccessLogs).where(eq(adminAccessLogs.userId, user.id));
