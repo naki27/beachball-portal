@@ -8,6 +8,8 @@ export default defineConfig({
   dialect: "postgresql",
   schema: "./src/db/schema.ts",
   out: "./src/db/migrations",
+  // TS の camelCase を列名の snake_case に対応させる（src/db/client.ts の drizzle() と同じ設定にする）
+  casing: "snake_case",
   dbCredentials: { url: requireEnv("MIGRATION_DATABASE_URL") },
   strict: true,
   verbose: true,

@@ -9,7 +9,7 @@
 ## 起動のしかた
 
 1. コンテナを開く（[docs/setup.md](docs/setup.md)）。Postgres（コンテナの中から `db:5432`）と Mailpit（受信箱は http://localhost:8025 ）も一緒に起動する。`.env` は初回に `.env.example` から作られる
-2. コンテナの中で `pnpm db:roles`（DB のロールを作る。何度流してもよい）→ `pnpm db:migrate`（テーブルと拡張を作る）。初回と、マイグレーションが増えたとき
+2. コンテナの中で `pnpm db:roles`（DB のロールを作る）→ `pnpm db:migrate`（テーブルと拡張を作る）→ `pnpm db:seed`（早良区協会・部門プリセット・`.env` の `SUPER_ADMIN_EMAILS` の運営管理者）。初回と、マイグレーションが増えたとき。どれも何度流してもよい
 3. `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 。http://localhost:3000/api/health が `{"ok":true}` なら DB につながっている
 4. テスト: `pnpm lint` / `pnpm typecheck` / `pnpm test`（Vitest。`TZ=UTC` と `TZ=Asia/Tokyo` の 2 回。`tests/db/` は Postgres が要る）/ `pnpm test:e2e`（Playwright。WebKit 375×667 と Chromium 360×640）。E2E のレポートは `pnpm exec playwright show-report --host 0.0.0.0` → http://localhost:9323
 

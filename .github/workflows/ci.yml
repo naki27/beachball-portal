@@ -57,10 +57,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: DB のロールとマイグレーション
+      - name: DB のロール・マイグレーション・初期データ（空の DB から通ることを毎回確かめる）
         run: |
           pnpm db:roles
           pnpm db:migrate
+          pnpm db:seed
 
       - run: pnpm lint
 

@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
-import { getDb } from "./client";
+import { type Db, getDb } from "./client";
 
 // withTenant のコールバックが受け取るトランザクション
-export type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 export type TenantOptions = {
   // 操作している人。SECURITY DEFINER 関数（付録 A）が app.user_id で見る。未ログインなら渡さない

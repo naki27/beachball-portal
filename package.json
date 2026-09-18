@@ -20,7 +20,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio --host 0.0.0.0",
-    "db:reset": "tsx src/db/scripts/reset.ts && pnpm db:roles && pnpm db:migrate"
+    "db:seed": "tsx src/db/scripts/seed.ts",
+    "db:reset": "tsx src/db/scripts/reset.ts && pnpm db:roles && pnpm db:migrate && pnpm db:seed"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

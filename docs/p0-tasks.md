@@ -72,7 +72,7 @@
 
 ### 進捗（2026-09-18 時点）
 
-- 完了: **L-01〜L-05**。次は **A-01**
+- 完了: **L-01〜L-05・A-01**。次は **A-02**
 - 開発マシンは Mac ではなく **Windows 11**。Colima の代わりに Rancher Desktop で `.devcontainer/` を動かす（手順はリポジトリの `docs/setup.md` §7。`tools/setup-mac.sh` は使わない）
 - リポジトリ名は `beach-entry` から **`beachball-portal`** に変更した（ローカルは `C:/Users/34265/Documents/beach/beachball-portal`、GitHub は https://github.com/naki27/beachball-portal ・HTTPS）。このファイルの `beach-entry` は読み替える
 - 詳しい申し送りはリポジトリの `docs/progress.md`
@@ -84,8 +84,8 @@
 | L-03 | Next.js の雛形とテストの土台 | M | L-02 | 完了 2026-09-17 |
 | L-04 | ローカルの Postgres・Mailpit と DB の土台 | M | L-03 | 完了 2026-09-18 |
 | L-05 | CI（任意） | S | L-04 | 完了 2026-09-18 |
-| A-01 | 基盤のテーブル（協会・アカウント・ログイン・記録） | M | L-04 | **次** |
-| A-02 | チーム・人物のテーブル | S | A-01 |  |
+| A-01 | 基盤のテーブル（協会・アカウント・ログイン・記録） | M | L-04 | 完了 2026-09-18 |
+| A-02 | チーム・人物のテーブル | S | A-01 | **次** |
 | A-03 | RLS と withTenant・リポジトリ層 | M | A-02 |  |
 | A-04 | 日付と正規化の関数 | S | L-03 |  |
 | A-05 | 協会の URL と 404/403/409・エラーページ | M | A-03 |  |
