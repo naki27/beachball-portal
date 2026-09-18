@@ -124,8 +124,5 @@ export function formatRetryAt(retryAt: Date): string {
   return new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", hour: "numeric", minute: "2-digit" }).format(retryAt);
 }
 
-// 戻り先として受け付けるのは、同じサイト内の相対パスだけ（/ で始まり // で始まらない・§5.2）
-export function safeNext(value: string | null | undefined): string | null {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null;
-  return value;
-}
+// 戻り先の検査はサーバーと共通（login-input.ts）
+export { safeNext } from "./login-input";

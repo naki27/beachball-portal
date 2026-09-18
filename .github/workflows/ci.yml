@@ -43,6 +43,13 @@ jobs:
       MIGRATION_DATABASE_URL: postgres://app_owner:app_owner@localhost:5432/beach
       JOB_DATABASE_URL: postgres://app_job:app_job@localhost:5432/beach
       BACKUP_DATABASE_URL: postgres://app_backup:app_backup@localhost:5432/beach
+      # テストが読む値（本物の秘密ではない）。CI には .env がないので、.env.example と同じものをここに置く
+      APP_BASE_URL: http://localhost:3000
+      SESSION_SECRET: ci-session-secret-not-for-production
+      LOGIN_CODE_HMAC_KEY: ci-login-code-hmac-key-not-for-production
+      TERMS_VERSION: 2027-01-31
+      MAIL_PROVIDER: console
+      MAIL_FROM: noreply@localhost
 
     steps:
       - uses: actions/checkout@v7

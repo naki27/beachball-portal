@@ -21,6 +21,9 @@ export function sessionCookieName(): string {
 
 export const LOGIN_ATTEMPT_COOKIE_MAX_AGE_SECONDS = 15 * 60;
 
+// セッションの Cookie は 90 日（発行からの上限）。10 日のスライディングの期限は DB が正（docs/adr/0005）
+export const SESSION_COOKIE_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
+
 export type CookieAttributes = {
   httpOnly: true;
   secure: boolean;

@@ -12,7 +12,7 @@
 ## 決定
 
 1. **旧スラッグの解決は `SECURITY DEFINER` 関数 `resolve_association_slug(text)`**（所有者 app_definer。現行のスラッグ → 旧スラッグの順に 1 行だけ返す）で行う。呼ぶのは `src/lib/repo/associations.ts` だけ。解決の全体は `src/lib/resolve-association.ts` の `resolveAssociation(slug)` の 1 か所（React の `cache` で 1 リクエスト 1 回）
-2. **403 は Next.js の `forbidden()`**（`next.config.ts` の `experimental.authInterrupts: true`）で返し、`forbidden.tsx` を描画する。3 種類の文言の理由は、`src/lib/page/forbidden.ts` のリクエスト単位の入れ物（React の `cache`）で `forbidden.tsx` に渡す。**`unauthorized()`（401）は使わない**（設計は未ログインも 403）。Route Handler は `jsonError(403, …)` の Response を返す
+2. **403 は Next.js の `forbidden()`**（`next.config.ts` の `experimental.authInterrupts: true`）で返し、`forbidden.tsx` を描画する。ページから `forbidden.tsx` へ値は渡せない（React の `cache` の入れ物も境界の描画では共有されなかった・A-09 で判明）ので、**3 種類の文言は `forbidden.tsx` が自分で決める**: 未ログイン／セッション切れは `getPrincipal()` の `sessionState`、「誰なら見られるか」は URL の規則の表（`src/lib/page/forbidden.ts` の `whoCanSee()`）。画面を足すときはこの表に規則を足す。**`unauthorized()`（401）は使わない**（設計は未ログインも 403）。Route Handler は `jsonError(403, …)` の Response を返す
 3. **`src/proxy.ts` が `x-url`（パスと検索文字列）を request header に入れ**、`requireAssociation()` の 308 の行き先と、エラーページの「協会のトップへ戻る」の行き先に使う。proxy は DB に触らない
 4. **409 はページの HTTP 状態コードにしない**。フォームの送信（Server Action / API）の応答に 409 を付け、画面には `ConflictScreen` の部品を埋め込んで理由と問い合わせの導線を出す
 5. ログインへの導線は `/login?next=<元の URL>`。受け口（A-08）はログイン後に `next` へ戻す（外部の URL は受け付けない）

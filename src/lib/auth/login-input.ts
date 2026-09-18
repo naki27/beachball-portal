@@ -10,6 +10,12 @@ export function normalizeCodeInput(input: string): string | null {
   return new RegExp(`^\\d{${CODE_LENGTH}}$`).test(digits) ? digits : null;
 }
 
+// 戻り先として受け付けるのは、同じサイト内の相対パスだけ（/ で始まり // で始まらない・§5.2）。サーバーとブラウザの両方で使う
+export function safeNext(value: string | null | undefined): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null;
+  return value;
+}
+
 // メールアドレスの形式（§5.1「不正なメール形式は拒否」）。厳密な RFC ではなく、利用者の打ち間違いを弾く程度
 // 小文字にそろえる（DB は citext だが、レート制限のキーのハッシュを安定させるため）
 export function normalizeEmail(input: string): string | null {

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
+import { AuthMenu } from "@/components/layout/auth-menu";
 import { SiteHeader } from "@/components/layout/site-header";
 import { requireAssociation } from "@/lib/page/require-association";
 
@@ -17,9 +19,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function AssociationLayout({ children, params }: Props) {
   const { slug } = await params;
   const association = await requireAssociation(slug);
+  const currentPath = (await headers()).get("x-url") ?? `/${association.slug}`;
   return (
     <>
-      <SiteHeader title={association.name} href={`/${association.slug}`} />
+      <SiteHeader title={association.name} href={`/${association.slug}`} right={<AuthMenu currentPath={currentPath} />} />
       {children}
     </>
   );

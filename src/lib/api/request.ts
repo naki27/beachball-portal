@@ -7,6 +7,17 @@ export function clientIp(request: Request): string {
   return first || request.headers.get("x-real-ip") || "unknown";
 }
 
+// Cookie ヘッダから 1 つ読む。なければ null
+export function readCookie(request: Request, name: string): string | null {
+  const header = request.headers.get("cookie");
+  if (!header) return null;
+  for (const part of header.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) return decodeURIComponent(rest.join("="));
+  }
+  return null;
+}
+
 // JSON の本文を読む。JSON でなければ null
 export async function readJson(request: Request): Promise<Record<string, unknown> | null> {
   try {

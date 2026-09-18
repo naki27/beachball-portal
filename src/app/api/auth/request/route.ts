@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { jsonError } from "@/lib/api/errors";
 import { isSameOrigin } from "@/lib/api/csrf";
-import { clientIp, readJson } from "@/lib/api/request";
+import { clientIp, readCookie, readJson } from "@/lib/api/request";
 import { cookieAttributes, LOGIN_ATTEMPT_COOKIE_MAX_AGE_SECONDS, loginAttemptCookieName } from "@/lib/auth/cookies";
 import { normalizeEmail } from "@/lib/auth/login-input";
 import { requestLoginCode } from "@/lib/auth/request-login-code";
@@ -52,14 +52,4 @@ export async function POST(request: Request): Promise<Response> {
   );
   response.cookies.set(cookieName, result.attemptId, cookieAttributes(LOGIN_ATTEMPT_COOKIE_MAX_AGE_SECONDS));
   return response;
-}
-
-function readCookie(request: Request, name: string): string | null {
-  const header = request.headers.get("cookie");
-  if (!header) return null;
-  for (const part of header.split(";")) {
-    const [key, ...rest] = part.trim().split("=");
-    if (key === name) return decodeURIComponent(rest.join("="));
-  }
-  return null;
 }

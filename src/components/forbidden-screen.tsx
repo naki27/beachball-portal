@@ -1,20 +1,22 @@
 import { headers } from "next/headers";
 import { ErrorScreen } from "@/components/error-screen";
-import { readForbiddenInfo } from "@/lib/page/forbidden";
+import { getPrincipal } from "@/lib/auth/principal";
+import { whoCanSee } from "@/lib/page/forbidden";
 
 // 403 のページ。文言は状況で 3 つ（設計書 §3.1・§4.4）。リダイレクトはしない
-// ログインのボタンは、ログインしたあと元のページに戻れるように next に元の URL を持たせる（受け口は A-08 の /login）
+// 未ログイン・セッション切れはセッションの状態から、「誰なら見られるか」は URL から決める（src/lib/page/forbidden.ts）
+// ログインのボタンは、ログインしたあと元のページに戻れるように next に元の URL を持たせる（受け口は /login）
 export async function ForbiddenScreen() {
-  const info = readForbiddenInfo() ?? { reason: "unauthenticated" as const };
   const url = (await headers()).get("x-url") ?? "/";
+  const principal = await getPrincipal();
   const login = { href: `/login?next=${encodeURIComponent(url)}`, label: "ログインする" };
 
-  switch (info.reason) {
-    case "unauthenticated":
+  switch (principal.sessionState) {
+    case "none":
       return <ErrorScreen title="このページを見るにはログインが必要です" action={login} />;
-    case "session_expired":
+    case "expired":
       return <ErrorScreen title="しばらく操作がなかったため、もう一度ログインしてください" action={login} />;
-    case "no_permission":
-      return <ErrorScreen title={`このページは${info.who ?? "権限のある人"}だけが見られます`} />;
+    case "active":
+      return <ErrorScreen title={`このページは${whoCanSee(url)}だけが見られます`} />;
   }
 }
