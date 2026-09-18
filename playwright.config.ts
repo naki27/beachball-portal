@@ -7,7 +7,8 @@ export default defineConfig({
   testDir: "tests/e2e",
   // 使うページを先に一度ずつ開いて dev サーバーにコンパイルさせる（tests/e2e/global-setup.ts）
   globalSetup: "./tests/e2e/global-setup.ts",
-  // dev サーバー（コンパイルと polling）は応答が遅れることがあるので、既定の 5 秒より長く待つ
+  // dev サーバー（コンパイルと polling）は応答が遅れることがあるので、既定より長く待つ（テスト 60 秒・期待 10 秒）
+  timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

@@ -80,7 +80,7 @@ describe("確認番号の照合", () => {
 
     // 一回性
     const again = await verifyLoginCode(app, { attemptId, code, ip: IP, termsVersion: TERMS, now: T0 });
-    expect(again).toEqual({ ok: false, remaining: 0 });
+    expect(again).toEqual({ ok: false, reason: "invalid", remaining: 0 });
 
     // 登録済みでもう一度ログイン: users は増えない
     const second = await issue(email, undefined, new Date(T0.getTime() + 60_000));
@@ -93,7 +93,7 @@ describe("確認番号の照合", () => {
     const email = newEmail();
     const { attemptId, code } = await issue(email);
     const late = new Date(T0.getTime() + 10 * 60_000 + 1);
-    expect(await verifyLoginCode(app, { attemptId, code, ip: IP, termsVersion: TERMS, now: late })).toEqual({ ok: false, remaining: 0 });
+    expect(await verifyLoginCode(app, { attemptId, code, ip: IP, termsVersion: TERMS, now: late })).toEqual({ ok: false, reason: "invalid", remaining: 0 });
   });
 
   it("間違いは試行につき 5 回まで。超えたら試行の番号をすべて無効にする", async () => {
@@ -102,10 +102,10 @@ describe("確認番号の照合", () => {
     const wrong = code === "000000" ? "000001" : "000000";
     for (let i = 1; i <= 5; i++) {
       const r = await verifyLoginCode(app, { attemptId, code: wrong, ip: IP, termsVersion: TERMS, now: T0 });
-      expect(r).toEqual({ ok: false, remaining: 5 - i });
+      expect(r).toEqual({ ok: false, reason: "invalid", remaining: 5 - i });
     }
     // 正しい番号でももう入れない
-    expect(await verifyLoginCode(app, { attemptId, code, ip: IP, termsVersion: TERMS, now: T0 })).toEqual({ ok: false, remaining: 0 });
+    expect(await verifyLoginCode(app, { attemptId, code, ip: IP, termsVersion: TERMS, now: T0 })).toEqual({ ok: false, reason: "invalid", remaining: 0 });
     const rows = await owner.select().from(loginCodes).where(eq(loginCodes.email, email));
     expect(rows.every((r) => r.usedAt !== null)).toBe(true);
   });
@@ -115,7 +115,7 @@ describe("確認番号の照合", () => {
     const { attemptId, code } = await issue(email);
     const stranger = generateAttemptId();
     for (let i = 0; i < 6; i++) {
-      expect(await verifyLoginCode(app, { attemptId: stranger, code, ip: IP, termsVersion: TERMS, now: T0 })).toEqual({ ok: false, remaining: 0 });
+      expect(await verifyLoginCode(app, { attemptId: stranger, code, ip: IP, termsVersion: TERMS, now: T0 })).toEqual({ ok: false, reason: "invalid", remaining: 0 });
     }
     expect(await verifyLoginCode(app, { attemptId: null, code, ip: IP, termsVersion: TERMS, now: T0 })).toMatchObject({ ok: false });
     // 本人の試行では入れる

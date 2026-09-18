@@ -31,9 +31,22 @@ export async function POST(request: Request): Promise<Response> {
         ip: clientIp(request),
         termsVersion: process.env.TERMS_VERSION ?? "",
       })
-    : ({ ok: false, remaining: 0 } as const);
+    : ({ ok: false, reason: "invalid", remaining: 0 } as const);
 
   if (!result.ok) {
+    if (result.reason === "admin_session_exists") {
+      // テナント管理者は同時に 1 つまで（§9.2）。番号はそのまま使えるので、もう一方でログアウトしてから同じ番号で入れる
+      return Response.json(
+        {
+          error: {
+            status: 409,
+            code: "admin_session_exists",
+            message: "別の端末（またはアプリ）でログインしています。そちらでログアウトしてから、もう一度お試しください",
+          },
+        },
+        { status: 409, headers: { "cache-control": "no-store" } },
+      );
+    }
     return Response.json(
       { error: { status: 400, message: "番号が違います", remaining: result.remaining } },
       { status: 400, headers: { "cache-control": "no-store" } },

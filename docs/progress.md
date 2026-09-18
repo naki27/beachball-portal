@@ -3,11 +3,19 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: A-09 ログイン②: 照合とセッション（人の確認待ち）
-- 次のタスク: A-10 テナント管理者の同時ログインの制限
+- 最後に終わったタスク: A-10 テナント管理者の同時ログインの制限
+- 次のタスク: A-11 運営管理者とテナントの作成
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### A-10（2026-09-18）
+- やったこと: `0005` の `SECURITY DEFINER` 関数 `current_user_is_association_admin()`（どこかの協会の管理者か。RLS 下で読むため）。`verifyLoginCode()` を並べ替え: 一致 → users を決める → 管理者なら users の行をロック → 30 分以内に操作のある有効なセッションがあれば `admin_session_exists`（番号は使用済みにしない。API は 409）、なければ古いセッションを終了 → ここで番号を使用済みに → セッション作成。`session.ts`: 管理者は `last_seen_at` を 1 分に 1 回更新（ほかは 1 日 1 回）、`endUserSessions(db, userId, { exceptSessionId })`、`activeSessionsOf`。`pnpm dev:grant-admin <メール> <スラッグ>`
+- 動作確認: lint / typecheck / test（TZ 2 回・125 本。§9.2 の受け入れ条件 4 つ＋1 分の更新＋まとめて終了）、E2E 32 本（2 つのブラウザで 409 → A のログアウト → B が同じ番号で入る）
+- 次への申し送り・既知の課題:
+  - E2E は dev サーバーでは 1 回のログインに 20 秒ほどかかる。テスト時間は全体 60 秒、2 台分の流れは 120 秒にした。`pnpm test` と `pnpm test:e2e` を同時に流すと詰まって落ちる
+  - `dev-admin@example.com` を早良区協会の管理者にしてある（ローカルの DB だけ。`pnpm dev:grant-admin` の確認用）
+- 使った枠（/usage の変化）: 未計測
+
 ### A-09（2026-09-18）
 - やったこと: `src/lib/auth/verify-login-code.ts`（Cookie の試行 ID → その試行の未使用・未期限の直近 3 個と HMAC を時間一定で比較。失敗は試行の未使用行すべての `attempt_count` を進め、5 回で全部無効。失敗はメール 10/時・IP 30/時で `rate_limits` に数える。一致したら同じメールの番号を全部無効 → users がなければ作成（`terms_version`・`terms_accepted_at`・`email_verified_at`）→ セッション作成）、`session.ts`（乱数 ID・DB は SHA-256・10 日・延長の書き込みは 1 日 1 回・90 日の上限。Cookie の Max-Age は 90 日で DB が正）、`redirect-after-login.ts`（`next` → 役割を持つ協会が 1 つならその協会 → `/mypage`）、`principal.ts` を本物に（Cookie → sessions → platform_admins。`getMembership` は withTenant で association_admins / team_admins / members＋team_members）。`POST /api/auth/verify`（失敗は理由によらず 400「番号が違います」＋remaining）・`POST /api/auth/logout`・`GET /api/me`。ヘッダにログイン／ログアウト（`AuthMenu`。ログアウトは `clearAllDrafts` してから）。`forbidden.tsx` は自分で判定（`whoCanSee(url)`）。CI に `.env` 相当の環境変数。ADR 0005
 - 動作確認: lint / typecheck / test（TZ 2 回・119 本。§9.2 の 10 分・1 回・5 回・他人の試行・直近 3 個・90 日はテスト用の時計で）、E2E 30 本（ログイン → 元のページ → 開き直してもログイン中 → ログアウト。Cookie は HttpOnly・Lax・Path=/）
