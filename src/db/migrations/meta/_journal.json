@@ -29,6 +29,13 @@
       "when": 1789696034498,
       "tag": "0003_rls-and-grants",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789697343177,
+      "tag": "0004_resolve-association-slug",
+      "breakpoints": true
     }
   ]
 }

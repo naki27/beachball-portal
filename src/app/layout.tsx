@@ -7,6 +7,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: SITE_NAME, template: `%s｜${SITE_NAME}` },
   description: SITE_NAME,
+  // 検索エンジンに載せない（X-Robots-Tag と robots.txt と三重に）
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
