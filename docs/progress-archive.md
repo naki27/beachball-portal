@@ -2,6 +2,16 @@
 
 `docs/progress.md` から移した古い申し送り（新しいものを上に）。タスクでは読まない。
 
+### A-03（2026-09-18）
+- やったこと: `0003_rls-and-grants.sql`（テナント表 11 個に enable + force + policy `<表>_tenant`。式は関数 `current_association_id()` = `nullif(current_setting('app.association_id', true), '')::uuid` の 1 か所。表ごとの grant（app_user / app_job / app_backup / app_definer）。`SECURITY DEFINER` 関数 `my_association_ids()`・`my_pending_invitations()`・`platform_association_stats()`（所有者 app_definer。execute は関数ごとに revoke → app_user に grant）。`db:roles` に app_definer への `usage, create` と `grant app_definer to app_owner` を追加。`src/db/tenant.ts` に `setTenant` / `withTenantOn(db, …)` / `withTenant`。`src/lib/repo/{scope,teams,members}.ts`（`(tx, associationId, …)` で省略不可、削除済みの除外が既定。`includeDeleted` は削除済み画面だけ）。seed は `withTenantOn` の中で入れる（FORCE で所有者にも効く）。テスト: `tests/db/rls.test.ts`（SET LOCAL なし 0 件・別協会は見えない・別協会へ書けない 42501・所有者にも効く・grant）、`tests/unit/repo-types.test.ts`（`@ts-expect-error`）。ADR 0002（新しい表に同じ形で足す手順）
+- 動作確認: `db:roles` → `db:migrate`、`db:reset` の一連、lint / typecheck / test（TZ 2 回・22 本）、`/api/health` ok
+- 次への申し送り・既知の課題:
+  - `platform_association_stats()` の `open_tournaments` は B-01 で `tournaments` を数える形に `create or replace` する（いまは 0）
+  - `association_slug_history` にも RLS が効くので、旧スラッグ → 協会の解決（`resolveAssociation`、A-05）はテナント未設定では読めない。A-05 で `SECURITY DEFINER` 関数を足す（ADR に残す）
+  - `drizzle-kit migrate` は失敗してもエラー文を出さない（exit 1 だけ）。原因は `psql -U app_owner -v ON_ERROR_STOP=1 --single-transaction -f <SQL>` で見る（全部戻るので安全）
+  - `db:studio` は app_owner でつなぐので、テナント表は 0 件に見える（FORCE）。中身を見るときは `postgres` でつなぐか、A-28 で studio 用の設定を考える
+- 使った枠（/usage の変化）: 未計測
+
 ### A-02（2026-09-18）
 - やったこと: `src/db/schema/members.ts`（members・member_aliases）と `teams.ts`（teams・team_members・team_admins・team_invitations）、`0002_teams-and-members.sql`（付録 A と突き合わせ済み。子は `(association_id, 親 id)` の複合 FK、GIN は `gin_trgm_ops`、部分一意 7 本）。`birth_date` は `date({ mode: "string" })`（JS の Date にしない・§7.0）。テスト `tests/db/constraints.test.ts`（別協会の親を指す INSERT が失敗・削除済みと同じ内容で登録し直せる。app_owner の transaction を最後に rollback し、失敗させる INSERT は savepoint = 入れ子の transaction）
 - 動作確認: `db:migrate` ×2（19 表）、lint / typecheck / test（TZ 2 回・14 本）

@@ -15,6 +15,8 @@
 
 CI: GitHub Actions（[.github/workflows/ci.yml](.github/workflows/ci.yml)）が pull request と main への push で lint → typecheck → test を流す（Postgres はサービスコンテナ。デプロイは入れない）。
 
+メール: 業務の処理は `mail_logs` に積むだけで、送るのは `pnpm job:mail`（本番は数分おきのジョブ。ローカルでは手で流す）。試すには `pnpm mail:test you@example.com` → `pnpm job:mail` → http://localhost:8025 。
+
 DB のほかのコマンド: `pnpm db:generate`（`src/db/schema.ts` からマイグレーションを作る）/ `pnpm db:studio`（→ http://localhost:4983 ）/ `pnpm db:reset`（ローカルだけ。DB を消して作り直す）。
 
 ## 進め方

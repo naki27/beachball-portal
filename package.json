@@ -21,11 +21,14 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio --host 0.0.0.0",
     "db:seed": "tsx src/db/scripts/seed.ts",
+    "job:mail": "tsx src/jobs/mail.ts",
+    "mail:test": "tsx src/jobs/mail-test.ts",
     "db:reset": "tsx src/db/scripts/reset.ts && pnpm db:roles && pnpm db:migrate && pnpm db:seed"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
     "next": "16.3.5",
+    "nodemailer": "^10.0.10",
     "pg": "8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -34,6 +37,7 @@
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",

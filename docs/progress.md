@@ -3,11 +3,20 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: A-06 画面の共通部品
-- 次のタスク: A-07 メールの土台（送信待ちの表と送信ジョブ）
+- 最後に終わったタスク: A-07 メールの土台（送信待ちの表と送信ジョブ）
+- 次のタスク: A-08 ログイン①: 確認番号の発行
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### A-07（2026-09-18）
+- やったこと: `src/lib/mail/`: `types.ts`（§11 の種別・`MailSender`）、`sender.ts`（`console` / `smtp`。`MAIL_PROVIDER=mailpit` は smtp の別名、接続先は `SMTP_URL`。console は本番で拒否。Brevo は X-01）、`outbox.ts`（`enqueueMail(tx, …)`。業務と同じトランザクションで `mail_logs` に queued。app_user は insert だけなので id はコードで作り RETURNING を使わない）、`templates.ts`（送る直前に組み立て。件名は【協会名】/【サイト名】。`test` と、A-08 用の `composeLoginCodeMail`）、`queue.ts`（`for update skip locked`。失敗は 1・5・15・60・180 分後に再試行、5 回で failed。雛形がない種別は再試行せず failed。エラー欄はメールアドレスを消す）。`pnpm job:mail`（app_job。失敗があれば exit 1）・`pnpm mail:test <宛先>`。nodemailer を追加
+- 動作確認: lint / typecheck / test（TZ 2 回・97 本）、`pnpm mail:test` → `pnpm job:mail` → Mailpit の API で「【早良区協会】テスト送信」を確認
+- 次への申し送り・既知の課題:
+  - drizzle のエラー文（`DrizzleQueryError.message`）にはクエリの引数（宛先など）が入る。ログに出すときは `sanitizeError()` か `cause.code` だけにする
+  - §11.2 の「当日の送信数が上限の 8 割で警告」は Brevo と一緒に X-01 で
+  - `mail_logs` を管理画面で読む関数（§5.14）はまだない。必要になったタスクで `SECURITY DEFINER` を足す
+- 使った枠（/usage の変化）: 未計測
+
 ### A-06（2026-09-18）
 - やったこと: レイアウトを route group `(site)`（ヘッダはサイト名）と `[slug]`（ヘッダは協会名。タブの題名は `title.absolute` ＋ template `%s｜協会名`）に分け、フッタ（`/privacy`・`/terms`）と電波の帯・一時保存の掃除はルートの layout。部品 `src/components/ui/`: `Button`（pending で「送信しています…」＋押せない）、`TextField`（理由・赤枠・1 回揺れる・`aria-describedby`）、`Message`（自動で消えない・`aria-live`・成功はチェックが描かれる）、`UndoBar`、`ErrorSummary`（「N か所に入力の誤りがあります」→欄へ移動）、`DelayedSkeleton`（1 秒・3 秒）、`OfflineBanner`、`Spinner`・`CheckIcon`。`src/lib/draft.ts`（純粋関数。キー `draft:<協会>:<画面>[:<対象>]`、7 日、`clearAllDrafts`）と `src/hooks/use-draft.ts`（`useSyncExternalStore`）。`tokens.css` に色と動きの変数（`--motion-fast/base/slow/spin`。`prefers-reduced-motion` で 0ms）、`globals.css` に `bb-*` の動きのクラスと Tailwind の色の対応。`/dev/ui`（production は 404）。ADR 0004
 - 動作確認: lint / typecheck / test（TZ 2 回・92 本）、E2E 22 本（`/dev/ui` の操作と一時保存の復元、フッタ、タブの題名）。375×667 のスクリーンショットは `test-results/…/dev-ui.png`
@@ -33,14 +42,4 @@
 - やったこと: `src/lib/date.ts`（`PlainDate`・`todayInTokyo`・`startOfDayTokyo`・`endOfDayTokyo` は付録 D のとおり。加えて DB の date 型／フォーム用に `formatPlainDate`・`parsePlainDate`（存在しない日付は null）・`isValidPlainDate`・`comparePlainDate`）、`src/lib/normalize.ts`（付録 B のとおり）。テスト: §8.2 の 10 例すべて＋補足、日付は瞬間を固定して境界（UTC 15:00）と往復を検査
 - 動作確認: lint / typecheck / test（TZ 2 回・44 本）
 - 次への申し送り: DB の `timezone = 'Asia/Tokyo'` は設定しない（業務の日付はすべて `date.ts` で日本時間に解釈し、SQL の `current_date` / `age()` は使わない方針・§6.3）。年齢は B-02 の `age.ts`
-- 使った枠（/usage の変化）: 未計測
-
-### A-03（2026-09-18）
-- やったこと: `0003_rls-and-grants.sql`（テナント表 11 個に enable + force + policy `<表>_tenant`。式は関数 `current_association_id()` = `nullif(current_setting('app.association_id', true), '')::uuid` の 1 か所。表ごとの grant（app_user / app_job / app_backup / app_definer）。`SECURITY DEFINER` 関数 `my_association_ids()`・`my_pending_invitations()`・`platform_association_stats()`（所有者 app_definer。execute は関数ごとに revoke → app_user に grant）。`db:roles` に app_definer への `usage, create` と `grant app_definer to app_owner` を追加。`src/db/tenant.ts` に `setTenant` / `withTenantOn(db, …)` / `withTenant`。`src/lib/repo/{scope,teams,members}.ts`（`(tx, associationId, …)` で省略不可、削除済みの除外が既定。`includeDeleted` は削除済み画面だけ）。seed は `withTenantOn` の中で入れる（FORCE で所有者にも効く）。テスト: `tests/db/rls.test.ts`（SET LOCAL なし 0 件・別協会は見えない・別協会へ書けない 42501・所有者にも効く・grant）、`tests/unit/repo-types.test.ts`（`@ts-expect-error`）。ADR 0002（新しい表に同じ形で足す手順）
-- 動作確認: `db:roles` → `db:migrate`、`db:reset` の一連、lint / typecheck / test（TZ 2 回・22 本）、`/api/health` ok
-- 次への申し送り・既知の課題:
-  - `platform_association_stats()` の `open_tournaments` は B-01 で `tournaments` を数える形に `create or replace` する（いまは 0）
-  - `association_slug_history` にも RLS が効くので、旧スラッグ → 協会の解決（`resolveAssociation`、A-05）はテナント未設定では読めない。A-05 で `SECURITY DEFINER` 関数を足す（ADR に残す）
-  - `drizzle-kit migrate` は失敗してもエラー文を出さない（exit 1 だけ）。原因は `psql -U app_owner -v ON_ERROR_STOP=1 --single-transaction -f <SQL>` で見る（全部戻るので安全）
-  - `db:studio` は app_owner でつなぐので、テナント表は 0 件に見える（FORCE）。中身を見るときは `postgres` でつなぐか、A-28 で studio 用の設定を考える
 - 使った枠（/usage の変化）: 未計測
