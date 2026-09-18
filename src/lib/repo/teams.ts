@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { type TeamKind, teamAdmins, teams } from "@/db/schema";
+import { members, type TeamKind, teamAdmins, teamMembers, teams } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 import { type ReadOptions, tenantScope } from "./scope";
 
@@ -106,4 +106,36 @@ export async function findIndividualTeamOf(tx: Tx, associationId: string, userId
     .where(and(tenantScope(teams, associationId), eq(teams.kind, "individual"), eq(teams.createdBy, userId)))
     .limit(1);
   return row ?? null;
+}
+
+// その人がそのチームの代表者（解除されていない）か
+export async function isActiveTeamAdmin(tx: Tx, associationId: string, teamId: string, userId: string): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: teamAdmins.id })
+    .from(teamAdmins)
+    .where(and(eq(teamAdmins.associationId, associationId), eq(teamAdmins.teamId, teamId), eq(teamAdmins.userId, userId), isNull(teamAdmins.revokedAt)))
+    .limit(1);
+  return !!row;
+}
+
+// その人が選手として所属するチーム（本人の人物が現役の選手一覧にいる・§3.2）。個人登録は含めない。名前の順
+export async function listTeamsWherePlayer(tx: Tx, associationId: string, userId: string): Promise<Team[]> {
+  const rows = await tx
+    .select({ team: teams })
+    .from(members)
+    .innerJoin(teamMembers, and(eq(teamMembers.associationId, members.associationId), eq(teamMembers.memberId, members.id)))
+    .innerJoin(teams, and(eq(teams.associationId, teamMembers.associationId), eq(teams.id, teamMembers.teamId)))
+    .where(
+      and(
+        eq(members.associationId, associationId),
+        eq(members.userId, userId),
+        isNull(members.deletedAt),
+        isNull(teamMembers.leftAt),
+        isNull(teamMembers.deletedAt),
+        tenantScope(teams, associationId),
+        eq(teams.kind, "team"),
+      ),
+    )
+    .orderBy(asc(teams.name));
+  return rows.map((r) => r.team);
 }

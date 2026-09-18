@@ -4,7 +4,9 @@ import { LogoutButton } from "@/components/layout/logout-button";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { denyPage } from "@/lib/page/forbidden";
-import { loadAdminTeams, loadIndividualRegistration, loadMyAssociations } from "@/lib/page/my-associations";
+import { loadAdminTeams, loadIndividualRegistration, loadMyAssociations, loadPlayerTeams } from "@/lib/page/my-associations";
+import { getMyPerson } from "@/lib/teams/self";
+import { UnlinkButton } from "./unlink-button";
 import { listMyPendingInvitations } from "@/lib/repo/invitations";
 import { findUserProfile } from "@/lib/repo/users";
 import { DisplayNameForm } from "./display-name-form";
@@ -24,6 +26,9 @@ export default async function MyPage() {
   ]);
   const adminTeams = await Promise.all(associations.map((a) => loadAdminTeams(principal, a.id)));
   const individuals = await Promise.all(associations.map((a) => loadIndividualRegistration(principal, a.id)));
+  const playerTeams = await Promise.all(associations.map((a) => loadPlayerTeams(principal, a.id)));
+  const me = { ...principal, userId: principal.userId };
+  const persons = await Promise.all(associations.map((a) => getMyPerson(db, me, a.id)));
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
@@ -81,6 +86,25 @@ export default async function MyPage() {
                 </ul>
               </div>
             ) : null}
+            {playerTeams[i].length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <h3 className="font-semibold">選手として所属するチーム</h3>
+                <ul className="flex flex-col gap-2">
+                  {playerTeams[i].map((t) => (
+                    <li key={t.id}>
+                      <Link
+                        href={`/${a.slug}/teams/${t.id}/members`}
+                        className="flex min-h-12 items-center rounded-md border border-border px-4 font-semibold no-underline hover:bg-surface"
+                      >
+                        {t.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-sm text-muted">情報の修正はチームの代表者だけができます。代表者に直接お伝えください</p>
+              </div>
+            ) : null}
+            {persons[i] && !individuals[i] ? <UnlinkButton slug={a.slug} memberId={persons[i].memberId} personName={persons[i].name} /> : null}
             <p className="flex flex-wrap gap-x-4 gap-y-2">
               <Link href={`/${a.slug}`} className="font-semibold underline underline-offset-2">
                 {a.name}のページへ

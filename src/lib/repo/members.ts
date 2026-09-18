@@ -121,3 +121,11 @@ export async function setMemberUser(tx: Tx, associationId: string, memberId: str
     .set({ userId, updatedAt: new Date() })
     .where(and(tenantScope(members, associationId), eq(members.id, memberId)));
 }
+
+// 人物の状態を変える（要確認にする・解消する。統合は B-15）
+export async function updateMemberStatus(tx: Tx, associationId: string, memberId: string, status: MemberStatus): Promise<void> {
+  await tx
+    .update(members)
+    .set({ status, updatedAt: new Date() })
+    .where(and(tenantScope(members, associationId), eq(members.id, memberId)));
+}

@@ -28,6 +28,7 @@ export default async function InvitationsPage() {
             associationSlug: i.associationSlug,
             teamName: i.teamName,
             kind: i.kind,
+            memberName: i.memberName,
             inviterName: i.inviterName,
             expiresAt: i.expiresAt.toISOString(),
           }))}

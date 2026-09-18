@@ -2,7 +2,9 @@ import type { Db } from "@/db/client";
 import type { MemberSex } from "@/db/schema";
 import { type Tx, withTenantOn } from "@/db/tenant";
 import { ageAt } from "@/lib/age";
-import type { Principal } from "@/lib/authz";
+import { type Principal, resolveRole, roleIncludes } from "@/lib/authz";
+import { isUuid } from "@/lib/ids";
+import { readAssociationRoles } from "@/lib/repo/roles";
 import { parsePlainDate, todayInTokyo } from "@/lib/date";
 import { resolveMember } from "@/lib/matching";
 import { findMember, findMemberByUserId, setMemberUser } from "@/lib/repo/members";
@@ -109,6 +111,30 @@ export async function registerSelfAsPlayer(
       }
       const row = await addTeamMember(tx, associationId, teamId, self.memberId);
       return { teamMemberId: row.id, memberId: self.memberId };
+    },
+    { userId: principal.userId },
+  );
+}
+
+// アカウントと人物の紐づけの解除（§5.15）。本人とテナント管理者だけ（代表者にはさせない）。人物は名簿に残る
+// 個人登録がある間は本人からは解除できない（登録情報が誰のものか分からなくなるため）
+export async function unlinkMember(db: Db, principal: Principal & { userId: string }, associationId: string, memberId: string): Promise<void> {
+  if (!isUuid(memberId)) throw new TeamError(404, "登録が見つかりません");
+  return withTenantOn(
+    db,
+    associationId,
+    async (tx) => {
+      const member = await findMember(tx, associationId, memberId);
+      if (!member || member.status === "merged") throw new TeamError(404, "登録が見つかりません");
+      const isSelf = member.userId === principal.userId;
+      const roles = await readAssociationRoles(tx, associationId, principal.userId);
+      const role = resolveRole(principal, roles, { associationId });
+      if (!isSelf && !roleIncludes(role, "association_admin")) throw new TeamError(403, "本人と協会の管理者だけが解除できます");
+      if (!member.userId) throw new TeamError(409, "この登録はアカウントと結びついていません");
+      if (isSelf && (await findIndividualTeamOf(tx, associationId, principal.userId))) {
+        throw new TeamError(409, "個人の登録がある間は解除できません");
+      }
+      await setMemberUser(tx, associationId, member.id, null);
     },
     { userId: principal.userId },
   );

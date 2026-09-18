@@ -2,7 +2,7 @@ import { getDb } from "@/db/client";
 import { withTenant } from "@/db/tenant";
 import { getMembership } from "@/lib/auth/principal";
 import { type AssociationLink, listAllAssociations, listMyAssociations } from "@/lib/repo/associations";
-import { findIndividualTeamOf, listTeamsAdminedBy } from "@/lib/repo/teams";
+import { findIndividualTeamOf, listTeamsAdminedBy, listTeamsWherePlayer } from "@/lib/repo/teams";
 import { getMyPerson, type MyPerson } from "@/lib/teams/self";
 import { type Principal, ROLE_LABEL } from "@/lib/authz";
 
@@ -57,4 +57,12 @@ export async function loadIndividualRegistration(
   if (!team) return null;
   const person = await getMyPerson(getDb(), { ...principal, userId }, associationId);
   return { teamId: team.id, person };
+}
+
+// マイページの協会の枠: 選手として所属するチーム（§5.3）
+export async function loadPlayerTeams(principal: Principal, associationId: string): Promise<{ id: string; name: string }[]> {
+  if (!principal.userId) return [];
+  const userId = principal.userId;
+  const teams = await withTenant(associationId, (tx) => listTeamsWherePlayer(tx, associationId, userId), { userId });
+  return teams.map((t) => ({ id: t.id, name: t.name }));
 }

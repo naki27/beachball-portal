@@ -50,6 +50,13 @@
       "when": 1789704117957,
       "tag": "0006_platform-functions",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789716881233,
+      "tag": "0007_team-invitation-function",
+      "breakpoints": true
     }
   ]
 }

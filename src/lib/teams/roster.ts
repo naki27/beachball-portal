@@ -7,6 +7,7 @@ import { parsePlainDate, type PlainDate, todayInTokyo } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
 import { matchKeysOf, resolveMember } from "@/lib/matching";
 import { updateMemberPerson } from "@/lib/repo/members";
+import { listTeamInvitations } from "@/lib/repo/team-invitations";
 import {
   addTeamMember,
   clearTeamMemberLeft,
@@ -30,6 +31,14 @@ export const UNDO_LEAVE_WINDOW_MS = 30 * 60 * 1000;
 
 export type Personal = { birthDate: string; age: number; sex: MemberSex };
 
+// 本人のアカウントとの紐づけの状態（代表者以上にだけ入る・§5.15）
+export type AccountState = {
+  // 本人がログインできる（members.user_id あり）
+  linked: boolean;
+  // 返事待ち（期限切れを含む）の選手としての招待
+  invitation: { invitationId: string; email: string; expiresAt: string; expired: boolean } | null;
+};
+
 export type RosterItem = {
   teamMemberId: string;
   memberId: string;
@@ -39,6 +48,8 @@ export type RosterItem = {
   isSelf: boolean;
   // 生年月日・年齢・性別。代表者以上と本人にだけ入る（§3.2）
   personal: Personal | null;
+  // 代表者以上にだけ入る
+  account: AccountState | null;
 };
 
 export type Roster = {
@@ -75,9 +86,11 @@ export async function getRoster(
       const canManage = can(role, "manageRoster");
       const today = todayInTokyo(now);
       const rows = await listActiveRoster(tx, associationId, teamId);
+      const invitations = canManage ? await listTeamInvitations(tx, associationId, teamId, ["pending", "expired"]) : [];
       const items = rows.map((row): RosterItem => {
         const isSelf = row.userId === principal.userId;
         const showPersonal = can(role, "viewPlayerPersonal", { self: isSelf });
+        const invitation = invitations.find((i) => i.kind === "player" && i.memberId === row.memberId) ?? null;
         return {
           teamMemberId: row.teamMemberId,
           memberId: row.memberId,
@@ -85,6 +98,19 @@ export async function getRoster(
           kana: row.kana,
           isSelf,
           personal: showPersonal ? personalOf(row, today) : null,
+          account: canManage
+            ? {
+                linked: row.userId !== null,
+                invitation: invitation
+                  ? {
+                      invitationId: invitation.id,
+                      email: invitation.email,
+                      expiresAt: invitation.expiresAt.toISOString(),
+                      expired: invitation.status === "expired" || invitation.expiresAt.getTime() <= now.getTime(),
+                    }
+                  : null,
+              }
+            : null,
         };
       });
       const recentlyLeft = canManage

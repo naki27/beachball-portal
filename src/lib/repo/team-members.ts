@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, isNotNull, isNull } from "drizzle-orm";
-import { type MemberSex, type MemberStatus, members, teamMembers } from "@/db/schema";
+import { type MemberSex, type MemberStatus, members, teamMembers, teams } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 
 // 選手一覧（team_members = 人物の所属・§5.15）のリポジトリ。すべて withTenant の tx の中で、associationId を必ず渡して呼ぶ
@@ -126,4 +126,24 @@ export async function clearTeamMemberLeft(tx: Tx, associationId: string, teamMem
     .update(teamMembers)
     .set({ leftAt: null, leftBy: null })
     .where(and(eq(teamMembers.associationId, associationId), eq(teamMembers.id, teamMemberId)));
+}
+
+// その人物が現役の選手として載っているチームの名前（削除されていないチーム）
+export async function listTeamNamesOfMember(tx: Tx, associationId: string, memberId: string): Promise<string[]> {
+  const rows = await tx
+    .select({ name: teams.name })
+    .from(teamMembers)
+    .innerJoin(teams, and(eq(teams.associationId, teamMembers.associationId), eq(teams.id, teamMembers.teamId)))
+    .where(
+      and(
+        eq(teamMembers.associationId, associationId),
+        eq(teamMembers.memberId, memberId),
+        isNull(teamMembers.leftAt),
+        isNull(teamMembers.deletedAt),
+        isNull(teams.deletedAt),
+        eq(teams.kind, "team"),
+      ),
+    )
+    .orderBy(asc(teams.name));
+  return rows.map((r) => r.name);
 }

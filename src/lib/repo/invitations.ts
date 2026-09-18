@@ -9,9 +9,12 @@ export type MyInvitation = {
   invitationId: string;
   associationName: string;
   associationSlug: string;
+  teamId: string | null;
   teamName: string | null;
   // player | admin（チーム）| association_admin（テナント管理者）
   kind: string;
+  // 選手としての招待のときの人物の氏名（「選手（山田太郎）として」）
+  memberName: string | null;
   inviterName: string | null;
   expiresAt: Date;
 };
@@ -23,8 +26,10 @@ export async function listMyPendingInvitations(db: Db | Tx, userId: string): Pro
       invitation_id: string;
       association_name: string;
       association_slug: string;
+      team_id: string | null;
       team_name: string | null;
       kind: string;
+      member_name: string | null;
       inviter_name: string | null;
       expires_at: string | Date;
     }>(sql`select * from my_pending_invitations()`);
@@ -32,8 +37,10 @@ export async function listMyPendingInvitations(db: Db | Tx, userId: string): Pro
       invitationId: r.invitation_id,
       associationName: r.association_name,
       associationSlug: r.association_slug,
+      teamId: r.team_id,
       teamName: r.team_name,
       kind: r.kind,
+      memberName: r.member_name,
       inviterName: r.inviter_name,
       expiresAt: new Date(r.expires_at),
     }));

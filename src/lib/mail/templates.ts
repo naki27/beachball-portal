@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { associationAdminInvitations } from "@/db/schema";
+import { associationAdminInvitations, members, teamInvitations, teams, users } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 import { formatDateWithWeekday, todayInTokyo } from "@/lib/date";
 import { SITE_NAME } from "@/lib/site";
@@ -44,6 +44,23 @@ async function loadAdminInvitation(tx: Tx | Db, params: Record<string, unknown>)
   return row;
 }
 
+// 選手・代表者としての招待（§5.15）。チーム名・人物の氏名・招待した代表者の表示名を ID から読む（本文は保存しない）
+async function loadTeamInvitation(tx: Tx | Db, params: Record<string, unknown>) {
+  const id = typeof params.invitationId === "string" ? params.invitationId : "";
+  const [row] = await tx.select().from(teamInvitations).where(eq(teamInvitations.id, id)).limit(1);
+  if (!row) throw new Error("招待がありません");
+  const [team] = await tx.select({ name: teams.name }).from(teams).where(eq(teams.id, row.teamId)).limit(1);
+  const [member] = row.memberId ? await tx.select({ name: members.name }).from(members).where(eq(members.id, row.memberId)).limit(1) : [];
+  const [inviter] = await tx.select({ displayName: users.displayName }).from(users).where(eq(users.id, row.invitedBy)).limit(1);
+  return {
+    ...row,
+    teamName: team?.name ?? "チーム",
+    memberName: member?.name ?? null,
+    inviterName: inviter?.displayName ?? null,
+    roleText: row.kind === "admin" ? "代表者" : `選手${member?.name ? `（${member.name}）` : ""}`,
+  };
+}
+
 // 送信待ちから送る種別の雛形。ここにないものは送れず failed になる（各タスクで足す）
 const TEMPLATES: Partial<Record<MailType, Template>> = {
   test: async (params, ctx) => ({
@@ -75,6 +92,63 @@ const TEMPLATES: Partial<Record<MailType, Template>> = {
         "",
         "ホーム画面に追加したアプリや LINE の中ではなく、いつものブラウザで使ってください（管理者は同時に 1 つの端末でしかログインできません）。",
         "このメールに心当たりがない場合は、招待の画面で「心当たりがない」を選ぶか、無視してください。",
+      ].join("\n"),
+    };
+  },
+
+  // 選手・代表者としての招待（§5.15・§11）: 協会名・チーム名・招待した代表者の表示名、ログインに使うアドレス、期限、協会のトップの URL
+  team_invitation: async (params, ctx, tx) => {
+    const i = await loadTeamInvitation(tx, params);
+    const who = i.inviterName ? `代表者の ${i.inviterName} さん` : "代表者";
+    return {
+      subject: subjectWithBrand(ctx, `${i.teamName}からの招待`),
+      text: [
+        `${brandOf(ctx)} の ${i.teamName} の${who}から、${i.roleText}として招待されました。`,
+        "",
+        "次の手順で参加してください。",
+        `1. いつものブラウザ（Safari・Chrome）で ${associationTopUrl(ctx)} を開く`,
+        `2. 「ログイン」から、このメールを受け取ったアドレス（${i.email}）でログインする`,
+        "3. 「招待」の画面で「参加する」を押す",
+        "",
+        `期限: ${untilText(i.expiresAt)}`,
+        "",
+        "別のアドレスでログインすると招待は見えません。",
+        "このメールに心当たりがない場合は、招待の画面で「心当たりがない」を選ぶか、無視してください。",
+      ].join("\n"),
+    };
+  },
+
+  team_invitation_accepted: async (params, ctx, tx) => {
+    const i = await loadTeamInvitation(tx, params);
+    return {
+      subject: subjectWithBrand(ctx, `${i.teamName}への招待に返事がありました`),
+      text: [
+        i.kind === "admin"
+          ? `${i.email} さんが ${i.teamName} の代表者になりました。`
+          : `${i.memberName ?? "招待した方"}さんが ${i.teamName} に参加しました。`,
+        `本人は ${brandOf(ctx)} のページで、選手一覧や申し込みを見られるようになりました。`,
+      ].join("\n"),
+    };
+  },
+
+  team_invitation_rejected: async (params, ctx, tx) => {
+    const i = await loadTeamInvitation(tx, params);
+    return {
+      subject: subjectWithBrand(ctx, `${i.teamName}への招待が断られました`),
+      text: [
+        `${i.teamName} の${i.roleText}としての招待（${i.email}）は「心当たりがない」と返事がありました。`,
+        "メールアドレスを確かめてください。",
+      ].join("\n"),
+    };
+  },
+
+  team_invitation_expired: async (params, ctx, tx) => {
+    const i = await loadTeamInvitation(tx, params);
+    return {
+      subject: subjectWithBrand(ctx, `${i.teamName}への招待の期限が切れました`),
+      text: [
+        `${i.teamName} の${i.roleText}としての招待（${i.email}）は期限（${untilText(i.expiresAt)}）が過ぎました。`,
+        "必要なら、選手一覧の画面からもう一度送ってください。",
       ].join("\n"),
     };
   },

@@ -122,6 +122,11 @@ const API_PATHS = [
   `/api/sawara/teams/${NO_ID}/members/${NO_ID}`,
   `/api/sawara/teams/${NO_ID}/members/${NO_ID}/leave`,
   `/api/sawara/teams/${NO_ID}/members/${NO_ID}/undo-leave`,
+  `/api/sawara/teams/${NO_ID}/invitations`,
+  `/api/sawara/teams/${NO_ID}/invitations/${NO_ID}`,
+  `/api/sawara/teams/${NO_ID}/invitations/${NO_ID}/resend`,
+  `/api/sawara/members/${NO_ID}/link`,
+  `/api/me/invitations/${NO_ID}/reject`,
 ];
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
