@@ -8,11 +8,12 @@
 
 ## 起動のしかた
 
-1. コンテナを開く（[docs/setup.md](docs/setup.md)）
-2. コンテナの中で `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000
-3. テスト: `pnpm lint` / `pnpm typecheck` / `pnpm test`（Vitest。`TZ=UTC` と `TZ=Asia/Tokyo` の 2 回）/ `pnpm test:e2e`（Playwright。WebKit 375×667 と Chromium 360×640）。E2E のレポートは `pnpm exec playwright show-report --host 0.0.0.0` → http://localhost:9323
+1. コンテナを開く（[docs/setup.md](docs/setup.md)）。Postgres（コンテナの中から `db:5432`）と Mailpit（受信箱は http://localhost:8025 ）も一緒に起動する。`.env` は初回に `.env.example` から作られる
+2. コンテナの中で `pnpm db:roles`（DB のロールを作る。何度流してもよい）→ `pnpm db:migrate`（テーブルと拡張を作る）。初回と、マイグレーションが増えたとき
+3. `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 。http://localhost:3000/api/health が `{"ok":true}` なら DB につながっている
+4. テスト: `pnpm lint` / `pnpm typecheck` / `pnpm test`（Vitest。`TZ=UTC` と `TZ=Asia/Tokyo` の 2 回。`tests/db/` は Postgres が要る）/ `pnpm test:e2e`（Playwright。WebKit 375×667 と Chromium 360×640）。E2E のレポートは `pnpm exec playwright show-report --host 0.0.0.0` → http://localhost:9323
 
-DB の準備（`pnpm db:roles` → `pnpm db:migrate`）は L-04 で足す。
+DB のほかのコマンド: `pnpm db:generate`（`src/db/schema.ts` からマイグレーションを作る）/ `pnpm db:studio`（→ http://localhost:4983 ）/ `pnpm db:reset`（ローカルだけ。DB を消して作り直す）。
 
 ## 進め方
 
@@ -30,7 +31,7 @@ DB の準備（`pnpm db:roles` → `pnpm db:migrate`）は L-04 で足す。
 |---|---|
 | `src/app/` | Next.js（App Router）の画面と API。`globals.css`・`tokens.css`（色と動きの CSS 変数） |
 | `src/lib/` | 正規化・名寄せ・日付・年齢・締切・部門・会員・認可・メール。`site.ts`（サイト名） |
-| `src/db/` | Drizzle の schema・マイグレーション・`withTenant`（L-04 から） |
+| `src/db/` | Drizzle の `schema.ts`・`migrations/`・接続プール（`client.ts`）・`withTenant`（`tenant.ts`）・DB のスクリプト（`scripts/`） |
 | `tests/unit/`・`tests/e2e/` | Vitest・Playwright |
 | `tools/` | 開発の補助スクリプト |
 | `.devcontainer/` | 開発環境の定義 |

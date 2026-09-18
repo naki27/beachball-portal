@@ -72,18 +72,18 @@
 
 ### 進捗（2026-09-18 時点）
 
-- 完了: **L-01〜L-03**（L-03 は人の確認待ち）。次は **L-04**
+- 完了: **L-01〜L-04**（L-04 は人の確認待ち）。次は **L-05**（任意。飛ばすなら **A-01**）
 - 開発マシンは Mac ではなく **Windows 11**。Colima の代わりに Rancher Desktop で `.devcontainer/` を動かす（手順はリポジトリの `docs/setup.md` §7。`tools/setup-mac.sh` は使わない）
-- リポジトリ名は `beach-entry` から **`beachball-portal`** に変更した（ローカルは `C:/Users/34265/dev/beachball-portal`、GitHub は https://github.com/naki27/beachball-portal ・HTTPS）。このファイルの `beach-entry` は読み替える
+- リポジトリ名は `beach-entry` から **`beachball-portal`** に変更した（ローカルは `C:/Users/34265/Documents/beach/beachball-portal`、GitHub は https://github.com/naki27/beachball-portal ・HTTPS）。このファイルの `beach-entry` は読み替える
 - 詳しい申し送りはリポジトリの `docs/progress.md`
 
 | ID | タスク | 大きさ | 前提 | 状態 |
 |---|---|---|---|---|
 | L-01 | 開発マシンの準備 | 人 | — | 完了（Windows 11 で代替） |
 | L-02 | リポジトリと作業の決まり | S | L-01 | 完了 2026-09-17 |
-| L-03 | Next.js の雛形とテストの土台 | M | L-02 | 完了 2026-09-17（確認待ち） |
-| L-04 | ローカルの Postgres・Mailpit と DB の土台 | M | L-03 | **次** |
-| L-05 | CI（任意） | S | L-04 |  |
+| L-03 | Next.js の雛形とテストの土台 | M | L-02 | 完了 2026-09-17 |
+| L-04 | ローカルの Postgres・Mailpit と DB の土台 | M | L-03 | 完了 2026-09-18（確認待ち） |
+| L-05 | CI（任意） | S | L-04 | **次**（任意。飛ばすなら A-01） |
 | A-01 | 基盤のテーブル（協会・アカウント・ログイン・記録） | M | L-04 |  |
 | A-02 | チーム・人物のテーブル | S | A-01 |  |
 | A-03 | RLS と withTenant・リポジトリ層 | M | A-02 |  |

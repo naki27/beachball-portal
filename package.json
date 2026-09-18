@@ -15,10 +15,17 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "cross-env TZ=UTC vitest run && cross-env TZ=Asia/Tokyo vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:roles": "tsx src/db/scripts/roles.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio --host 0.0.0.0",
+    "db:reset": "tsx src/db/scripts/reset.ts && pnpm db:roles && pnpm db:migrate"
   },
   "dependencies": {
+    "drizzle-orm": "0.45.2",
     "next": "16.3.5",
+    "pg": "8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -26,12 +33,15 @@
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.5",
+    "@types/pg": "8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "cross-env": "^10.1.0",
+    "drizzle-kit": "0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4",
+    "tsx": "4.23.13",
     "typescript": "^5",
     "vitest": "^5.0.1"
   }
