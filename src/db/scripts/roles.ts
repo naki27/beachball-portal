@@ -68,6 +68,10 @@ export async function ensureRoles(adminUrl: string): Promise<void> {
     await client.query(`grant create on database ${db} to app_owner`);
     await client.query("grant usage, create on schema public to app_owner");
     await client.query("grant usage on schema public to app_user, app_job, app_backup");
+    // マイグレーション（app_owner）が SECURITY DEFINER 関数の所有者を app_definer に変えられるように
+    // （所有者を変えるには、app_owner が app_definer のメンバーで、app_definer にスキーマの create 権限が要る）
+    await client.query("grant usage, create on schema public to app_definer");
+    await client.query("grant app_definer to app_owner");
     console.log(`権限: ${dbName} への接続と public スキーマの利用を付けました`);
   } finally {
     await client.end();

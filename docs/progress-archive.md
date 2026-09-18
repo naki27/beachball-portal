@@ -2,6 +2,23 @@
 
 `docs/progress.md` から移した古い申し送り（新しいものを上に）。タスクでは読まない。
 
+### L-05（2026-09-18）
+- やったこと: `.github/workflows/ci.yml`（pull request と main への push。ubuntu-24.04、Postgres 16 のサービスコンテナ、pnpm は `packageManager`・Node は `.nvmrc` から。`db:roles` → `db:migrate` → lint → typecheck → test）。デプロイは入れていない（X-02）
+- 動作確認: push で Actions が緑（https://github.com/naki27/beachball-portal/actions/runs/35294609125 。約 1 分）
+- 次への申し送り: 接続先は job の `env:` で渡す（CI では `.env` を作らない）。E2E は CI に入れていない（ブラウザの取得が重い。A-29 で判断）。actions は checkout v7 / setup-node v7 / pnpm/action-setup v6
+- 使った枠（/usage の変化）: 未計測
+
+### L-04（2026-09-18）
+- やったこと: drizzle-orm 0.45・pg 8.23（本体）、drizzle-kit 0.31・@types/pg・tsx（開発）。`.env.example`（§6.3 のローカル分。ロールのパスワードは各 `*_DATABASE_URL` に持たせ、`POSTGRES_ADMIN_URL` を追加）と `src/db/env.ts`（Node 24 の `process.loadEnvFile`。dotenv は入れない）。scripts: `db:roles`（5 ロール＋DB への接続・public スキーマの権限。何度でも）/ `db:reset`（ローカルだけ。drop → roles → migrate）/ `db:generate` / `db:migrate` / `db:studio`。`drizzle.config.ts`（app_owner・出力 `src/db/migrations/`）、`0000_extensions.sql`（pg_trgm・citext）。`src/db/client.ts`（Pool は globalThis に 1 つ。`DB_POOL_MAX`、既定 5）、`src/db/tenant.ts` の `withTenant(associationId, tx => …, { userId? })`（transaction の冒頭で `set_config(…, true)` = SET LOCAL）。`GET /api/health`。テスト `tests/db/with-tenant.test.ts`（プール 1 接続で、外に漏れないことも確認）
+- 動作確認: `db:roles`・`db:migrate` を 2 回ずつ、`db:reset`（拒否 2 条件と本体）、lint / typecheck / test（TZ 2 回・7 本）が通る。Windows から http://localhost:3000/api/health → `{"ok":true}`、http://localhost:8025 が開く。E2E は画面を変えていないので流していない
+- 次への申し送り・既知の課題:
+  - `current_setting('app.association_id', true)` は一度も設定していなければ NULL だが、SET LOCAL したトランザクションが終わったあとは `''` になる。A-03 の RLS ポリシーは `nullif(current_setting(…, true), '')::uuid` の形にする（`''::uuid` はエラー）
+  - 表ごとの grant（app_user / app_job / app_backup）と RLS・FORCE RLS はマイグレーションで付ける（A-01・A-03）。`db:roles` は入口の権限だけ
+  - DB の `timezone = 'Asia/Tokyo'`（付録 A の注記）は未設定。A-04 で判断する
+  - SMTP（mailpit:1025）の接続先の変数名は A-07 で決める（`.env.example` はコメントだけ）
+  - `pnpm-workspace.yaml` の `allowBuilds` に `esbuild: false` を足した（postinstall なしで動く）
+- 使った枠（/usage の変化）: 未計測
+
 ### 資料の移行（2026-09-18）
 - やったこと: 手元の `beachapp/` から `docs/p0-tasks.md`・`docs/agent_prompt.md`・`docs/history/`（`decisions-v0.9*.md`・`review-v0.8.md`）を移した（LF に統一、中身は同じ）。README の案内を更新
 - 次への申し送り: `beachapp/` のほかのファイルは L-02 で移し済み（`repo-template/` はリポジトリ側が新しい）。今後は `beachapp/` を見ずにリポジトリの `docs/` を使う

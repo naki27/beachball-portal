@@ -4,10 +4,11 @@ import { closeDb, createDb } from "@/db/client";
 import { requireEnv } from "@/db/env";
 import { associations, members, teamMembers, teams, users } from "@/db/schema";
 import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
-import type { Tx } from "@/db/tenant";
+import { setTenant, type Tx } from "@/db/tenant";
 
 // DB の制約のテスト（設計書 §12.1「DB の制約」）。app_owner で接続し、1 つのトランザクションの中で行って最後に戻す
 // 失敗させる INSERT は savepoint（入れ子の transaction）の中で行い、外のトランザクションを壊さない
+// RLS は所有者にも効く（FORCE）ので、書く協会を setTenant で切り替える。制約（FK・一意）の検査は RLS を通らない
 const db = createDb(requireEnv("MIGRATION_DATABASE_URL"), { max: 1 });
 afterAll(() => closeDb(db));
 
@@ -39,22 +40,29 @@ async function withRollback(fn: (tx: Tx) => Promise<void>): Promise<void> {
 }
 
 const NOW = new Date();
+const randomSlug = () => `t-${Math.random().toString(36).slice(2, 10)}`;
 
 async function createAssociation(tx: Tx, name: string): Promise<string> {
-  const slug = `t-${Math.random().toString(36).slice(2, 10)}`;
-  const [row] = await tx.insert(associations).values({ name, slug }).returning({ id: associations.id });
+  const [row] = await tx.insert(associations).values({ name, slug: randomSlug() }).returning({ id: associations.id });
   return row.id;
 }
 
-async function createMember(tx: Tx, associationId: string, name: string): Promise<string> {
+async function createUser(tx: Tx): Promise<string> {
+  const [row] = await tx.insert(users).values({ email: `${randomSlug()}@example.com` }).returning({ id: users.id });
+  return row.id;
+}
+
+async function createMember(tx: Tx, associationId: string, name: string, userId?: string): Promise<string> {
+  await setTenant(tx, associationId);
   const [row] = await tx
     .insert(members)
-    .values({ associationId, name, birthDate: "1990-04-01", sex: "male", nameNormalized: name })
+    .values({ associationId, name, birthDate: "1990-04-01", sex: "male", nameNormalized: name, userId })
     .returning({ id: members.id });
   return row.id;
 }
 
 async function createTeam(tx: Tx, associationId: string, name: string): Promise<string> {
+  await setTenant(tx, associationId);
   const [row] = await tx.insert(teams).values({ associationId, name }).returning({ id: teams.id });
   return row.id;
 }
@@ -68,6 +76,7 @@ describe("複合外部キー（別の協会の親を指せない・§7.0）", ()
       const memberB = await createMember(tx, other, "別区花子");
 
       // 協会 A の名簿に、協会 B の人物
+      await setTenant(tx, SAWARA_ASSOCIATION_ID);
       expect(
         await outcome(() =>
           tx.transaction((sp) =>
@@ -76,6 +85,7 @@ describe("複合外部キー（別の協会の親を指せない・§7.0）", ()
         ),
       ).toBe(FK_VIOLATION);
       // 協会 B の名簿に、協会 A のチーム
+      await setTenant(tx, other);
       expect(
         await outcome(() =>
           tx.transaction((sp) => sp.insert(teamMembers).values({ associationId: other, teamId: teamA, memberId: memberB })),
@@ -88,6 +98,7 @@ describe("複合外部キー（別の協会の親を指せない・§7.0）", ()
         ),
       ).toBe(FK_VIOLATION);
       // 正しい組み合わせは通る
+      await setTenant(tx, SAWARA_ASSOCIATION_ID);
       expect(
         await outcome(() =>
           tx.insert(teamMembers).values({ associationId: SAWARA_ASSOCIATION_ID, teamId: teamA, memberId: memberA }),
@@ -123,11 +134,9 @@ describe("部分一意インデックス（削除済みと同じ内容で登録�
 
   it("teams: 個人登録は 1 人 1 つ。削除したら作り直せる", () =>
     withRollback(async (tx) => {
-      const [user] = await tx
-        .insert(users)
-        .values({ email: `t-${Math.random().toString(36).slice(2, 10)}@example.com` })
-        .returning({ id: users.id });
-      const individual = { associationId: SAWARA_ASSOCIATION_ID, kind: "individual" as const, name: "早良太郎", createdBy: user.id };
+      const userId = await createUser(tx);
+      await setTenant(tx, SAWARA_ASSOCIATION_ID);
+      const individual = { associationId: SAWARA_ASSOCIATION_ID, kind: "individual" as const, name: "早良太郎", createdBy: userId };
 
       const [first] = await tx.insert(teams).values(individual).returning({ id: teams.id });
       expect(await outcome(() => tx.transaction((sp) => sp.insert(teams).values(individual)))).toBe(UNIQUE_VIOLATION);
@@ -140,26 +149,18 @@ describe("部分一意インデックス（削除済みと同じ内容で登録�
 
   it("members: 協会内で 1 アカウント = 1 人物。削除したら紐づけ直せる", () =>
     withRollback(async (tx) => {
-      const [user] = await tx
-        .insert(users)
-        .values({ email: `t-${Math.random().toString(36).slice(2, 10)}@example.com` })
-        .returning({ id: users.id });
+      const userId = await createUser(tx);
       const other = await createAssociation(tx, "別の協会");
-      const person = { name: "早良太郎", birthDate: "1990-04-01", sex: "male" as const, nameNormalized: "早良太郎", userId: user.id };
 
-      const [first] = await tx
-        .insert(members)
-        .values({ associationId: SAWARA_ASSOCIATION_ID, ...person })
-        .returning({ id: members.id });
-      expect(
-        await outcome(() =>
-          tx.transaction((sp) => sp.insert(members).values({ associationId: SAWARA_ASSOCIATION_ID, ...person })),
-        ),
-      ).toBe(UNIQUE_VIOLATION);
+      const first = await createMember(tx, SAWARA_ASSOCIATION_ID, "早良太郎", userId);
+      expect(await outcome(() => tx.transaction((sp) => createMember(sp, SAWARA_ASSOCIATION_ID, "早良太郎", userId)))).toBe(
+        UNIQUE_VIOLATION,
+      );
       // 別の協会では同じアカウントに別の人物を紐づけられる
-      expect(await outcome(() => tx.insert(members).values({ associationId: other, ...person }))).toBe("ok");
+      expect(await outcome(() => createMember(tx, other, "早良太郎", userId))).toBe("ok");
 
-      await tx.update(members).set({ deletedAt: NOW }).where(eq(members.id, first.id));
-      expect(await outcome(() => tx.insert(members).values({ associationId: SAWARA_ASSOCIATION_ID, ...person }))).toBe("ok");
+      await setTenant(tx, SAWARA_ASSOCIATION_ID);
+      await tx.update(members).set({ deletedAt: NOW }).where(eq(members.id, first));
+      expect(await outcome(() => createMember(tx, SAWARA_ASSOCIATION_ID, "早良太郎", userId))).toBe("ok");
     }));
 });

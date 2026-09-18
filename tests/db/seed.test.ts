@@ -4,6 +4,7 @@ import { closeDb, createDb } from "@/db/client";
 import { requireEnv } from "@/db/env";
 import { associations, categoryPresets, platformAdmins, users } from "@/db/schema";
 import { MAX_SUPER_ADMINS, parseSuperAdminEmails, SAWARA_ASSOCIATION_ID, seed } from "@/db/seed";
+import { withTenantOn } from "@/db/tenant";
 import { DEFAULT_CATEGORY_PRESETS } from "@/lib/presets/default";
 
 // マイグレーション済みの DB（.env の MIGRATION_DATABASE_URL = app_owner）に seed を流す
@@ -37,10 +38,13 @@ describe("seed", () => {
     expect(sawara[0].id).toBe(SAWARA_ASSOCIATION_ID);
     expect(sawara[0].fiscalYearStartMonth).toBe(4);
 
-    const presets = await db
-      .select()
-      .from(categoryPresets)
-      .where(and(eq(categoryPresets.associationId, SAWARA_ASSOCIATION_ID), isNull(categoryPresets.deletedAt)));
+    // category_presets はテナントの表（RLS は所有者にも効く）。協会に固定して読む
+    const presets = await withTenantOn(db, SAWARA_ASSOCIATION_ID, (tx) =>
+      tx
+        .select()
+        .from(categoryPresets)
+        .where(and(eq(categoryPresets.associationId, SAWARA_ASSOCIATION_ID), isNull(categoryPresets.deletedAt))),
+    );
     expect(presets).toHaveLength(18);
     expect(new Set(presets.map((p) => p.code))).toEqual(new Set(DEFAULT_CATEGORY_PRESETS.map((p) => p.code)));
     // 混合の男女比とコート人数は列の既定値

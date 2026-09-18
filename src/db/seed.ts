@@ -4,6 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { DEFAULT_CATEGORY_PRESETS } from "../lib/presets/default";
 import type { Db } from "./client";
 import { associations, categoryPresets, platformAdmins, users } from "./schema";
+import { withTenantOn } from "./tenant";
 
 // 早良区協会（seed で作る最初のテナント。以後の協会は運営管理者が /platform から作る）
 export const SAWARA_ASSOCIATION_ID = "00000000-0000-0000-0000-000000000001";
@@ -41,7 +42,8 @@ export async function seed(db: Db, options: SeedOptions = {}): Promise<SeedResul
     throw new Error(`運営管理者は ${MAX_SUPER_ADMINS} 名までです`);
   }
 
-  return db.transaction(async (tx) => {
+  // category_presets はテナントの表（RLS は所有者にも効く）ので、早良区協会に固定したトランザクションで入れる
+  return withTenantOn(db, SAWARA_ASSOCIATION_ID, async (tx) => {
     // 協会はプリセットより先に作る
     await tx
       .insert(associations)
