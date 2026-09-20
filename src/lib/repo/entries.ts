@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { entries, entryPlayers, type EntryPlayerMatchType, type MemberSex, tournamentCategories, tournaments } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 
@@ -238,4 +238,46 @@ export function listEntryPlayers(tx: Tx, associationId: string, entryId: string)
     .from(entryPlayers)
     .where(and(eq(entryPlayers.associationId, associationId), eq(entryPlayers.entryId, entryId)))
     .orderBy(asc(entryPlayers.position));
+}
+
+// --- 前回コピー（B-11・§5.5(b)） ---
+
+// そのチームの直近の申込（取消・削除でないもの）。部は `code` で突合するので、表示名は画面の説明にだけ使う
+export type LatestTeamEntry = {
+  entryId: string;
+  tournamentId: string;
+  tournamentName: string;
+  categoryCode: string;
+  categoryLabel: string;
+  submittedAt: Date;
+};
+
+export async function findLatestEntryForTeam(tx: Tx, associationId: string, teamId: string): Promise<LatestTeamEntry | null> {
+  const [row] = await tx
+    .select({
+      entryId: entries.id,
+      tournamentId: entries.tournamentId,
+      tournamentName: tournaments.name,
+      categoryCode: tournamentCategories.code,
+      categoryLabel: tournamentCategories.label,
+      submittedAt: entries.submittedAt,
+    })
+    .from(entries)
+    .innerJoin(tournaments, and(eq(tournaments.associationId, entries.associationId), eq(tournaments.id, entries.tournamentId)))
+    .innerJoin(
+      tournamentCategories,
+      and(eq(tournamentCategories.associationId, entries.associationId), eq(tournamentCategories.id, entries.categoryId)),
+    )
+    .where(
+      and(
+        eq(entries.associationId, associationId),
+        eq(entries.teamId, teamId),
+        eq(entries.status, "submitted"),
+        isNull(entries.deletedAt),
+        isNull(tournaments.deletedAt),
+      ),
+    )
+    .orderBy(desc(entries.submittedAt))
+    .limit(1);
+  return row ?? null;
 }

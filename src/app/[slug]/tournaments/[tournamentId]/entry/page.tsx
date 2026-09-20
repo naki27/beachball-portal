@@ -79,6 +79,7 @@ export default async function EntryPage({ params }: Props) {
 function toCategoryView(category: EntryFormData["categories"][number], now: Date): EntryFormCategoryView {
   return {
     id: category.id,
+    code: category.code,
     label: category.label,
     condition: category.condition,
     deadline: deadlineText(category.entryEndAt, now),

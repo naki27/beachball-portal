@@ -8,6 +8,7 @@ import { addCategoriesFromPresets, getCategoriesForAdmin, editCategory } from "@
 import { createTournament } from "@/lib/admin/tournaments";
 import { ANONYMOUS, type Principal } from "@/lib/authz";
 import { getEntryDetail } from "@/lib/entries/entry-detail";
+import { getLatestEntryForCopy } from "@/lib/entries/latest-entry";
 import { composeMail } from "@/lib/mail/templates";
 import { submitEntry } from "@/lib/entries/submit-entry";
 import type { PlayerSlot } from "@/lib/entries/player-slots";
@@ -414,5 +415,37 @@ describe("申込の参照（§5.7・§3.2）", () => {
   it("締切前の申込が残っていると、チームの無効化に使う件数が 1 以上になる（§5.11）", async () => {
     const count = await withTenantOn(app, A, (tx) => countOpenEntries(tx, A, teamId, NOW));
     expect(count).toBeGreaterThan(0);
+  });
+});
+
+describe("前回コピーの材料（§5.5(b)・B-11）", () => {
+  it("直近の申込の選手と部の code を返す。部の表示名を変えても code は変わらない", async () => {
+    const result = await submitEntry(app, as(repId), A, openId, body(), NOW);
+    // 大会ごとに部の表示名は変えられる（「混合」→「MIX」）。突合は code で行う（§5.4）
+    await editCategory(app, as(adminId), A, openId, categoryIds.m_free, {
+      label: "MENフリーの部",
+      entryEndDate: "",
+      ageReferenceDate: "",
+      maxEntries: "",
+    });
+
+    const latest = await getLatestEntryForCopy(app, as(repId), A, teamId);
+    expect(latest?.entryId).toBe(result.entryId);
+    expect(latest?.categoryCode).toBe("m_free");
+    expect(latest?.players.map((p) => p.name)).toEqual(roster.slice(0, 4).map((p) => p.name));
+    // 生年月日は返さない（枠の値は画面の選手一覧から取る・§12）
+    expect(JSON.stringify(latest)).not.toContain("1975-04-01");
+  });
+
+  it("ほかのチームの代表者は 403。申込のないチームは null", async () => {
+    expect(await statusOf(() => getLatestEntryForCopy(app, as(rep2Id), A, teamId))).toBe(403);
+    const fresh = await registerTeam(app, A, rep2Id, {
+      name: `${tag} まだ申し込んでいないチーム`,
+      kana: null,
+      contactEmail: null,
+      contactPhone: null,
+      membershipRenewalTarget: false,
+    });
+    expect(await getLatestEntryForCopy(app, as(rep2Id), A, fresh.id)).toBeNull();
   });
 });

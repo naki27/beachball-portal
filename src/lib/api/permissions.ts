@@ -46,6 +46,8 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/teams/[teamId]/invitations/[invitationId]", methods: ["DELETE"], guard: { kind: "tenant", action: "manageRoster" } },
   { path: "[slug]/teams/[teamId]/invitations/[invitationId]/resend", methods: ["POST"], guard: { kind: "tenant", action: "manageRoster" } },
   { path: "[slug]/teams/[teamId]/admins/[userId]", methods: ["DELETE"], guard: { kind: "tenant", action: "manageTeamAdmins" } },
+  // 前回コピー（§5.5(b)）。前回の選手の氏名を返すので、そのチームの代表者だけ
+  { path: "[slug]/teams/[teamId]/entries/latest", methods: ["GET"], guard: { kind: "tenant", action: "manageEntries" } },
   // 紐づけの解除は本人とテナント管理者だけ（§3.2 の注）。サービス層で本人かを見る
   { path: "[slug]/members/[memberId]/link", methods: ["DELETE"], guard: { kind: "tenant", action: "viewOwnTeamRoster" } },
   // 申込の選手枠のサジェストと「この方ですか？」（§8.4・§8.3）。候補は代表者を務めるチームの選手だけなので、

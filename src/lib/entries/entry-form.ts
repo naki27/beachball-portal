@@ -35,6 +35,7 @@ export type EntryFormPlayer = {
 
 export type EntryFormCategory = {
   id: string;
+  code: string; // 前回コピーの突合（表示名が変わっても対応づく・§5.5(b)）
   label: string;
   condition: string;
   entryEndAt: Date;
@@ -90,6 +91,7 @@ export async function getEntryFormData(
         const state = entryState(tournament, category, now);
         return {
           id: category.id,
+          code: category.code,
           label: category.label,
           preset: {
             gender: category.gender,

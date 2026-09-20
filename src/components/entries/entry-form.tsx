@@ -20,6 +20,7 @@ import {
   type PlayerSlot,
   toEligibilityPlayers,
 } from "@/lib/entries/player-slots";
+import { buildCopiedSlots, droppedMessage, pickCategoryByCode, type PreviousPlayer } from "@/lib/entries/copy-previous";
 import { type EntrySubmitError, takeSubmitError } from "@/lib/entries/submit-error";
 import { type EligibilityPreset, type EligibilityResult, hasEligibilityError, validateEligibility } from "@/lib/eligibility";
 import { TEAM_NAME_MAX } from "@/lib/teams/team-input";
@@ -31,6 +32,7 @@ import { PlayerSlotField, type PlayerSlotErrors } from "./player-slot";
 export type EntryFormTeamView = { id: string; name: string };
 export type EntryFormCategoryView = {
   id: string;
+  code: string;
   label: string;
   condition: string;
   deadline: string;
@@ -97,6 +99,9 @@ export function EntryForm({
   const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
   const [membersOnly, setMembersOnly] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // 前回コピー（§5.5(b)）の結果。外した選手の理由もここに出す
+  const [copied, setCopied] = useState<{ title: string; dropped: string | null } | null>(null);
+  const [copying, setCopying] = useState(false);
   // 確認ページで断られた理由（締切・定員・資格）。該当する枠・欄の下にも出す（§5.5）
   // sessionStorage から 1 回だけ読む（URL には載せない・§12）。描画は hydrated のあとなので食い違わない
   const [rejected, setRejected] = useState<EntrySubmitError | null>(() => takeSubmitError(key));
@@ -139,6 +144,39 @@ export function EntryForm({
       draft.save(updated);
       return updated;
     });
+  }
+
+  // 「前回と同じ選手にする」（§5.5(b)）。直近の申込の選手のうち、いまの選手一覧にいる人だけを枠に戻す
+  async function copyPrevious() {
+    const teamId = values.teamId;
+    if (!teamId || copying) return;
+    setCopying(true);
+    setCopied(null);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/${slug}/teams/${teamId}/entries/latest`, { headers: { accept: "application/json" } });
+      const body = (await response.json()) as { entry?: { tournamentName: string; categoryCode: string; players: PreviousPlayer[] } | null };
+      if (!response.ok || !body.entry) {
+        setCopied({ title: "前回の申し込みが見つかりませんでした", dropped: null });
+        return;
+      }
+      const previous = body.entry;
+      const { slots, dropped } = buildCopiedSlots(previous.players, rosters[teamId] ?? [], teamSizeMin, teamSizeMax);
+      // 部は同じ code のものを選び直す（表示名が変わっていても対応づく）。今回の大会になければ空にする
+      const categoryId = pickCategoryByCode(categories, previous.categoryCode);
+      setValues((current) => {
+        const updated = { ...current, slots, categoryId };
+        draft.saveNow(updated);
+        return updated;
+      });
+      setSlotErrors({});
+      setEligibility(null);
+      setCopied({ title: `前回（${previous.tournamentName}）と同じ選手にしました`, dropped: droppedMessage(dropped) });
+    } catch {
+      setCopied({ title: "読み込めませんでした。しばらくしてからもう一度お試しください", dropped: null });
+    } finally {
+      setCopying(false);
+    }
   }
 
   const chosen = categories.find((c) => c.id === values.categoryId);
@@ -292,6 +330,18 @@ export function EntryForm({
         <p className="text-sm text-muted">
           {teamSizeMin}人以上{teamSizeMax}人まで。選手一覧から選ぶか、一覧にいない人は入力してください。
         </p>
+        {values.teamId ? (
+          <div className="flex flex-col gap-2">
+            <Button variant="secondary" onClick={copyPrevious} pending={copying} pendingLabel="読み込んでいます…" className="self-start">
+              前回と同じ選手にする
+            </Button>
+            {copied ? (
+              <Message kind="info" title={copied.title}>
+                {copied.dropped ? <p>{copied.dropped}</p> : null}
+              </Message>
+            ) : null}
+          </div>
+        ) : null}
         {showMembersOnly ? (
           <label className="flex min-h-12 items-center gap-2 self-start">
             <input type="checkbox" checked={membersOnly} onChange={(e) => setMembersOnly(e.target.checked)} />
