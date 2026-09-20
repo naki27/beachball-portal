@@ -199,6 +199,17 @@ const TEMPLATES: Partial<Record<MailType, Template>> = {
     };
   },
 
+  // メールアドレスの変更の知らせ（§5.19）。宛先は古いアドレス。新しいアドレスは書かない
+  email_changed: async (_params, ctx) => ({
+    subject: subjectWithBrand(ctx, "ログインに使うメールアドレスを変更しました"),
+    text: [
+      `${brandOf(ctx)}のアカウントの、ログインに使うメールアドレスを変更しました。`,
+      "これからは、新しいメールアドレスに確認番号が届きます。",
+      "",
+      `心当たりがないときは、お問い合わせフォーム（${ctx.baseUrl}/contact）からご連絡ください。`,
+    ].join("\n"),
+  }),
+
   contact_received: async (params, ctx, tx) => {
     const message = await loadContactMessage(tx, params);
     return {

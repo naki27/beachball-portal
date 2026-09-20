@@ -129,6 +129,11 @@ export default async function MyPage() {
         <p className="text-sm">
           ログインに使うメールアドレス: <span className="break-all font-semibold">{profile?.email}</span>
         </p>
+        <p>
+          <Link href="/mypage/email" className="font-semibold underline underline-offset-2">
+            メールアドレスを変更する
+          </Link>
+        </p>
         <DisplayNameForm initial={profile?.displayName ?? ""} />
         <div>
           <LogoutButton />

@@ -1,26 +1,15 @@
-import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { loginCodes, sessions, users } from "@/db/schema";
 import { requireEnv } from "@/db/env";
-import { codeHashMatches, hashAttemptId, hashCode, hashEmailForKey, loginCodeMaxAttempts } from "./login-code";
-import { consumeRateLimits, HOUR_MS } from "./rate-limit";
+import { matchLoginCode } from "./match-code";
 import { ADMIN_IDLE_TAKEOVER_MS, activeSessionsOf, createSession, type CreatedSession } from "./session";
 
-// 確認番号の照合（設計書 §9.1・§9.2・§5.1）
-// - その Cookie の試行で発行した番号とだけ照合する。直近に発行した 3 個までの未使用・未期限の番号のどれかと一致すればよい
-// - 1 つの試行につき間違いは 5 回まで。超えたら試行の番号をすべて無効にする
+// ログインの確認番号の照合（設計書 §9.1・§9.2・§5.1）。番号を照らし合わせる規則そのものは match-code.ts
 // - 一致したら users がなければ作る（同意の版と日時を保存）
 // - テナント管理者（どこかの協会の association_admins にいる人）は同時に 1 つのセッションまで（§9.2）:
 //   別の有効なセッションの最後の操作が 30 分以内なら 409 で断る（番号は使用済みにしない）。30 分以上たっていれば終了して受け付ける
 // - 受け付けたら、そのメールアドレスの他の番号もすべて無効にしてセッションを作る
-// - 応答はそろえる: 番号が違う・期限切れ・使用済み・試行がない、のどれでも同じ結果（remaining だけが変わる）
-
-export const LATEST_CODES_PER_ATTEMPT = 3;
-
-export const VERIFY_FAILURE_LIMITS = {
-  perEmailPerHour: 10,
-  perIpPerHour: 30,
-} as const;
 
 export type VerifyInput = {
   attemptId: string | null;
@@ -40,58 +29,18 @@ export type VerifyResult =
 export async function verifyLoginCode(db: Db, input: VerifyInput): Promise<VerifyResult> {
   const now = input.now ?? new Date();
   const hmacKey = requireEnv("LOGIN_CODE_HMAC_KEY");
-  const maxAttempts = loginCodeMaxAttempts();
 
   return db.transaction(async (tx) => {
-    // 試行がない場合も、同程度の時間をかけてから同じ形で返す
-    const attemptId = input.attemptId;
-    if (!attemptId) {
-      codeHashMatches(hmacKey, "", input.code, hashCode(hmacKey, "x", "000000"));
-      return { ok: false, reason: "invalid", remaining: maxAttempts };
-    }
-    const attemptHash = hashAttemptId(attemptId);
-
-    // この試行の、未使用・未期限の番号（新しい順に 3 個まで）。行をロックして同時送信の競合を防ぐ
-    const candidates = await tx
-      .select()
-      .from(loginCodes)
-      .where(
-        and(
-          eq(loginCodes.attemptHash, attemptHash),
-          eq(loginCodes.purpose, "login"),
-          isNull(loginCodes.usedAt),
-          gt(loginCodes.expiresAt, now),
-        ),
-      )
-      .orderBy(desc(loginCodes.createdAt))
-      .limit(LATEST_CODES_PER_ATTEMPT)
-      .for("update");
-
-    const attemptsSoFar = candidates.reduce((max, row) => Math.max(max, row.attemptCount), 0);
-    const matched = candidates.find((row) => codeHashMatches(hmacKey, attemptId, input.code, row.codeHash));
-
-    if (!matched) {
-      if (candidates.length === 0) {
-        codeHashMatches(hmacKey, attemptId, input.code, hashCode(hmacKey, "x", "000000"));
-        return { ok: false, reason: "invalid", remaining: 0 };
-      }
-      const attempts = attemptsSoFar + 1;
-      const exhausted = attempts >= maxAttempts;
-      await tx
-        .update(loginCodes)
-        .set({ attemptCount: attempts, ...(exhausted ? { usedAt: now } : {}) })
-        .where(and(eq(loginCodes.attemptHash, attemptHash), isNull(loginCodes.usedAt)));
-      // 照合の失敗もメールアドレス単位・IP 単位で数える（総当たり対策・§9.2）
-      await consumeRateLimits(
-        tx,
-        [
-          { key: `login_verify:email:${hashEmailForKey(candidates[0].email)}`, limit: VERIFY_FAILURE_LIMITS.perEmailPerHour, windowMs: HOUR_MS },
-          { key: `login_verify:ip:${input.ip}`, limit: VERIFY_FAILURE_LIMITS.perIpPerHour, windowMs: HOUR_MS },
-        ],
-        now,
-      );
-      return { ok: false, reason: "invalid", remaining: Math.max(0, maxAttempts - attempts) };
-    }
+    const match = await matchLoginCode(tx, {
+      attemptId: input.attemptId,
+      code: input.code,
+      purpose: "login",
+      ip: input.ip,
+      hmacKey,
+      now,
+    });
+    if (!match.ok) return { ok: false, reason: "invalid", remaining: match.remaining };
+    const matched = match.row;
 
     // users がなければ作る（§5.1）。あれば確認済みと最終ログインを更新
     const [existing] = await tx

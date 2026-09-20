@@ -50,6 +50,7 @@ const PATHS = [
   "/platform/associations/00000000-0000-4000-8000-000000000000",
   "/invitations",
   "/mypage",
+  "/mypage/email",
   "/sawara/teams/new",
   "/sawara/teams/new?kind=individual",
   // チームのページ（動的な URL）。ない ID なので 404 になるだけ
@@ -133,6 +134,8 @@ const API_PATHS = [
   "/api/auth/verify",
   "/api/auth/logout",
   "/api/me",
+  "/api/me/email/request",
+  "/api/me/email/verify",
   "/api/me/invitations",
   `/api/me/invitations/${NO_ID}/accept`,
   "/api/platform/associations",
