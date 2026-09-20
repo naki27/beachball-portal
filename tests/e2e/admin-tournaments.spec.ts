@@ -7,7 +7,7 @@ import { SAWARA_ASSOCIATION_ID } from "../../src/db/seed";
 import { withTenantOn } from "../../src/db/tenant";
 import { test } from "./fixtures";
 
-// 大会の管理（設計書 §4.2 #13・§5.4・B-04）: テナント管理者が大会を作り、内容を直して「受付中」にする
+// 大会の管理（設計書 §4.2 #13・§5.4・B-04 / B-05）: テナント管理者が大会を作り、内容を直して「受付中」にし、出場する部を足す
 const MAILPIT = process.env.MAILPIT_URL ?? "http://mailpit:8025";
 type Req = Parameters<Parameters<typeof test>[2]>[0]["request"];
 
@@ -31,7 +31,7 @@ async function login(page: Page, request: Req, email: string, next: string) {
   await page.getByLabel("確認番号（6 けた）").fill(await latestCode(request, email));
 }
 
-test("テナント管理者が大会を作り、直して受付中にする", async ({ page, request }, testInfo) => {
+test("テナント管理者が大会を作り、直して受付中にし、部を足す", async ({ page, request }, testInfo) => {
   test.setTimeout(150_000);
   loadEnv();
   const owner = createDb(requireEnv("MIGRATION_DATABASE_URL"), { max: 1 });
@@ -58,7 +58,7 @@ test("テナント管理者が大会を作り、直して受付中にする", as
     await expect(page.getByLabel("年齢の基準日")).toHaveValue("2026-11-23");
     await page.getByLabel("会場（任意）").fill("早良体育館");
     await page.getByLabel("申し込みの開始日（任意）").fill("2026-09-01");
-    await page.getByLabel("締切日").fill("2026-09-30");
+    await page.getByLabel("締切日", { exact: true }).fill("2026-09-30");
     await page.getByRole("button", { name: "大会を作る" }).click();
 
     // 作ったあとは編集の画面。状態は「準備中」
@@ -79,6 +79,27 @@ test("テナント管理者が大会を作り、直して受付中にする", as
     await page.getByRole("button", { name: "保存する" }).click();
     await expect(page.getByText("保存しました")).toBeVisible({ timeout: 15_000 });
 
+    // 部を 5 つ足す（混合は MIX 表記。表示名だけ変わり、突合に使う記号は変わらない・§5.4）
+    await page.getByLabel("混合の部の書き方").selectOption("mix");
+    const presets = ["男子40歳以上の部", "男子50歳以上の部", "女子40歳以上の部", "女子フリーの部", "混合160オーバーの部"];
+    for (const label of presets) {
+      await page.locator("label").filter({ hasText: label }).getByRole("checkbox").check();
+    }
+    await page.getByRole("button", { name: "選んだ 5 つの部を追加する" }).click();
+    await expect(page.getByText("5 つの部を追加しました")).toBeVisible({ timeout: 15_000 });
+    const list = page.getByRole("region", { name: "出場する部" });
+    await expect(list.getByRole("listitem").filter({ hasText: "MIX160オーバーの部" })).toHaveCount(1);
+
+    // 1 つだけ締切を変える（ほかの部は大会の締切のまま・追加仕様 2）
+    const target = list.getByRole("listitem").filter({ hasText: "男子40歳以上の部" });
+    await expect(target).toContainText("出場する全員が40歳以上です（2026年11月23日（月）時点）");
+    await target.getByRole("button", { name: "この部を編集" }).click();
+    await target.getByLabel("この部だけの締切日（任意）").fill("2026-10-15");
+    await target.getByRole("button", { name: "保存する" }).click();
+    await expect(page.getByText("男子40歳以上の部を保存しました")).toBeVisible({ timeout: 15_000 });
+    await expect(target).toContainText("締切 2026年10月15日（木）（この部だけ別）");
+    await expect(list.getByRole("listitem").filter({ hasText: "女子フリーの部" })).toContainText("締切 2026年9月30日（水）（大会と同じ）");
+
     // 一覧に「受付中」で出る
     await page.getByRole("link", { name: "← 大会の管理" }).click();
     await expect(page).toHaveURL(/\/sawara\/admin\/tournaments$/, { timeout: 15_000 });
@@ -86,10 +107,11 @@ test("テナント管理者が大会を作り、直して受付中にする", as
     await expect(row).toBeVisible();
     await expect(row).toContainText("受付中（公開する）");
     await expect(row).toContainText("締切 9月30日（水）まで");
+    await expect(row).toContainText("部 5 つ");
 
     // 保存された値が画面に戻る（締切は日付のまま）
     await row.click();
-    await expect(page.getByLabel("締切日")).toHaveValue("2026-09-30", { timeout: 15_000 });
+    await expect(page.getByLabel("締切日", { exact: true })).toHaveValue("2026-09-30", { timeout: 15_000 });
     await expect(page.getByLabel("参加人数の上限")).toHaveValue("8");
     await expect(page.getByLabel("申し込みの上限（任意）")).toHaveValue("16");
   } finally {

@@ -54,11 +54,14 @@ export function TournamentForm({
   mode,
   tournamentId,
   initial,
+  hasCategoryDeadlines = false,
 }: {
   slug: string;
   mode: "create" | "edit";
   tournamentId?: string;
   initial: TournamentFormValues;
+  // 部ごとの締切の上書きがある大会だけ「部の締切も大会に揃える」を出す（§5.4 追加仕様 2）
+  hasCategoryDeadlines?: boolean;
 }) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -67,6 +70,7 @@ export function TournamentForm({
   const [notice, setNotice] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
+  const [syncDeadlines, setSyncDeadlines] = useState(false);
 
   function set<K extends keyof TournamentFormValues>(key: K, value: TournamentFormValues[K]) {
     setValues((v) => {
@@ -95,7 +99,7 @@ export function TournamentForm({
       const response = await fetch(url, {
         method: mode === "create" ? "POST" : "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, syncCategoryDeadlines: syncDeadlines }),
       });
       const body = (await response.json().catch(() => null)) as ApiBody | null;
       if (response.ok) {
@@ -103,6 +107,7 @@ export function TournamentForm({
           router.push(body?.redirectTo ?? `/${slug}/admin/tournaments`);
         } else {
           setSaved(true);
+          setSyncDeadlines(false);
         }
         router.refresh();
         return;
@@ -188,6 +193,15 @@ export function TournamentForm({
         hint="その日の 23 時 59 分まで受け付けます。"
         required
       />
+      {hasCategoryDeadlines ? (
+        <label className="flex min-h-12 items-start gap-3">
+          <input type="checkbox" checked={syncDeadlines} onChange={(e) => setSyncDeadlines(e.target.checked)} className="mt-1 size-5" />
+          <span>
+            <span className="font-semibold">部ごとの締切も大会に揃える</span>
+            <span className="block text-sm text-muted">部だけ別に決めた締切を消して、すべての部を大会の締切にします。</span>
+          </span>
+        </label>
+      ) : null}
       <div className="grid grid-cols-2 gap-3">
         <TextField
           id="tournament-team-size-min"

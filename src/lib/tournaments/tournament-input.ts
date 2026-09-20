@@ -55,15 +55,15 @@ export type TournamentInputResult =
 
 const fail = (field: TournamentField, message: string): TournamentInputResult => ({ ok: false, field, message });
 
-// 「YYYY-MM-DD」の欄を読む。空なら null、形が違う・存在しない日付なら "invalid"
-function readDate(value: unknown): PlainDate | null | "invalid" {
+// 「YYYY-MM-DD」の欄を読む。空なら null、形が違う・存在しない日付なら "invalid"（部の入力でも使う・category-input.ts）
+export function readDateField(value: unknown): PlainDate | null | "invalid" {
   const text = cleanText(value).replace(/[/.]/g, "-");
   if (!text) return null;
   return parsePlainDate(text) ?? "invalid";
 }
 
-// 数の欄を読む。空なら null、整数でなければ "invalid"
-function readInt(value: unknown): number | null | "invalid" {
+// 数の欄を読む。空なら null、整数でなければ "invalid"（部の入力でも使う・category-input.ts）
+export function readIntField(value: unknown): number | null | "invalid" {
   if (typeof value === "number") return Number.isInteger(value) ? value : "invalid";
   const text = cleanText(value);
   if (!text) return null;
@@ -77,11 +77,11 @@ export function parseTournamentInput(raw: Record<string, unknown>): TournamentIn
     return fail("name", `大会名は${TOURNAMENT_NAME_MAX}文字以内で入力してください`);
   }
 
-  const eventDate = readDate(raw.eventDate);
+  const eventDate = readDateField(raw.eventDate);
   if (eventDate === "invalid") return fail("eventDate", "開催日は年月日で入力してください");
 
   // 年齢の基準日は必須。空のときは開催日を使う（画面は開催日を既定値として入れておく・§14-21）
-  const referenceInput = readDate(raw.ageReferenceDate);
+  const referenceInput = readDateField(raw.ageReferenceDate);
   if (referenceInput === "invalid") return fail("ageReferenceDate", "年齢の基準日は年月日で入力してください");
   const ageReferenceDate = referenceInput ?? eventDate;
   if (!ageReferenceDate) return fail("ageReferenceDate", "年齢の基準日を入力してください");
@@ -95,9 +95,9 @@ export function parseTournamentInput(raw: Record<string, unknown>): TournamentIn
     return fail("description", `説明は${TOURNAMENT_DESCRIPTION_MAX}文字以内で入力してください`);
   }
 
-  const entryStartDate = readDate(raw.entryStartDate);
+  const entryStartDate = readDateField(raw.entryStartDate);
   if (entryStartDate === "invalid") return fail("entryStartDate", "申し込みの開始日は年月日で入力してください");
-  const entryEndDate = readDate(raw.entryEndDate);
+  const entryEndDate = readDateField(raw.entryEndDate);
   if (entryEndDate === "invalid") return fail("entryEndDate", "締切日は年月日で入力してください");
   if (!entryEndDate) return fail("entryEndDate", "締切日を入力してください");
   // 開始はその日の 0:00、締切はその日の 23:59:59 なので、同じ日なら「その日だけ受付」で成り立つ
@@ -105,16 +105,16 @@ export function parseTournamentInput(raw: Record<string, unknown>): TournamentIn
     return fail("entryEndDate", "締切日は申し込みの開始日と同じ日か、それより後にしてください");
   }
 
-  const teamSizeMin = readInt(raw.teamSizeMin);
+  const teamSizeMin = readIntField(raw.teamSizeMin);
   if (teamSizeMin === "invalid" || teamSizeMin === null) return fail("teamSizeMin", "参加人数の下限を数で入力してください");
   if (teamSizeMin < 1) return fail("teamSizeMin", "参加人数の下限は 1 人以上にしてください");
   if (teamSizeMin > TEAM_SIZE_LIMIT) return fail("teamSizeMin", `参加人数の下限は${TEAM_SIZE_LIMIT}人以内にしてください`);
-  const teamSizeMax = readInt(raw.teamSizeMax);
+  const teamSizeMax = readIntField(raw.teamSizeMax);
   if (teamSizeMax === "invalid" || teamSizeMax === null) return fail("teamSizeMax", "参加人数の上限を数で入力してください");
   if (teamSizeMax > TEAM_SIZE_LIMIT) return fail("teamSizeMax", `参加人数の上限は${TEAM_SIZE_LIMIT}人以内にしてください`);
   if (teamSizeMin > teamSizeMax) return fail("teamSizeMax", "参加人数の上限は下限以上にしてください");
 
-  const maxEntries = readInt(raw.maxEntries);
+  const maxEntries = readIntField(raw.maxEntries);
   if (maxEntries === "invalid") return fail("maxEntries", "申し込みの上限を数で入力してください（空欄なら上限なし）");
   if (maxEntries !== null && maxEntries < 1) {
     return fail("maxEntries", "申し込みの上限は 1 以上にしてください（空欄なら上限なし）");
