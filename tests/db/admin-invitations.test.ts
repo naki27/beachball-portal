@@ -16,8 +16,7 @@ import {
 import { withTenantOn } from "@/db/tenant";
 import { createSession, loadSession } from "@/lib/auth/session";
 import { acceptAdminInvitation, InvitationError, rejectAdminInvitation } from "@/lib/invitations/admin-accept";
-import { processMailQueue } from "@/lib/mail/queue";
-import type { MailSender, OutgoingMail } from "@/lib/mail/types";
+import { composeMail } from "@/lib/mail/templates";
 import {
   cancelAdminInvitation,
   inviteAssociationAdmin,
@@ -28,9 +27,8 @@ import {
 import { createAssociationTenant } from "@/lib/platform/associations";
 import { listMyPendingInvitations } from "@/lib/repo/invitations";
 
-// テナント管理者の招待（設計書 §5.14 の受け入れ条件）。操作は app_user、メールの送信は app_job、準備と後片付けは app_owner
+// テナント管理者の招待（設計書 §5.14 の受け入れ条件）。操作は app_user、準備と後片付けは app_owner
 const app = createDb(requireEnv("DATABASE_URL"), { max: 1 });
-const job = createDb(requireEnv("JOB_DATABASE_URL"), { max: 1 });
 const owner = createDb(requireEnv("MIGRATION_DATABASE_URL"), { max: 1 });
 const random = () => Math.random().toString(36).slice(2, 8);
 const NOW = new Date();
@@ -47,15 +45,21 @@ async function newUser(email: string): Promise<string> {
   return u.id;
 }
 
-function recordingSender(): MailSender & { sent: OutgoingMail[] } {
-  const sent: OutgoingMail[] = [];
-  return {
-    sent,
-    async send(mail) {
-      sent.push(mail);
-      return {};
-    },
-  };
+const CTX = { associationName: "招待テスト協会", associationSlug: "", baseUrl: "https://example.test" };
+
+// 送信待ちに積まれた行（送信ジョブは動かさない。ほかの試験のジョブと送信待ちを取り合うため）
+async function queuedMails(mailType: string) {
+  return owner
+    .select()
+    .from(mailLogs)
+    .where(and(eq(mailLogs.associationId, associationId), eq(mailLogs.mailType, mailType)));
+}
+
+// 送る直前と同じ組み立て（協会に固定したトランザクションで ID から読む）
+async function compose(mailType: "association_admin_invitation" | "association_admin_invitation_rejected", params: unknown) {
+  return withTenantOn(owner, associationId, (tx) =>
+    composeMail(mailType, (params ?? {}) as Record<string, unknown>, { ...CTX, associationSlug }, tx),
+  );
 }
 
 beforeAll(async () => {
@@ -83,7 +87,6 @@ afterAll(async () => {
   await owner.delete(platformAdmins).where(eq(platformAdmins.userId, platformUserId));
   for (const id of createdUserIds) await owner.delete(users).where(eq(users.id, id));
   await closeDb(app);
-  await closeDb(job);
   await closeDb(owner);
 });
 
@@ -94,15 +97,14 @@ describe("招待・再送・取り消し（運営管理者）", () => {
     const { invitationId, resent } = await inviteAssociationAdmin(app, platformUserId, associationId, email.toUpperCase(), NOW);
     expect(resent).toBe(false);
 
-    const sender = recordingSender();
-    await processMailQueue(job, sender);
-    const first = sender.sent.find((m) => m.to === "first@example.com");
-    const mine = sender.sent.find((m) => m.to === email);
-    expect(first?.subject).toBe("【招待テスト協会】協会の管理者への招待");
-    expect(mine?.text).toContain(`/${associationSlug}/`);
-    expect(mine?.text).toContain(email);
-    expect(mine?.text).toMatch(/期限: \d+月\d+日（[日月火水木金土]）まで/);
-    expect(mine?.text).toContain("いつものブラウザ");
+    const queued = await queuedMails("association_admin_invitation");
+    const first = await compose("association_admin_invitation", queued.find((m) => m.toEmail === "first@example.com")?.params);
+    const mine = await compose("association_admin_invitation", queued.find((m) => m.toEmail === email)?.params);
+    expect(first.subject).toBe("【招待テスト協会】協会の管理者への招待");
+    expect(mine.text).toContain(`/${associationSlug}/`);
+    expect(mine.text).toContain(email);
+    expect(mine.text).toMatch(/期限: \d+月\d+日（[日月火水木金土]）まで/);
+    expect(mine.text).toContain("いつものブラウザ");
 
     const rows = await listAdminInvitations(app, platformUserId, associationId);
     expect(rows.find((r) => r.id === invitationId)?.status).toBe("pending");
@@ -197,9 +199,8 @@ describe("承諾・拒否（本人）", () => {
       .where(and(eq(mailLogs.associationId, associationId), eq(mailLogs.mailType, "association_admin_invitation_rejected")));
     expect(queued.length).toBeGreaterThanOrEqual(1);
     expect(queued[0].userId).toBe(platformUserId);
-    const sender = recordingSender();
-    await processMailQueue(job, sender);
-    const notice = sender.sent.find((m) => m.subject.includes("断られました"));
-    expect(notice?.text).toContain(email);
+    const notice = await compose("association_admin_invitation_rejected", queued[0].params);
+    expect(notice.subject).toContain("断られました");
+    expect(notice.text).toContain(email);
   });
 });
