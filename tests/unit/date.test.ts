@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   comparePlainDate,
+  diffDays,
   endOfDayTokyo,
   formatDateWithWeekday,
   formatPlainDate,
@@ -81,5 +82,17 @@ describe("comparePlainDate", () => {
     expect(comparePlainDate(a, { year: 2026, month: 4, day: 1 })).toBeLessThan(0);
     expect(comparePlainDate(a, { year: 2025, month: 12, day: 31 })).toBeGreaterThan(0);
     expect(comparePlainDate(a, { ...a })).toBe(0);
+  });
+});
+
+describe("diffDays", () => {
+  it("暦の上の日数の差（同じ日は 0・後の日は正・前の日は負）", () => {
+    const base = { year: 2026, month: 9, day: 30 };
+    expect(diffDays(base, base)).toBe(0);
+    expect(diffDays(base, { year: 2026, month: 10, day: 5 })).toBe(5);
+    expect(diffDays(base, { year: 2026, month: 9, day: 25 })).toBe(-5);
+    // 月・年をまたいでも、うるう年でも数えられる（TZ・サマータイムに影響されない）
+    expect(diffDays({ year: 2026, month: 12, day: 31 }, { year: 2027, month: 1, day: 1 })).toBe(1);
+    expect(diffDays({ year: 2028, month: 2, day: 28 }, { year: 2028, month: 3, day: 1 })).toBe(2);
   });
 });

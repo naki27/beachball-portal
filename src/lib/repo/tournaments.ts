@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { categoryPresets, tournamentCategories, tournaments } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 import { endOfDayTokyo, formatPlainDate, parsePlainDate, startOfDayTokyo, type PlainDate } from "@/lib/date";
@@ -156,4 +156,27 @@ export async function countCategoriesByTournament(tx: Tx, associationId: string,
     .groupBy(tournamentCategories.tournamentId);
   for (const row of rows) if (result.has(row.tournamentId)) result.set(row.tournamentId, row.value);
   return result;
+}
+
+// 公開ページの一覧（§5.6）。準備中（draft）の大会は出さない。締切の近い順に並べる
+export async function listPublicTournaments(tx: Tx, associationId: string): Promise<Tournament[]> {
+  const rows = await tx
+    .select(COLUMNS)
+    .from(tournaments)
+    .where(and(eq(tournaments.associationId, associationId), isNull(tournaments.deletedAt), ne(tournaments.status, "draft")))
+    .orderBy(asc(tournaments.entryEndAt), asc(tournaments.name))
+    .limit(200);
+  return rows.map(toTournament);
+}
+
+// 公開ページの大会詳細。準備中の大会は URL を直に打っても見つからない（§5.6 受け入れ条件）
+export async function findPublicTournament(tx: Tx, associationId: string, id: string): Promise<Tournament | null> {
+  const [row] = await tx
+    .select(COLUMNS)
+    .from(tournaments)
+    .where(
+      and(eq(tournaments.associationId, associationId), eq(tournaments.id, id), isNull(tournaments.deletedAt), ne(tournaments.status, "draft")),
+    )
+    .limit(1);
+  return row ? toTournament(row) : null;
 }

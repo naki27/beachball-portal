@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { endOfDayTokyo, startOfDayTokyo, type PlainDate } from "@/lib/date";
 import {
+  daysUntilDeadline,
   effectiveAgeReferenceDate,
   effectiveDeadline,
   entryState,
   isEntryOpen,
+  tournamentEntryState,
   type CategoryDeadline,
   type TournamentDeadline,
 } from "@/lib/deadline";
@@ -95,5 +97,41 @@ describe("entryState / isEntryOpen（§5.4 の表）", () => {
       expect(isEntryOpen(state, category(), inPeriod)).toBe(false);
     }
     expect(isEntryOpen(tournament(), category(), new Date("2026-12-01T00:00:00Z"))).toBe(false);
+  });
+});
+
+describe("tournamentEntryState（大会をまとめて見る・§5.6）", () => {
+  const open = () => ({ entryEndAt: endOfDayTokyo(d(2026, 10, 15)) });
+  const past = () => ({ entryEndAt: endOfDayTokyo(d(2026, 9, 1)) });
+  const now = new Date("2026-10-05T00:00:00Z");
+
+  it("1 つでも受け付けている部があれば受付中", () => {
+    expect(tournamentEntryState(tournament(), [past(), open()], now)).toBe("open");
+    expect(tournamentEntryState(tournament(), [past(), past()], now)).toBe("closed");
+  });
+
+  it("部がない大会は、大会の締切だけで決める", () => {
+    expect(tournamentEntryState(tournament(), [], new Date("2026-09-15T00:00:00Z"))).toBe("open");
+    expect(tournamentEntryState(tournament(), [], now)).toBe("closed");
+  });
+
+  it("どの部もまだ始まっていなければ「これから」、準備中・終了は「受け付けない」", () => {
+    const notStarted = tournament({ entryStartAt: startOfDayTokyo(d(2026, 12, 1)) });
+    expect(tournamentEntryState(notStarted, [open(), past()], now)).toBe("not_started");
+    expect(tournamentEntryState(tournament({ status: "draft" }), [open()], now)).toBe("unavailable");
+    expect(tournamentEntryState(tournament({ status: "archived" }), [open()], now)).toBe("unavailable");
+  });
+});
+
+describe("daysUntilDeadline（「あと5日」・§5.6）", () => {
+  it("日本時間の暦で数える。当日は 0、過ぎていれば負", () => {
+    const deadline = endOfDayTokyo(d(2026, 9, 30));
+    // 日本時間の 9 月 25 日（UTC では 9 月 24 日 15:00 以降）
+    expect(daysUntilDeadline(deadline, new Date("2026-09-24T15:00:00Z"))).toBe(5);
+    expect(daysUntilDeadline(deadline, new Date("2026-09-30T00:00:00Z"))).toBe(0);
+    // 締切の瞬間（日本時間 9/30 23:59:59）はまだ当日
+    expect(daysUntilDeadline(deadline, deadline)).toBe(0);
+    // その 1 ミリ秒後は 10/1 なので過ぎている
+    expect(daysUntilDeadline(deadline, new Date(deadline.getTime() + 1))).toBe(-1);
   });
 });

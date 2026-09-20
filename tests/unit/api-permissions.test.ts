@@ -74,6 +74,13 @@ describe("API の権限表（§3.2 と URL の対応）", () => {
     }
   });
 
+  it("誰でも見られる API は、§3.2 でもアンノウンができる行になっている（§5.6）", () => {
+    for (const permission of API_PERMISSIONS) {
+      if (permission.guard.kind !== "publicTenant") continue;
+      expect(can("anonymous", permission.guard.action)).toBe(true);
+    }
+  });
+
   it("協会の中の API は、表の行のとおりに最も低いロールが決まっている", () => {
     for (const permission of API_PERMISSIONS) {
       if (permission.guard.kind !== "tenant") continue;

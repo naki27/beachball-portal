@@ -64,3 +64,11 @@ export function formatDateWithWeekday(d: PlainDate): string {
   const weekday = WEEKDAYS_JA[new Date(Date.UTC(d.year, d.month - 1, d.day)).getUTCDay()];
   return `${d.month}月${d.day}日（${weekday}）`;
 }
+
+// b − a の日数（暦の上の差。時刻・TZ に頼らない）。同じ日なら 0、b が後なら正
+export function diffDays(a: PlainDate, b: PlainDate): number {
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  const from = Date.UTC(a.year, a.month - 1, a.day);
+  const to = Date.UTC(b.year, b.month - 1, b.day);
+  return Math.round((to - from) / MS_PER_DAY);
+}

@@ -3,7 +3,7 @@
 // 受付できるかは大会の状態と期間の両方で決める。画面・API・ジョブのすべてでここを通す（ほかの場所で now と締切を比べない）
 
 import type { TournamentStatus } from "@/db/schema";
-import type { PlainDate } from "./date";
+import { diffDays, type PlainDate, todayInTokyo } from "./date";
 
 // 判定に必要な分だけを受け取る（行そのものを渡しても通る）
 export type TournamentDeadline = { status: TournamentStatus; entryStartAt: Date | null; entryEndAt: Date };
@@ -38,4 +38,20 @@ export function entryState(tournament: TournamentDeadline, category: CategoryDea
 
 export function isEntryOpen(tournament: TournamentDeadline, category: CategoryDeadline, now: Date): boolean {
   return entryState(tournament, category, now) === "open";
+}
+
+// 大会そのものの受付の状態（部ごとの締切が違う大会もあるので、部をまとめて見る・追加仕様 2）
+// 1 つでも受け付けている部があれば「受付中」。まだどの部も始まっていなければ「これから」
+export function tournamentEntryState(tournament: TournamentDeadline, categories: readonly CategoryDeadline[], now: Date): EntryState {
+  if (categories.length === 0) return entryState(tournament, { entryEndAt: null }, now);
+  const states = categories.map((category) => entryState(tournament, category, now));
+  if (states.includes("open")) return "open";
+  if (states.every((state) => state === "not_started")) return "not_started";
+  if (states.every((state) => state === "unavailable")) return "unavailable";
+  return "closed";
+}
+
+// 締切まであと何日か（日本時間の暦の上の差）。当日は 0、過ぎていれば負（画面の「あと5日」・§5.6）
+export function daysUntilDeadline(deadline: Date, now: Date = new Date()): number {
+  return diffDays(todayInTokyo(now), todayInTokyo(deadline));
 }

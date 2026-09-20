@@ -14,6 +14,8 @@ export type ApiGuard =
   | { kind: "loggedIn" }
   // 協会の中の資源。requireTenantUser で協会を解決してから、サービス層が §3.2 の行で判定する
   | { kind: "tenant"; action: Action }
+  // 協会の中で、ログインしていなくても見られるもの（§5.6）。協会は解決するが、ログインは求めない
+  | { kind: "publicTenant"; action: Action }
   // 運営管理者だけ（/api/platform/…）
   | { kind: "platform"; action: Action };
 
@@ -25,6 +27,11 @@ export type ApiPermission = {
 };
 
 export const API_PERMISSIONS: readonly ApiPermission[] = [
+  // 協会の中（誰でも見られる・§5.6）。応答に選手の情報を入れない
+  { path: "[slug]/tournaments", methods: ["GET"], guard: { kind: "publicTenant", action: "viewPublic" } },
+  { path: "[slug]/tournaments/[tournamentId]", methods: ["GET"], guard: { kind: "publicTenant", action: "viewPublic" } },
+  { path: "[slug]/tournaments/[tournamentId]/entries", methods: ["GET"], guard: { kind: "publicTenant", action: "viewPublic" } },
+
   // 協会の中（代表者・選手）
   { path: "[slug]/teams", methods: ["POST"], guard: { kind: "tenant", action: "createTeam" } },
   { path: "[slug]/teams/[teamId]", methods: ["PATCH"], guard: { kind: "tenant", action: "editTeam" } },
@@ -88,6 +95,7 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
 // route.ts の中に必ず出てくる入口（この文字列がなければ、認可の検査を忘れている）
 export const GUARD_TOKENS: Record<ApiGuard["kind"], readonly string[]> = {
   public: [],
+  publicTenant: ["resolveAssociationForApi"],
   loggedIn: ["requireLoggedIn", "principal.userId"],
   tenant: ["requireTenantUser"],
   platform: ["requirePlatformAdmin", "isPlatformAdmin"],
