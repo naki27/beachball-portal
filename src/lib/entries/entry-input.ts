@@ -55,3 +55,29 @@ export function parseEntryInput(raw: Record<string, unknown>): EntryInputResult 
 
   return { ok: true, value: { teamId, newTeamName: newTeamName || null, teamName, categoryId, note: note || null, token } };
 }
+
+// 申込の変更（B-12・§5.5(d)）。チームは変えられない（変えるなら取り消して申し込み直す）ので、
+// 見るのは公開するチーム名・出場する部・備考だけ。ワンタイムの値も要らない（申込はすでにある）
+export type EntryEditInput = { teamName: string; categoryId: string; note: string | null };
+
+export type EntryEditField = "teamName" | "categoryId" | "note";
+
+export type EntryEditInputResult =
+  | { ok: true; value: EntryEditInput }
+  | { ok: false; field: EntryEditField; message: string };
+
+export function parseEntryEditInput(raw: Record<string, unknown>): EntryEditInputResult {
+  const teamName = cleanText(raw.teamName);
+  if (!teamName) return { ok: false, field: "teamName", message: "チーム名を入力してください" };
+  if ([...teamName].length > TEAM_NAME_MAX) {
+    return { ok: false, field: "teamName", message: `チーム名は${TEAM_NAME_MAX}文字以内で入力してください` };
+  }
+
+  const categoryId = cleanText(raw.categoryId);
+  if (!categoryId || !isUuid(categoryId)) return { ok: false, field: "categoryId", message: "出場する部を選んでください" };
+
+  const note = typeof raw.note === "string" ? raw.note.trim() : "";
+  if ([...note].length > ENTRY_NOTE_MAX) return { ok: false, field: "note", message: `備考は${ENTRY_NOTE_MAX}文字以内で入力してください` };
+
+  return { ok: true, value: { teamName, categoryId, note: note || null } };
+}

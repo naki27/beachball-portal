@@ -100,7 +100,7 @@ describe("送信待ちの表と送信ジョブ", () => {
 
   it("雛形のない種別は再試行せずに failed", async () => {
     const id = await app.transaction((tx) =>
-      enqueueMail(tx, { associationId: SAWARA_ASSOCIATION_ID, mailType: "entry_updated", toEmail: TO }),
+      enqueueMail(tx, { associationId: SAWARA_ASSOCIATION_ID, mailType: "membership_approved", toEmail: TO }),
     );
     const sender = recordingSender();
     await processMailQueue(job, sender);

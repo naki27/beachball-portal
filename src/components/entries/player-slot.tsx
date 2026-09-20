@@ -39,6 +39,7 @@ export function PlayerSlotField({
   membersOnly,
   referenceDate,
   errors,
+  notice = null,
 }: {
   index: number;
   slot: PlayerSlot;
@@ -51,6 +52,8 @@ export function PlayerSlotField({
   membersOnly: boolean;
   referenceDate: PlainDate;
   errors: PlayerSlotErrors;
+  // 枠に添える知らせ（申込の変更で、選手一覧からいなくなった人の印・§5.5）
+  notice?: string | null;
 }) {
   const uid = useId();
   const id = (part: string) => `slot-${index}-${part}`;
@@ -135,14 +138,17 @@ export function PlayerSlotField({
       </div>
 
       {chosen ? (
-        <div className="flex items-center justify-between gap-2">
-          <p>
-            <span className="font-semibold">{slot.name}</span>
-            <span className="ml-2 text-sm text-muted">{personText(slot.birthDate, slot.sex, referenceDate)}</span>
-          </p>
-          <Button variant="secondary" onClick={clear}>
-            選び直す
-          </Button>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <p>
+              <span className="font-semibold">{slot.name}</span>
+              <span className="ml-2 text-sm text-muted">{personText(slot.birthDate, slot.sex, referenceDate)}</span>
+            </p>
+            <Button variant="secondary" onClick={clear}>
+              選び直す
+            </Button>
+          </div>
+          {notice ? <p className="text-sm font-semibold text-danger">{notice}</p> : null}
         </div>
       ) : slot.kind === "manual" ? (
         <div className="flex flex-col gap-3">

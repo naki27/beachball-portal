@@ -1,5 +1,14 @@
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
-import { entries, entryPlayers, type EntryPlayerMatchType, type MemberSex, tournamentCategories, tournaments } from "@/db/schema";
+import {
+  entries,
+  entryAudits,
+  type EntryAuditAction,
+  entryPlayers,
+  type EntryPlayerMatchType,
+  type MemberSex,
+  tournamentCategories,
+  tournaments,
+} from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 
 // 申込（entries）のリポジトリ。申込の作成・変更は B-09 以降。ここには読み取りと、ほかのタスクが要る判定の口を置く
@@ -183,6 +192,7 @@ export async function hasEntryForTeamAndCategory(
   tournamentId: string,
   teamId: string,
   categoryId: string,
+  excludeEntryId?: string,
 ): Promise<boolean> {
   const [row] = await tx
     .select({ id: entries.id })
@@ -195,6 +205,7 @@ export async function hasEntryForTeamAndCategory(
         eq(entries.categoryId, categoryId),
         eq(entries.status, "submitted"),
         isNull(entries.deletedAt),
+        excludeEntryId ? ne(entries.id, excludeEntryId) : undefined,
       ),
     )
     .limit(1);
@@ -280,4 +291,50 @@ export async function findLatestEntryForTeam(tx: Tx, associationId: string, team
     .orderBy(desc(entries.submittedAt))
     .limit(1);
   return row ?? null;
+}
+
+// --- 申込の変更・取消（B-12・§5.5(d)） ---
+
+export type EntryChanges = { categoryId: string; teamName: string; note: string | null; needsAdminCheck: boolean };
+
+export async function updateEntryRow(
+  tx: Tx,
+  associationId: string,
+  entryId: string,
+  changes: EntryChanges,
+  updatedBy: string,
+  at: Date,
+): Promise<void> {
+  await tx
+    .update(entries)
+    .set({ ...changes, updatedBy, updatedAt: at })
+    .where(and(eq(entries.associationId, associationId), eq(entries.id, entryId)));
+}
+
+// 取消は status（物理削除しない・§5.5(d)）。元には戻せない
+export async function cancelEntryRow(tx: Tx, associationId: string, entryId: string, updatedBy: string, at: Date): Promise<void> {
+  await tx
+    .update(entries)
+    .set({ status: "cancelled", cancelledAt: at, updatedBy, updatedAt: at })
+    .where(and(eq(entries.associationId, associationId), eq(entries.id, entryId)));
+}
+
+// 変更のたびに選手の行は入れ替える（申込時点のスナップショットを作り直す・§5.5）
+export async function deleteEntryPlayers(tx: Tx, associationId: string, entryId: string): Promise<void> {
+  await tx.delete(entryPlayers).where(and(eq(entryPlayers.associationId, associationId), eq(entryPlayers.entryId, entryId)));
+}
+
+// 変更履歴（§5.5(d)）。**生年月日は入れない**（§5.16）
+export async function insertEntryAudit(
+  tx: Tx,
+  associationId: string,
+  input: {
+    entryId: string;
+    actorId: string | null;
+    action: EntryAuditAction;
+    before: Record<string, unknown> | null;
+    after: Record<string, unknown> | null;
+  },
+): Promise<void> {
+  await tx.insert(entryAudits).values({ associationId, ...input });
 }

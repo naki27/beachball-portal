@@ -138,3 +138,12 @@ export async function bumpEntryCounts(tx: Tx, associationId: string, memberIds: 
     .set({ entryCount: sql`${members.entryCount} + 1`, lastEntryAt: at, updatedAt: at })
     .where(and(tenantScope(members, associationId), inArray(members.id, memberIds)));
 }
+
+// 変更で申込から外れた人の参加回数を戻す（§5.5(d)「entry_count のみ再計算」）。人物そのものは消さない
+export async function unbumpEntryCounts(tx: Tx, associationId: string, memberIds: string[], at: Date): Promise<void> {
+  if (memberIds.length === 0) return;
+  await tx
+    .update(members)
+    .set({ entryCount: sql`greatest(${members.entryCount} - 1, 0)`, updatedAt: at })
+    .where(and(tenantScope(members, associationId), inArray(members.id, memberIds)));
+}

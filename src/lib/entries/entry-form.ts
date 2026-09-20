@@ -1,6 +1,6 @@
 import type { MemberSex } from "@/db/schema";
 import type { Db } from "@/db/client";
-import { withTenantOn } from "@/db/tenant";
+import { type Tx, withTenantOn } from "@/db/tenant";
 import { getMembership } from "@/lib/auth/principal";
 import { type Principal, resolveRole } from "@/lib/authz";
 import { effectiveAgeReferenceDate, effectiveDeadline, type EntryState, entryState, tournamentEntryState } from "@/lib/deadline";
@@ -11,7 +11,7 @@ import { findAssociationById } from "@/lib/repo/associations";
 import { hasMembershipsForYear, listApprovedMemberIds } from "@/lib/repo/memberships";
 import { listActiveRoster } from "@/lib/repo/team-members";
 import { listTeamsAdminedBy } from "@/lib/repo/teams";
-import { listTournamentCategories } from "@/lib/repo/tournament-categories";
+import { listTournamentCategories, type TournamentCategory } from "@/lib/repo/tournament-categories";
 import { findPublicTournament, type Tournament } from "@/lib/repo/tournaments";
 import { TeamError } from "@/lib/teams/errors";
 import { categoryConditionText } from "@/lib/tournaments/category-text";
@@ -63,6 +63,53 @@ export type EntryFormData = {
   token: string;
 };
 
+// 部の一覧の作り方は入力ページと変更ページで同じ（§5.5）。ここ 1 か所にする
+export function toEntryFormCategory(
+  category: TournamentCategory,
+  tournament: Tournament,
+  isAssociationAdmin: boolean,
+  now: Date,
+): EntryFormCategory {
+  const state = entryState(tournament, category, now);
+  return {
+    id: category.id,
+    code: category.code,
+    label: category.label,
+    preset: {
+      gender: category.gender,
+      ruleType: category.ruleType,
+      ruleValue: category.ruleValue,
+      courtSize: category.courtSize,
+      mixedMinMale: category.mixedMinMale,
+      mixedMinFemale: category.mixedMinFemale,
+    },
+    condition: categoryConditionText(category, effectiveAgeReferenceDate(category, tournament)),
+    entryEndAt: effectiveDeadline(category, tournament),
+    ageReferenceDate: effectiveAgeReferenceDate(category, tournament),
+    state,
+    selectable: state === "open" || isAssociationAdmin,
+  };
+}
+
+// チームの選手一覧（プルダウンの候補）。協会員かどうかはその年度のデータで決める（§5.12）
+export async function loadEntryFormRoster(
+  tx: Tx,
+  associationId: string,
+  teamId: string,
+  year: number,
+): Promise<EntryFormPlayer[]> {
+  const rows = await listActiveRoster(tx, associationId, teamId);
+  const approved = await listApprovedMemberIds(tx, associationId, year, rows.map((row) => row.memberId));
+  return rows.map((row) => ({
+    memberId: row.memberId,
+    name: row.name,
+    kana: row.kana,
+    birthDate: row.birthDate,
+    sex: row.sex,
+    isMember: approved.has(row.memberId),
+  }));
+}
+
 export async function getEntryFormData(
   db: Db,
   principal: Principal,
@@ -87,27 +134,7 @@ export async function getEntryFormData(
       if (!tournament) throw new TeamError(404, "大会が見つかりません");
 
       const categoryRows = await listTournamentCategories(tx, associationId, tournamentId);
-      const categories: EntryFormCategory[] = categoryRows.map((category) => {
-        const state = entryState(tournament, category, now);
-        return {
-          id: category.id,
-          code: category.code,
-          label: category.label,
-          preset: {
-            gender: category.gender,
-            ruleType: category.ruleType,
-            ruleValue: category.ruleValue,
-            courtSize: category.courtSize,
-            mixedMinMale: category.mixedMinMale,
-            mixedMinFemale: category.mixedMinFemale,
-          },
-          condition: categoryConditionText(category, effectiveAgeReferenceDate(category, tournament)),
-          entryEndAt: effectiveDeadline(category, tournament),
-          ageReferenceDate: effectiveAgeReferenceDate(category, tournament),
-          state,
-          selectable: state === "open" || isAssociationAdmin,
-        };
-      });
+      const categories = categoryRows.map((category) => toEntryFormCategory(category, tournament, isAssociationAdmin, now));
 
       // どの部も受け付けていなければ 409（管理者は締切後でも申し込める・§3.2）
       const overall = tournamentEntryState(tournament, categoryRows, now);

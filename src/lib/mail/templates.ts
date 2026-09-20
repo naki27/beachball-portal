@@ -287,6 +287,49 @@ const TEMPLATES: Partial<Record<MailType, Template>> = {
     };
   },
 
+  // 変更・取消のお知らせ（§11 の entry_updated / entry_cancelled）。載せる内容は申込完了と同じ（氏名のみ）
+  entry_updated: async (params, ctx, tx) => {
+    const e = await loadEntry(tx, params);
+    const entryUrl = ctx.associationSlug ? `${ctx.baseUrl}/${ctx.associationSlug}/entries/${e.entry.id}` : ctx.baseUrl;
+    return {
+      subject: subjectWithBrand(ctx, `${e.tournamentName}のお申し込みの内容を変更しました`),
+      text: [
+        `${e.tournamentName}のお申し込みの内容を変更しました。`,
+        "",
+        `申込番号: ${e.entry.id}`,
+        `部: ${e.categoryLabel}`,
+        `チーム名: ${e.entry.teamName}`,
+        "出場する選手:",
+        ...e.players.map((p) => `　${p.position}. ${p.name}`),
+        "",
+        `${formatDateWithWeekday(todayInTokyo(e.deadline))}までは、下のページから変更・取り消しができます。`,
+        entryUrl,
+        "",
+        "このメールに心当たりがない場合は、運営までお知らせください。",
+      ].join("\n"),
+    };
+  },
+
+  entry_cancelled: async (params, ctx, tx) => {
+    const e = await loadEntry(tx, params);
+    const entryUrl = ctx.associationSlug ? `${ctx.baseUrl}/${ctx.associationSlug}/entries/${e.entry.id}` : ctx.baseUrl;
+    return {
+      subject: subjectWithBrand(ctx, `${e.tournamentName}のお申し込みを取り消しました`),
+      text: [
+        `${e.tournamentName}のお申し込みを取り消しました。`,
+        "",
+        `申込番号: ${e.entry.id}`,
+        `部: ${e.categoryLabel}`,
+        `チーム名: ${e.entry.teamName}`,
+        "",
+        "取り消した申し込みは元に戻せません。もう一度出る場合は、締切までに申し込み直してください。",
+        entryUrl,
+        "",
+        "このメールに心当たりがない場合は、運営までお知らせください。",
+      ].join("\n"),
+    };
+  },
+
   contact_forwarded: async (params, ctx, tx) => {
     const message = await loadContactMessage(tx, params);
     return {
