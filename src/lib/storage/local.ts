@@ -14,7 +14,7 @@ export function createLocalStorage(root: string, publicBaseUrl: string): Storage
   return {
     driver: "local",
 
-    // ローカルでは Content-Type を保存しない（配信は開発時だけのルートが拡張子から決める・§5.9）
+    // ローカルでは Content-Type・Content-Disposition を保存しない（配信は開発時だけのルートが拡張子から決める・§5.9）
     async put(bucket, key, body) {
       const path = pathOf(bucket, key);
       await mkdir(dirname(path), { recursive: true });

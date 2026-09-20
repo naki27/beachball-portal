@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DocumentList } from "@/components/tournaments/document-list";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { formatDateWithWeekday } from "@/lib/date";
 import { getPrincipal } from "@/lib/auth/principal";
 import { requireAssociation } from "@/lib/page/require-association";
 import { pageErrorFrom } from "@/lib/page/team-errors";
-import { getTournamentForPublic } from "@/lib/public/tournaments";
+import { getTournamentForPublic, listDocumentsForPublic } from "@/lib/public/tournaments";
 import { ageReferenceText } from "@/lib/tournaments/category-text";
 import { deadlineText } from "@/lib/tournaments/deadline-text";
 
@@ -21,6 +22,8 @@ export default async function TournamentPage({ params }: Props) {
   const association = await requireAssociation(slug);
   const now = new Date();
   const tournament = await getTournamentForPublic(getDb(), association.id, tournamentId, now).catch(pageErrorFrom);
+  // 公開されている資料（§5.9）。押すとアプリの URL 経由で公開用の URL へ転送される
+  const documents = await listDocumentsForPublic(getDb(), association.id, tournament.id);
   const principal = await getPrincipal();
   const mixedDeadlines = tournament.categories.some((c) => c.overridesDeadline);
 
@@ -86,6 +89,13 @@ export default async function TournamentPage({ params }: Props) {
           </ul>
         )}
       </section>
+
+      <DocumentList
+        documents={documents.map((document) => ({
+          ...document,
+          href: `/${association.slug}/tournaments/${tournament.id}/documents/${document.id}`,
+        }))}
+      />
 
       <p>
         <Link href={`/${association.slug}/tournaments/${tournament.id}/entries`} className="font-semibold underline underline-offset-2">

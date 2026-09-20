@@ -2,11 +2,15 @@ import type { Db } from "@/db/client";
 import { type Tx, withTenantOn } from "@/db/tenant";
 import { daysUntilDeadline, effectiveAgeReferenceDate, effectiveDeadline, type EntryState, entryState, tournamentEntryState } from "@/lib/deadline";
 import type { PlainDate } from "@/lib/date";
+import type { DocType } from "@/lib/documents/document-input";
+import { shouldBePublic } from "@/lib/documents/publish";
 import { isUuid } from "@/lib/ids";
 import { countEntriesByTournament, listPublicEntryTeams } from "@/lib/repo/entries";
 import { listTournamentCategories, type TournamentCategory } from "@/lib/repo/tournament-categories";
+import { findTournamentDocument, listTournamentDocuments } from "@/lib/repo/tournament-documents";
 import { findPublicTournament, listPublicTournaments, type Tournament } from "@/lib/repo/tournaments";
 import { TeamError } from "@/lib/teams/errors";
+import type { StorageAdapter } from "@/lib/storage/types";
 import { categoryConditionText } from "@/lib/tournaments/category-text";
 
 // 公開ページの読み取り（設計書 §5.6）。ログインしていなくても見られる。準備中（draft）の大会は 404
@@ -157,5 +161,39 @@ export async function getEntryTeamsForPublic(
       teams: teams.filter((t) => t.categoryId === category.id).map((t) => t.teamName),
     }));
     return { tournament: view, groups };
+  });
+}
+
+// 公開されている資料（§5.9）。公開用に置かれているものだけ。出すのは種別・タイトル・大きさだけ
+export type PublicDocument = { id: string; docType: DocType; title: string; sizeBytes: number };
+
+export async function listDocumentsForPublic(db: Db, associationId: string, tournamentId: string): Promise<PublicDocument[]> {
+  return withTenantOn(db, associationId, async (tx) => {
+    if (!isUuid(tournamentId)) throw new TeamError(404, "大会が見つかりません");
+    const tournament = await findPublicTournament(tx, associationId, tournamentId);
+    if (!tournament) throw new TeamError(404, "大会が見つかりません");
+    const documents = await listTournamentDocuments(tx, associationId, tournamentId);
+    return documents
+      .filter((document) => shouldBePublic(document, tournament) && document.publicKey !== null)
+      .map((document) => ({ id: document.id, docType: document.docType, title: document.title, sizeBytes: document.sizeBytes }));
+  });
+}
+
+// アプリの URL（利用者が共有するのはこちら・期限なし）から公開用の URL を引く。開けない資料は null
+// 非公開・削除済み・大会が draft のときは null（呼ぶ側が 404 にする）
+export async function findPublicDocumentUrl(
+  db: Db,
+  associationId: string,
+  tournamentId: string,
+  documentId: string,
+  storage: StorageAdapter,
+): Promise<string | null> {
+  if (!isUuid(tournamentId) || !isUuid(documentId)) return null;
+  return withTenantOn(db, associationId, async (tx) => {
+    const tournament = await findPublicTournament(tx, associationId, tournamentId);
+    if (!tournament) return null;
+    const document = await findTournamentDocument(tx, associationId, tournamentId, documentId);
+    if (!document || !document.publicKey || !shouldBePublic(document, tournament)) return null;
+    return storage.publicUrl(document.publicKey);
   });
 }

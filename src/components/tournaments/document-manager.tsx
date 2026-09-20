@@ -51,6 +51,7 @@ export function DocumentManager({
   const router = useRouter();
   const base = `/api/${slug}/admin/tournaments/${tournamentId}/documents`;
   const fileRef = useRef<HTMLInputElement>(null);
+  const replaceRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<DocumentField, string>>>({});
@@ -140,6 +141,19 @@ export function DocumentManager({
     );
   }
 
+  // ファイルの差し替え（§5.9）。公開中なら新しい名前で置き直すので、前に配った URL は開けなくなる
+  function replaceFile(row: DocumentRow): void {
+    const file = replaceRefs.current[row.id]?.files?.[0];
+    if (!file) {
+      setErrors({ file: "差し替えるファイルを選んでください" });
+      return;
+    }
+    if (!window.confirm(`${row.title}のファイルを差し替えます。前に配った資料の URL は開けなくなります。よろしいですか？`)) return;
+    const form = new FormData();
+    form.set("file", file);
+    void send(`replace:${row.id}`, `${base}/${row.id}`, "PUT", form, undefined, `${row.title}のファイルを差し替えました`);
+  }
+
   function remove(row: DocumentRow): void {
     if (!window.confirm(`${row.title}を削除します。公開ページからも見られなくなります。よろしいですか？`)) return;
     void send(`remove:${row.id}`, `${base}/${row.id}`, "DELETE", undefined, undefined, `${row.title}を削除しました`);
@@ -156,6 +170,7 @@ export function DocumentManager({
       <h2 className="text-xl font-bold">大会の資料</h2>
       <Message kind="info" title="個人情報が含まれていないか確認してください">
         公開した資料は、大会に関係のない人でも開けます。組み合わせ表などに載っている氏名は、そのまま公開されます。
+        非公開にしたあと、配信の仕組みの都合で最長 1 時間は開ける場合があります。
       </Message>
       {notice ? <Message kind="error" title={notice} /> : null}
       {done ? <Message kind="success" title={done} /> : null}
@@ -188,6 +203,27 @@ export function DocumentManager({
                   {formatFileSize(row.sizeBytes)}・並び順 {row.sortOrder}・{row.createdAtText}
                   {row.isPublic && !row.published && isDraftTournament ? "（大会が下書きのため、まだ公開されません）" : ""}
                 </p>
+                <div className="flex flex-col gap-2">
+                  <label className="flex flex-col gap-1 text-sm">
+                    <span className="font-semibold">ファイルを差し替える</span>
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      ref={(element) => {
+                        replaceRefs.current[row.id] = element;
+                      }}
+                      className="min-h-12 w-full rounded-md border border-border bg-background px-3 py-2 text-base"
+                    />
+                  </label>
+                  <Button
+                    variant="secondary"
+                    pending={pending === `replace:${row.id}`}
+                    pendingLabel="差し替えています…"
+                    onClick={() => replaceFile(row)}
+                  >
+                    差し替える
+                  </Button>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {row.publicUrl ? (
                     <a

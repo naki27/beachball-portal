@@ -8,7 +8,13 @@
 
 export type StorageBucket = "private" | "public" | "backup";
 
-export type PutOptions = { contentType?: string };
+export type PutOptions = {
+  contentType?: string;
+  // 公開用のファイルに付ける（§5.9）。ブラウザ内で開き、保存時は分かりやすい名前にする
+  contentDisposition?: string;
+  // Cloudflare のキャッシュの期間（短め・§5.9）
+  cacheControl?: string;
+};
 
 export type StorageAdapter = {
   readonly driver: "local" | "r2";

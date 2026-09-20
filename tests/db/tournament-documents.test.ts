@@ -130,10 +130,9 @@ describe("アップロード", () => {
     expect(row?.docType).toBe("要項");
     expect(row?.sizeBytes).toBe(body.length);
     expect(row?.isPublic).toBe(true);
-    // 保管用（非公開）にだけ置く。公開用への配置は C-02
+    // 原本は保管用（非公開）に、公開中なので公開用にも置かれる（配信の決まりは C-02 の試験で見る）
     expect(await storage.get("private", row?.storageKey ?? "")).toEqual(body);
-    expect(row?.publicKey).toBeNull();
-    expect(await storage.list("public", "documents/")).toEqual([]);
+    expect(row?.publicKey).toMatch(/^documents\/[0-9a-f]{32}\.pdf$/);
   });
 
   it("拡張子だけ .pdf にした画像は 400。DB にも保存先にも残らない", async () => {
@@ -169,7 +168,7 @@ describe("直す・削除する", () => {
       title: `${tag} 組み合わせ表`,
       sortOrder: "10",
       isPublic: "false",
-    });
+    }, storage);
     const row = (await getDocumentsForAdmin(app, as(adminId), A, tournamentId)).documents.find((d) => d.id === documentId);
     expect(row).toMatchObject({ docType: "組み合わせ", title: `${tag} 組み合わせ表`, sortOrder: 10, isPublic: false });
   });
@@ -177,7 +176,7 @@ describe("直す・削除する", () => {
   it("削除すると一覧から消える。原本は保管用に残る（物理削除まで）", async () => {
     const { documentId } = await uploadDocument(app, as(adminId), A, tournamentId, fields({ title: `${tag} 結果` }), file(), storage);
     const before = (await getDocumentsForAdmin(app, as(adminId), A, tournamentId)).documents.find((d) => d.id === documentId);
-    await removeDocument(app, as(adminId), A, tournamentId, documentId);
+    await removeDocument(app, as(adminId), A, tournamentId, documentId, storage);
     const after = await getDocumentsForAdmin(app, as(adminId), A, tournamentId);
     expect(after.documents.some((d) => d.id === documentId)).toBe(false);
     expect(await storage.get("private", before?.storageKey ?? "")).not.toBeNull();
@@ -190,12 +189,12 @@ describe("直す・削除する", () => {
 
   it("代表者は直せない・削除できない（403）", async () => {
     const { documentId } = await uploadDocument(app, as(adminId), A, tournamentId, fields({ title: `${tag} その他` }), file(), storage);
-    expect(await statusOf(() => editDocument(app, as(repId), A, tournamentId, documentId, fields()))).toBe(403);
-    expect(await statusOf(() => removeDocument(app, as(repId), A, tournamentId, documentId))).toBe(403);
+    expect(await statusOf(() => editDocument(app, as(repId), A, tournamentId, documentId, fields(), storage))).toBe(403);
+    expect(await statusOf(() => removeDocument(app, as(repId), A, tournamentId, documentId, storage))).toBe(403);
   });
 
   it("ない資料は 404", async () => {
-    expect(await statusOf(() => removeDocument(app, as(adminId), A, tournamentId, crypto.randomUUID()))).toBe(404);
-    expect(await statusOf(() => removeDocument(app, as(adminId), A, tournamentId, "not-a-uuid"))).toBe(404);
+    expect(await statusOf(() => removeDocument(app, as(adminId), A, tournamentId, crypto.randomUUID(), storage))).toBe(404);
+    expect(await statusOf(() => removeDocument(app, as(adminId), A, tournamentId, "not-a-uuid", storage))).toBe(404);
   });
 });

@@ -82,7 +82,7 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/admin/tournaments/[tournamentId]/age-reference/confirm", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   // 大会資料（§5.9）。アップロード・種別／タイトル／公開の変更・削除はテナント管理者だけ
   { path: "[slug]/admin/tournaments/[tournamentId]/documents", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
-  { path: "[slug]/admin/tournaments/[tournamentId]/documents/[documentId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
+  { path: "[slug]/admin/tournaments/[tournamentId]/documents/[documentId]", methods: ["PATCH", "PUT", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets/[presetId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/contacts", methods: ["PATCH"], guard: { kind: "tenant", action: "manageContacts" } },

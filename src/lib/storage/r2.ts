@@ -88,9 +88,10 @@ export function createR2Storage(config: R2Config, now: () => Date = () => new Da
     driver: "r2",
 
     async put(bucket, key, body, options?: PutOptions) {
-      const response = await call("PUT", bucket, key, "", body, {
-        "content-type": options?.contentType ?? "application/octet-stream",
-      });
+      const extra: Record<string, string> = { "content-type": options?.contentType ?? "application/octet-stream" };
+      if (options?.contentDisposition) extra["content-disposition"] = options.contentDisposition;
+      if (options?.cacheControl) extra["cache-control"] = options.cacheControl;
+      const response = await call("PUT", bucket, key, "", body, extra);
       if (!response.ok) throw new Error(`R2 に保存できませんでした（${response.status}）`);
     },
 

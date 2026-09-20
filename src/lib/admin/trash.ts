@@ -22,7 +22,10 @@ import type { Principal } from "@/lib/authz";
 import { subjectLabel } from "@/lib/contact-subjects";
 import { formatDateWithWeekday, todayInTokyo } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
+import { syncTournamentDocuments } from "@/lib/documents/publish";
 import { countEntriesForTeam } from "@/lib/repo/entries";
+import { getStorage } from "@/lib/storage";
+import type { StorageAdapter } from "@/lib/storage/types";
 import { TeamError } from "@/lib/teams/errors";
 import { authorizeAssociationAdmin } from "./access";
 import { DELETED_NAME, PURGE_REASON_LABEL, type PurgeReasonKind } from "./purge-reasons";
@@ -74,8 +77,8 @@ type TrashDefinition = {
   list: (tx: Tx, associationId: string) => Promise<TrashItem[]>;
   // 件数
   countDeleted: (tx: Tx, associationId: string) => Promise<number>;
-  // 復元。できなければ TeamError
-  restore: (tx: Tx, associationId: string, id: string) => Promise<void>;
+  // 復元。できなければ TeamError。storage は大会資料を公開用に戻すために渡す（§5.9）
+  restore: (tx: Tx, associationId: string, id: string, storage: StorageAdapter) => Promise<void>;
   // 物理削除。一緒に消えた件数を返す
   purge: (tx: Tx, associationId: string, id: string, now: Date, reasonKind: PurgeReasonKind) => Promise<number>;
 };
@@ -458,13 +461,15 @@ const tournamentsDefinition: TrashDefinition = {
       }),
     );
   },
-  restore: async (tx, associationId, id) => {
+  restore: async (tx, associationId, id, storage) => {
     const rows = await tx
       .update(tournaments)
       .set({ deletedAt: null, deletedBy: null, updatedAt: new Date() })
       .where(and(eq(tournaments.associationId, associationId), eq(tournaments.id, id), isNotNull(tournaments.deletedAt)))
-      .returning({ id: tournaments.id });
+      .returning({ id: tournaments.id, status: tournaments.status });
     if (rows.length === 0) throw new TeamError(404, "大会が見つかりません");
+    // 削除したときに公開用から下ろした資料を、元の状態に戻す（§5.9）
+    await syncTournamentDocuments(tx, storage, associationId, rows[0]);
   },
   purge: async (tx, associationId, id) => {
     const [row] = await tx
@@ -729,6 +734,7 @@ export async function restoreFromTrash(
   associationId: string,
   table: TrashTable,
   id: string,
+  storage: StorageAdapter = getStorage(),
 ): Promise<void> {
   assertId(id);
   return withTenantOn(
@@ -736,7 +742,7 @@ export async function restoreFromTrash(
     associationId,
     async (tx) => {
       await authorizeAssociationAdmin(tx, principal, associationId);
-      await TRASH_TABLES[table].restore(tx, associationId, id);
+      await TRASH_TABLES[table].restore(tx, associationId, id, storage);
     },
     { userId: principal.userId },
   );

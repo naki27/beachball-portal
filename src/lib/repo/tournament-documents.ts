@@ -112,6 +112,20 @@ export async function updateTournamentDocument(
   return updated.length > 0;
 }
 
+// ファイルを差し替えたときの大きさの更新（差し替えは同じ保管用のキーに上書きする・§5.9）
+export async function updateTournamentDocumentSize(tx: Tx, associationId: string, documentId: string, sizeBytes: number): Promise<void> {
+  await tx
+    .update(tournamentDocuments)
+    .set({ sizeBytes })
+    .where(
+      and(
+        eq(tournamentDocuments.associationId, associationId),
+        eq(tournamentDocuments.id, documentId),
+        isNull(tournamentDocuments.deletedAt),
+      ),
+    );
+}
+
 export async function softDeleteTournamentDocument(tx: Tx, associationId: string, documentId: string, deletedBy: string): Promise<boolean> {
   const updated = await tx
     .update(tournamentDocuments)
@@ -127,20 +141,18 @@ export async function softDeleteTournamentDocument(tx: Tx, associationId: string
   return updated.length > 0;
 }
 
-// 大会を draft に戻したときなど、まとめて公開用から下ろす（§5.9）。消した公開用のキーを返す
+// 大会を draft に戻したときなど、まとめて公開用から下ろす（§5.9）。**下ろす前の**公開用のキーを返す
+// UPDATE の RETURNING は更新後の値（NULL）を返すので、先に読んでから消す
 export async function clearPublicKeys(tx: Tx, associationId: string, tournamentId: string): Promise<string[]> {
-  const cleared = await tx
-    .update(tournamentDocuments)
-    .set({ publicKey: null })
-    .where(
-      and(
-        eq(tournamentDocuments.associationId, associationId),
-        eq(tournamentDocuments.tournamentId, tournamentId),
-        isNotNull(tournamentDocuments.publicKey),
-      ),
-    )
-    .returning({ publicKey: tournamentDocuments.publicKey });
-  return cleared.map((row) => row.publicKey).filter((key): key is string => !!key);
+  const where = and(
+    eq(tournamentDocuments.associationId, associationId),
+    eq(tournamentDocuments.tournamentId, tournamentId),
+    isNotNull(tournamentDocuments.publicKey),
+  );
+  const rows = await tx.select({ publicKey: tournamentDocuments.publicKey }).from(tournamentDocuments).where(where);
+  if (rows.length === 0) return [];
+  await tx.update(tournamentDocuments).set({ publicKey: null }).where(where);
+  return rows.map((row) => row.publicKey).filter((key): key is string => !!key);
 }
 
 // いま公開用に置いてあるべきキー（日次ジョブの後始末で「迷子のファイル」を見つけるのに使う・§6.5.1 ⑥）
@@ -152,12 +164,12 @@ export async function listLivePublicKeys(tx: Tx, associationId: string): Promise
   return rows.map((row) => row.publicKey).filter((key): key is string => !!key);
 }
 
-// 保管用のキー（物理削除の後始末に使う。論理削除済みも含める）
-export async function listStorageKeysForTournament(tx: Tx, associationId: string, tournamentId: string): Promise<string[]> {
+// 保管用のキー（物理削除の後始末に使う。**論理削除済みも含める**。消すのは行ごと消えたものだけ）
+export async function listStorageKeys(tx: Tx, associationId: string): Promise<string[]> {
   const rows = await tx
     .select({ storageKey: tournamentDocuments.storageKey })
     .from(tournamentDocuments)
-    .where(and(eq(tournamentDocuments.associationId, associationId), eq(tournamentDocuments.tournamentId, tournamentId)));
+    .where(eq(tournamentDocuments.associationId, associationId));
   return rows.map((row) => row.storageKey);
 }
 
