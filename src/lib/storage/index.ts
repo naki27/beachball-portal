@@ -16,7 +16,8 @@ function required(name: string): string {
 }
 
 export function createStorage(): StorageAdapter {
-  const publicBaseUrl = process.env.PUBLIC_FILES_BASE_URL ?? "http://localhost:3000/dev-files";
+  // 空欄（.env の既定）は「決めていない」として扱う。ローカルは開発時だけのルートを同じオリジンで返す（§5.9・C-02）
+  const publicBaseUrl = process.env.PUBLIC_FILES_BASE_URL || "/dev-files";
   if (process.env.STORAGE_DRIVER !== "r2") return createLocalStorage(LOCAL_STORAGE_ROOT, publicBaseUrl);
 
   const bucket = required("R2_BUCKET");

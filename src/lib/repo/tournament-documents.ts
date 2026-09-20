@@ -1,5 +1,5 @@
-import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import { tournamentDocuments } from "@/db/schema";
+import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { tournamentDocuments, tournaments } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 import type { DocType } from "@/lib/documents/document-input";
 
@@ -155,6 +155,14 @@ export async function clearPublicKeys(tx: Tx, associationId: string, tournamentI
   return rows.map((row) => row.publicKey).filter((key): key is string => !!key);
 }
 
+// その大会の資料が使っている保存先のキー（**論理削除済みも含む**）。大会を物理削除するときの後始末に使う
+export async function listKeysForTournament(tx: Tx, associationId: string, tournamentId: string): Promise<{ storageKey: string; publicKey: string | null }[]> {
+  return tx
+    .select({ storageKey: tournamentDocuments.storageKey, publicKey: tournamentDocuments.publicKey })
+    .from(tournamentDocuments)
+    .where(and(eq(tournamentDocuments.associationId, associationId), eq(tournamentDocuments.tournamentId, tournamentId)));
+}
+
 // いま公開用に置いてあるべきキー（日次ジョブの後始末で「迷子のファイル」を見つけるのに使う・§6.5.1 ⑥）
 export async function listLivePublicKeys(tx: Tx, associationId: string): Promise<string[]> {
   const rows = await tx
@@ -188,4 +196,46 @@ export async function countPublicDocuments(tx: Tx, associationId: string, tourna
       ),
     );
   return row?.value ?? 0;
+}
+
+// トップページの「新しい資料」（§5.17「表示」）。公開中の資料を新しい順に。大会名も返す
+export type RecentPublicDocument = {
+  id: string;
+  tournamentId: string;
+  tournamentName: string;
+  docType: DocType;
+  title: string;
+  sizeBytes: number;
+  createdAt: Date;
+};
+
+export async function listRecentPublicDocuments(tx: Tx, associationId: string, limit: number): Promise<RecentPublicDocument[]> {
+  return tx
+    .select({
+      id: tournamentDocuments.id,
+      tournamentId: tournamentDocuments.tournamentId,
+      tournamentName: tournaments.name,
+      docType: tournamentDocuments.docType,
+      title: tournamentDocuments.title,
+      sizeBytes: tournamentDocuments.sizeBytes,
+      createdAt: tournamentDocuments.createdAt,
+    })
+    .from(tournamentDocuments)
+    .innerJoin(
+      tournaments,
+      and(eq(tournaments.associationId, tournamentDocuments.associationId), eq(tournaments.id, tournamentDocuments.tournamentId)),
+    )
+    .where(
+      and(
+        eq(tournamentDocuments.associationId, associationId),
+        eq(tournamentDocuments.isPublic, true),
+        isNotNull(tournamentDocuments.publicKey),
+        isNull(tournamentDocuments.deletedAt),
+        // 準備中・削除済みの大会の資料は出さない（公開用にも置かれていないが、念のため両方で見る）
+        ne(tournaments.status, "draft"),
+        isNull(tournaments.deletedAt),
+      ),
+    )
+    .orderBy(desc(tournamentDocuments.createdAt))
+    .limit(limit);
 }

@@ -188,14 +188,22 @@ describe("迷子のファイルの後始末（日次ジョブ ⑥）", () => {
     expect(await storage.get("private", privateKey)).not.toBeNull();
 
     await deleteTournament(app, as(adminId), A, id, storage);
-    await purgeFromTrash(app, as(adminId), A, "tournaments", id, "試験のため");
-    // 論理削除のあいだは原本を残す。行が消えてから後始末で消える
+    // 論理削除のあいだは原本を残す（復元できるように）
     expect(await storage.get("private", privateKey)).not.toBeNull();
 
-    const result = await cleanUpDocumentFiles(app, storage);
-    expect(result.privateRemoved).toBeGreaterThanOrEqual(1);
+    await purgeFromTrash(app, as(adminId), A, "tournaments", id, "試験のため", "other", new Date(), storage);
+    // 物理削除のときにファイルも消す
     expect(await storage.get("private", privateKey)).toBeNull();
     expect(await storage.get("public", publicKey)).toBeNull();
+  });
+
+  it("消し損ねたファイルは後始末で消える（DB から指されていないもの）", async () => {
+    // 物理削除のときに保存先の削除だけ失敗した状態を作る（ファイルだけが残る）
+    const orphan = "documents/ffffffffffffffffffffffffffffffff.pdf";
+    await storage.put("public", orphan, pdf("迷子"));
+    const result = await cleanUpDocumentFiles(app, storage);
+    expect(result.publicRemoved).toBeGreaterThanOrEqual(1);
+    expect(await storage.get("public", orphan)).toBeNull();
   });
 
   it("使われているファイルは消さない", async () => {

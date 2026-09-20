@@ -23,6 +23,7 @@ import { subjectLabel } from "@/lib/contact-subjects";
 import { formatDateWithWeekday, todayInTokyo } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
 import { syncTournamentDocuments } from "@/lib/documents/publish";
+import { listKeysForTournament } from "@/lib/repo/tournament-documents";
 import { countEntriesForTeam } from "@/lib/repo/entries";
 import { getStorage } from "@/lib/storage";
 import type { StorageAdapter } from "@/lib/storage/types";
@@ -79,8 +80,8 @@ type TrashDefinition = {
   countDeleted: (tx: Tx, associationId: string) => Promise<number>;
   // 復元。できなければ TeamError。storage は大会資料を公開用に戻すために渡す（§5.9）
   restore: (tx: Tx, associationId: string, id: string, storage: StorageAdapter) => Promise<void>;
-  // 物理削除。一緒に消えた件数を返す
-  purge: (tx: Tx, associationId: string, id: string, now: Date, reasonKind: PurgeReasonKind) => Promise<number>;
+  // 物理削除。一緒に消えた件数を返す。storage は大会資料のファイルを消すために渡す（消し損ねは日次ジョブ ⑥ が拾う・§5.16）
+  purge: (tx: Tx, associationId: string, id: string, now: Date, reasonKind: PurgeReasonKind, storage: StorageAdapter) => Promise<number>;
 };
 
 function deletedByName(row: { deletedByName: string | null; deletedByEmail: string | null }): string | null {
@@ -471,7 +472,7 @@ const tournamentsDefinition: TrashDefinition = {
     // 削除したときに公開用から下ろした資料を、元の状態に戻す（§5.9）
     await syncTournamentDocuments(tx, storage, associationId, rows[0]);
   },
-  purge: async (tx, associationId, id) => {
+  purge: async (tx, associationId, id, _now, _reasonKind, storage) => {
     const [row] = await tx
       .select({ id: tournaments.id, deletedAt: tournaments.deletedAt })
       .from(tournaments)
@@ -493,7 +494,13 @@ const tournamentsDefinition: TrashDefinition = {
     ]);
     // 問い合わせは残し、大会・申込との紐づけだけ外す（§5.16 の表）
     await detachContacts(tx, associationId, entryIds, id);
+    // 資料のファイルもここで消す。消し損ねても DB から指されなくなるので、日次ジョブ ⑥ が拾う（§5.16）
+    const keys = await listKeysForTournament(tx, associationId, id);
     await tx.delete(tournaments).where(and(eq(tournaments.associationId, associationId), eq(tournaments.id, id)));
+    for (const key of keys) {
+      await storage.remove("private", key.storageKey).catch(() => undefined);
+      if (key.publicKey) await storage.remove("public", key.publicKey).catch(() => undefined);
+    }
     return cascaded;
   },
 };
@@ -761,6 +768,7 @@ export async function purgeFromTrash(
   // 人物を消すときの申込の記録の扱いが変わる（§5.16）。選ばれていなければ「その他」（氏名も消す側）
   reasonKind: PurgeReasonKind = "other",
   now: Date = new Date(),
+  storage: StorageAdapter = getStorage(),
 ): Promise<{ cascadedCount: number }> {
   assertId(id);
   // 記録は「理由の種類：メモ」。「その他」はメモだけを残す
@@ -775,7 +783,7 @@ export async function purgeFromTrash(
     associationId,
     async (tx) => {
       await authorizeAssociationAdmin(tx, principal, associationId);
-      const cascadedCount = await TRASH_TABLES[table].purge(tx, associationId, id, now, reasonKind);
+      const cascadedCount = await TRASH_TABLES[table].purge(tx, associationId, id, now, reasonKind, storage);
       await tx.insert(deletionLogs).values({
         associationId,
         tableName: table,

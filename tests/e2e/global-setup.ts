@@ -64,6 +64,10 @@ const PATHS = [
   "/sawara/teams/00000000-0000-4000-8000-000000000000/members/new",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/members/new?self=1",
   "/sawara/teams/00000000-0000-4000-8000-000000000000/members/00000000-0000-4000-8000-000000000000/edit",
+  // 大会資料（1c）。ない ID なので 404 になるだけ
+  "/sawara/admin/tournaments/00000000-0000-4000-8000-000000000000/documents",
+  "/sawara/tournaments/00000000-0000-4000-8000-000000000000/documents/00000000-0000-4000-8000-000000000000",
+  "/dev-files/documents/00000000000000000000000000000000.pdf",
   "/robots.txt",
 ];
 

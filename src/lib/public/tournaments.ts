@@ -7,7 +7,7 @@ import { shouldBePublic } from "@/lib/documents/publish";
 import { isUuid } from "@/lib/ids";
 import { countEntriesByTournament, listPublicEntryTeams } from "@/lib/repo/entries";
 import { listTournamentCategories, type TournamentCategory } from "@/lib/repo/tournament-categories";
-import { findTournamentDocument, listTournamentDocuments } from "@/lib/repo/tournament-documents";
+import { findTournamentDocument, listRecentPublicDocuments, listTournamentDocuments } from "@/lib/repo/tournament-documents";
 import { findPublicTournament, listPublicTournaments, type Tournament } from "@/lib/repo/tournaments";
 import { TeamError } from "@/lib/teams/errors";
 import type { StorageAdapter } from "@/lib/storage/types";
@@ -195,5 +195,36 @@ export async function findPublicDocumentUrl(
     const document = await findTournamentDocument(tx, associationId, tournamentId, documentId);
     if (!document || !document.publicKey || !shouldBePublic(document, tournament)) return null;
     return storage.publicUrl(document.publicKey);
+  });
+}
+
+// トップページの「新しい資料」（§5.17「表示」の既定の並びの 3 つめ）。既定は 5 件
+export const RECENT_DOCUMENTS_LIMIT = 5;
+
+export type RecentDocument = {
+  id: string;
+  tournamentId: string;
+  tournamentName: string;
+  docType: DocType;
+  title: string;
+  sizeBytes: number;
+};
+
+export async function listRecentDocumentsForPublic(
+  db: Db,
+  associationId: string,
+  limit: number = RECENT_DOCUMENTS_LIMIT,
+): Promise<RecentDocument[]> {
+  return withTenantOn(db, associationId, async (tx) => {
+    const rows = await listRecentPublicDocuments(tx, associationId, limit);
+    // 画面に出すのは種別・タイトル・大きさと大会名だけ（置いた日時は出さない）
+    return rows.map((row) => ({
+      id: row.id,
+      tournamentId: row.tournamentId,
+      tournamentName: row.tournamentName,
+      docType: row.docType,
+      title: row.title,
+      sizeBytes: row.sizeBytes,
+    }));
   });
 }

@@ -11,6 +11,7 @@ import { getDocumentsForAdmin, editDocument, removeDocument, uploadDocument } fr
 import { createTournament } from "@/lib/admin/tournaments";
 import { ANONYMOUS, type Principal } from "@/lib/authz";
 import { DOC_MAX_BYTES } from "@/lib/documents/document-input";
+import { findPublicDocumentUrl } from "@/lib/public/tournaments";
 import { createLocalStorage } from "@/lib/storage/local";
 import { TeamError } from "@/lib/teams/errors";
 import { registerTeam } from "@/lib/teams/teams";
@@ -157,6 +158,16 @@ describe("アップロード", () => {
   it("別の協会の管理者からは大会が見えない（404）", async () => {
     expect(await statusOf(() => uploadDocument(app, as(otherAdminId), B, tournamentId, fields(), file(), storage))).toBe(404);
     expect(await statusOf(() => getDocumentsForAdmin(app, as(adminId), A, otherTournamentId))).toBe(404);
+  });
+
+  it("別の協会の資料の ID を、この協会の大会の下で指定しても開けない（公開ページも 404）", async () => {
+    const mine = await uploadDocument(app, as(adminId), A, tournamentId, fields({ title: `${tag} 自分の冊子` }), file(), storage);
+    const theirs = await uploadDocument(app, as(otherAdminId), B, otherTournamentId, fields({ title: `${tag} 別協会の冊子` }), file(), storage);
+    // URL の協会と資源の協会が違う → 404（§3.1）
+    expect(await statusOf(() => editDocument(app, as(adminId), A, tournamentId, theirs.documentId, fields(), storage))).toBe(404);
+    expect(await findPublicDocumentUrl(app, A, tournamentId, theirs.documentId, storage)).toBeNull();
+    // 大会が違えば、同じ協会の資料でも開けない
+    expect(await findPublicDocumentUrl(app, B, otherTournamentId, mine.documentId, storage)).toBeNull();
   });
 });
 
