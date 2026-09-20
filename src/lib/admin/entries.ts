@@ -15,7 +15,8 @@ import {
   softDeleteEntry,
 } from "@/lib/repo/entries";
 import { insertExportLog } from "@/lib/repo/export-logs";
-import { hasMembershipsForYear, listApprovedMemberIds } from "@/lib/repo/memberships";
+import { listMembers } from "@/lib/membership";
+import { hasMembershipsForYear } from "@/lib/repo/memberships";
 import { findTournament, type Tournament } from "@/lib/repo/tournaments";
 import { TeamError } from "@/lib/teams/errors";
 import { SEX_LABEL } from "@/lib/teams/player-input";
@@ -68,7 +69,7 @@ async function readEntries(
   ]);
   const memberIds = playerRows.map((player) => player.memberId).filter((id): id is string => id !== null);
   const hasMembershipData = await hasMembershipsForYear(tx, associationId, year);
-  const approved = hasMembershipData ? await listApprovedMemberIds(tx, associationId, year, memberIds) : new Set<string>();
+  const approved = hasMembershipData ? await listMembers(tx, associationId, year, memberIds) : new Set<string>();
 
   const byEntry = new Map<string, AdminEntryPlayerView[]>();
   for (const player of playerRows) {

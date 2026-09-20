@@ -8,7 +8,8 @@ import { fiscalYear, type PlainDate, todayInTokyo } from "@/lib/date";
 import type { EligibilityPreset } from "@/lib/eligibility";
 import { isUuid } from "@/lib/ids";
 import { findAssociationById } from "@/lib/repo/associations";
-import { hasMembershipsForYear, listApprovedMemberIds } from "@/lib/repo/memberships";
+import { listMembers } from "@/lib/membership";
+import { hasMembershipsForYear } from "@/lib/repo/memberships";
 import { listActiveRoster } from "@/lib/repo/team-members";
 import { listTeamsAdminedBy } from "@/lib/repo/teams";
 import { listTournamentCategories, type TournamentCategory } from "@/lib/repo/tournament-categories";
@@ -99,7 +100,7 @@ export async function loadEntryFormRoster(
   year: number,
 ): Promise<EntryFormPlayer[]> {
   const rows = await listActiveRoster(tx, associationId, teamId);
-  const approved = await listApprovedMemberIds(tx, associationId, year, rows.map((row) => row.memberId));
+  const approved = await listMembers(tx, associationId, year, rows.map((row) => row.memberId));
   return rows.map((row) => ({
     memberId: row.memberId,
     name: row.name,
@@ -154,7 +155,7 @@ export async function getEntryFormData(
       const rosters: Record<string, EntryFormPlayer[]> = {};
       const rosterRows = await Promise.all(adminedTeams.map((team) => listActiveRoster(tx, associationId, team.id)));
       const memberIds = [...new Set(rosterRows.flat().map((row) => row.memberId))];
-      const approved = await listApprovedMemberIds(tx, associationId, year, memberIds);
+      const approved = await listMembers(tx, associationId, year, memberIds);
       adminedTeams.forEach((team, index) => {
         rosters[team.id] = rosterRows[index].map((row) => ({
           memberId: row.memberId,
