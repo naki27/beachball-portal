@@ -1,7 +1,7 @@
 import { getDb } from "@/db/client";
 import { readJson } from "@/lib/api/request";
 import { requireTenantUser, teamErrorResponse } from "@/lib/api/tenant";
-import { updateMemberByAdmin } from "@/lib/admin/members";
+import { deleteMemberByAdmin, updateMemberByAdmin } from "@/lib/admin/members";
 
 type Props = { params: Promise<{ slug: string; memberId: string }> };
 
@@ -14,6 +14,19 @@ export async function PATCH(request: Request, { params }: Props): Promise<Respon
   const body = (await readJson(request)) ?? {};
   try {
     await updateMemberByAdmin(getDb(), gate.principal, gate.association.id, memberId, body);
+    return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    return teamErrorResponse(error);
+  }
+}
+
+// DELETE /api/[slug]/admin/members/[memberId] — 人物の論理削除（テナント管理者だけ・§5.16）。復元は /admin/trash
+export async function DELETE(request: Request, { params }: Props): Promise<Response> {
+  const { slug, memberId } = await params;
+  const gate = await requireTenantUser(request, slug);
+  if (gate instanceof Response) return gate;
+  try {
+    await deleteMemberByAdmin(getDb(), gate.principal, gate.association.id, memberId);
     return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return teamErrorResponse(error);

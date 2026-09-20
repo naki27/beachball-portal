@@ -224,3 +224,12 @@
   - API: `POST/DELETE …/teams/[id]/invitations[/[invId]]`、`POST …/invitations/[invId]/resend`、`DELETE /api/[slug]/members/[memberId]/link`
   - bash のヒアドキュメントに長い Python を渡すと解釈に失敗することがある。長い編集はスクラッチパッドにスクリプトを書いて実行する
 - 使った枠（/usage の変化）: 未計測
+
+### A-21（2026-09-18）
+- やったこと: `/[slug]/admin` に「チーム管理」「メンバー管理」。`/admin/teams`（一覧・名前で検索・件数）、`/admin/teams/[id]`（代表者の付け替え（既存のアカウントを承諾なしで追加・解除）・チームの状態・チーム情報の編集・削除（論理。返事待ちの招待を取り消す））、`/admin/members`（氏名・ふりがなの正規化後の部分一致。空なら最新 100 件で要確認を先に）、`/admin/members/[id]`（載っている選手一覧と誤登録の行の削除・アカウントとの紐づけの解除・登録情報の修正）。`src/lib/admin/{access,teams,members}.ts`。API: `DELETE /api/[slug]/admin/teams/[id]`、`POST …/admin/teams/[id]/admins`、`DELETE …/admin/teams/[id]/members/[tmId]`、`PATCH …/admin/members/[id]`（編集・無効化は代表者と同じ `PATCH /api/[slug]/teams/[id]`）。ADR 0015
+- 動作確認: lint / typecheck / test（TZ 2 回・260 本。代表者は 403・付け替え・削除で招待が取り消される・行の削除で人物は残る）、E2E 54 本（テナント管理者がチームを探して代表者を付け替え → メンバーを探して誤登録の行を消す）
+- 次への申し送り・既知の課題:
+  - 要確認の解消と 2 つの人物をまとめる画面は B-15（`/admin/members` には「確認が必要」の印だけ）。削除済みデータの復元は A-26
+  - `countOpenEntries`（`src/lib/repo/entries.ts`）は B-01 まで常に 0。無効化・削除の 409 はその後に効く
+  - チームの一覧の検索は原文の部分一致（大文字小文字は無視）。人物の検索は正規化後（`normalize.ts`）
+- 使った枠（/usage の変化）: 未計測

@@ -3,11 +3,20 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: A-25 アカウントの削除
-- 次のタスク: A-26 削除済みデータと物理削除
+- 最後に終わったタスク: A-26 削除済みデータと物理削除
+- 次のタスク: A-27 日次ジョブ（1a の分）
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### A-26（2026-09-20）
+- やったこと: `/[スラッグ]/admin/trash`（種類で絞り込み・件数・復元・完全に削除（2 段階の確認＋理由））。表ごとの扱いは `src/lib/admin/trash.ts` の `TRASH_TABLES` の 1 か所（`teams`・`team_members`・`members`・`contact_messages`。1b・1c はここに足す）。物理削除は論理削除済みだけ（そうでなければ 409）・1 トランザクション・子は外部キーの cascade に任せ、`deletion_logs` に表名・ID・一緒に消えた件数・理由・実行者だけを残す。親が削除済みのままの子は復元させない（409）。論理削除の入口を足した: 問い合わせ（`/admin/contacts` の「削除する」）と人物（`/admin/members/[id]` の「この登録を削除する」）。`0010`: `contact_messages` に `app_user` の delete 権限。API: `GET /api/[スラッグ]/admin/trash?table=`・`POST …/trash/[table]/[id]/restore`・`DELETE …/trash/[table]/[id]`・`DELETE …/admin/members/[memberId]`・`DELETE …/admin/contacts/[id]`。ADR 0018
+- 動作確認: lint / typecheck / test（TZ 2 回・292 本。代表者は 403・論理削除していないものは 409・理由なしは 400・`deletion_logs` に氏名が入らない・復元で選手一覧の行まで元どおり・同じ氏名と生年月日で登録し直せる）、E2E 32 本 ×2 ブラウザ（削除 → 削除済みデータ → 復元 → もう一度削除して完全に削除）
+- 次への申し送り・既知の課題:
+  - 申込に出ている人物・申込が残っているチームは 409 で断っている。`entry_players` の書き換え（保存期間／本人の依頼の作り分け）は B-17、`countOpenEntries` は B-01 まで 0
+  - 人物の統合（まとめ先）がある人物は消せない。統合そのものは B-15
+  - `/admin/trash` は 1 ページに全部出す（件数が増えたら絞り込みか読み込みの追加を考える）
+- 使った枠（/usage の変化）: 未計測
+
 ### A-23〜A-25（2026-09-20）
 - やったこと:
   - A-23: `/privacy`・`/terms`（未ログインで開ける）。文面は `docs/legal/privacy.md`・`terms.md`（`templates.md` から起こした下書き。公開前に専門家の確認）。表示は `src/lib/legal/markdown.ts` の小さなマークダウンの解釈（見出し・段落・箇条書き・表・強調・リンク。HTML コメントは出さない）。サイト名は `{{SITE_NAME}}` を置き換え。版は文面の「版: …」＝ `.env` の `TERMS_VERSION`
@@ -30,13 +39,4 @@
   - 大会・申込の自動入力（`tournament_id`・申込番号）は B-01 以降。いまは `entry_id` を受けるだけで外部キーはない
   - 問い合わせの削除（論理削除の実行と復元）は A-26。一覧は `deleted_at` を既定で除いている
   - 試験で `processMailQueue` を呼ぶのは `mail.test.ts` だけにした（送信待ちを全部さらうので、2 つの試験が同時に流れると取り合って落ちる。`admin-invitations.test.ts` は `composeMail` と `mail_logs` の確認に変えた。別コミット）
-- 使った枠（/usage の変化）: 未計測
-
-### A-21（2026-09-18）
-- やったこと: `/[slug]/admin` に「チーム管理」「メンバー管理」。`/admin/teams`（一覧・名前で検索・件数）、`/admin/teams/[id]`（代表者の付け替え（既存のアカウントを承諾なしで追加・解除）・チームの状態・チーム情報の編集・削除（論理。返事待ちの招待を取り消す））、`/admin/members`（氏名・ふりがなの正規化後の部分一致。空なら最新 100 件で要確認を先に）、`/admin/members/[id]`（載っている選手一覧と誤登録の行の削除・アカウントとの紐づけの解除・登録情報の修正）。`src/lib/admin/{access,teams,members}.ts`。API: `DELETE /api/[slug]/admin/teams/[id]`、`POST …/admin/teams/[id]/admins`、`DELETE …/admin/teams/[id]/members/[tmId]`、`PATCH …/admin/members/[id]`（編集・無効化は代表者と同じ `PATCH /api/[slug]/teams/[id]`）。ADR 0015
-- 動作確認: lint / typecheck / test（TZ 2 回・260 本。代表者は 403・付け替え・削除で招待が取り消される・行の削除で人物は残る）、E2E 54 本（テナント管理者がチームを探して代表者を付け替え → メンバーを探して誤登録の行を消す）
-- 次への申し送り・既知の課題:
-  - 要確認の解消と 2 つの人物をまとめる画面は B-15（`/admin/members` には「確認が必要」の印だけ）。削除済みデータの復元は A-26
-  - `countOpenEntries`（`src/lib/repo/entries.ts`）は B-01 まで常に 0。無効化・削除の 409 はその後に効く
-  - チームの一覧の検索は原文の部分一致（大文字小文字は無視）。人物の検索は正規化後（`normalize.ts`）
 - 使った枠（/usage の変化）: 未計測

@@ -83,6 +83,7 @@ test("ログインせずに協会へ送ると、控えと転送が届き、管�
     // テナント管理者の管理画面の一覧に「未対応」で出る → 対応済みにする
     await login(page, request, adminEmail, "/sawara/admin/contacts");
     await expect(page).toHaveURL(/\/sawara\/admin\/contacts$/, { timeout: 15_000 });
+    await page.locator("[data-hydrated]").first().waitFor();
     const card = page.locator("article", { hasText: body });
     await expect(card).toContainText("ログインできない・メールが届かない");
     await expect(card).toContainText("未対応");

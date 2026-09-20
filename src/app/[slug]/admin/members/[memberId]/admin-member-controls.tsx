@@ -123,6 +123,40 @@ export function AdminMemberControls({ slug, memberId, linkedEmail, teams }: { sl
           <p className="text-sm text-muted">アカウントと結びついていません（本人はログインできません）。代表者が選手一覧から招待できます。</p>
         )}
       </section>
+
+      <section aria-labelledby="admin-member-delete" className="flex flex-col gap-3">
+        <h2 id="admin-member-delete" className="text-lg font-bold">
+          この登録を削除する
+        </h2>
+        <p className="text-sm text-muted leading-relaxed">
+          削除すると、すべての選手一覧と候補に出なくなります。削除済みデータから元に戻せます。
+        </p>
+        {confirming === "member" ? (
+          <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-3 py-2">
+            <p className="text-sm">この方の登録を削除します。載っている選手一覧からも消えます。</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="danger"
+                className="min-h-10"
+                onClick={() =>
+                  void call("member", `/api/${slug}/admin/members/${memberId}`, () => router.push(`/${slug}/admin/members`))
+                }
+                pending={pending === "member"}
+                pendingLabel="削除しています…"
+              >
+                削除する
+              </Button>
+              <Button variant="secondary" className="min-h-10" onClick={() => setConfirming(null)}>
+                やめる
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="secondary" className="self-start" onClick={() => setConfirming("member")}>
+            この登録を削除する
+          </Button>
+        )}
+      </section>
     </div>
   );
 }

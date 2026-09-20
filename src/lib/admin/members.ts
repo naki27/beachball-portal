@@ -8,7 +8,7 @@ import { parsePlainDate, todayInTokyo } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
 import { matchKeysOf } from "@/lib/matching";
 import { normalizeName } from "@/lib/normalize";
-import { findMember, type Member, updateMemberPerson } from "@/lib/repo/members";
+import { findMember, type Member, softDeleteMember, updateMemberPerson } from "@/lib/repo/members";
 import { TeamError } from "@/lib/teams/errors";
 import { parsePlayerInput, type PlayerInput } from "@/lib/teams/player-input";
 import { authorizeAssociationAdmin } from "./access";
@@ -161,6 +161,26 @@ export async function deleteTeamMemberRow(
         .where(and(eq(teamMembers.associationId, associationId), eq(teamMembers.teamId, teamId), eq(teamMembers.id, teamMemberId), isNull(teamMembers.deletedAt)))
         .returning({ id: teamMembers.id });
       if (rows.length === 0) throw new TeamError(404, "選手が見つかりません");
+    },
+    { userId: principal.userId },
+  );
+}
+
+// 人物の論理削除（§5.16）。テナント管理者だけ。すべての選手一覧・サジェストから消える（復元は /admin/trash）
+export async function deleteMemberByAdmin(
+  db: Db,
+  principal: Principal & { userId: string },
+  associationId: string,
+  memberId: string,
+): Promise<void> {
+  if (!isUuid(memberId)) throw new TeamError(404, "登録が見つかりません");
+  return withTenantOn(
+    db,
+    associationId,
+    async (tx) => {
+      await authorizeAssociationAdmin(tx, principal, associationId);
+      const deleted = await softDeleteMember(tx, associationId, memberId, principal.userId);
+      if (!deleted) throw new TeamError(404, "登録が見つかりません");
     },
     { userId: principal.userId },
   );

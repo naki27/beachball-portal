@@ -50,7 +50,11 @@ export default async function AssociationContactsPage({ params, searchParams }: 
         </Link>
       </nav>
       <p className="text-sm text-muted">{rows.length} 件</p>
-      <ContactList rows={rows} endpoint={`/api/${association.slug}/admin/contacts`} />
+      <ContactList
+        rows={rows}
+        endpoint={`/api/${association.slug}/admin/contacts`}
+        deleteEndpoint={`/api/${association.slug}/admin/contacts`}
+      />
     </main>
   );
 }

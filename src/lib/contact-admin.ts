@@ -69,6 +69,29 @@ export async function setAssociationContactStatus(
   });
 }
 
+// 問い合わせの論理削除（§5.16）。復元と完全な削除は /admin/trash
+export async function deleteAssociationContact(
+  db: Db,
+  associationId: string,
+  messageId: string,
+  deletedBy: string,
+): Promise<boolean> {
+  if (!isUuid(messageId)) return false;
+  return withTenantOn(db, associationId, async (tx) => {
+    const result = await tx
+      .update(contactMessages)
+      .set({ deletedAt: new Date(), deletedBy })
+      .where(
+        and(
+          eq(contactMessages.id, messageId),
+          eq(contactMessages.associationId, associationId),
+          isNull(contactMessages.deletedAt),
+        ),
+      );
+    return (result.rowCount ?? 0) > 0;
+  });
+}
+
 export async function listPlatformContacts(db: Db, filter: { status?: ContactStatus } = {}): Promise<ContactListRow[]> {
   return db
     .select({

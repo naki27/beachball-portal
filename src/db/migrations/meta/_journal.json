@@ -71,6 +71,13 @@
       "when": 1789874944624,
       "tag": "0009_delete-account",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789877516177,
+      "tag": "0010_trash-grants",
+      "breakpoints": true
     }
   ]
 }
