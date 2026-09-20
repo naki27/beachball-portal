@@ -6,6 +6,8 @@ import { can, type Principal } from "@/lib/authz";
 import { parsePlainDate, type PlainDate, todayInTokyo } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
 import { matchKeysOf, resolveMember } from "@/lib/matching";
+import { currentFiscalYear, membershipDisplays, membershipDisplayText } from "@/lib/membership";
+import { findAssociationById } from "@/lib/repo/associations";
 import { updateMemberPerson } from "@/lib/repo/members";
 import { listTeamInvitations } from "@/lib/repo/team-invitations";
 import {
@@ -50,6 +52,8 @@ export type RosterItem = {
   personal: Personal | null;
   // 代表者以上にだけ入る
   account: AccountState | null;
+  // 今年度の協会員の状態の文言（§5.12「表示」）。代表者以上と本人だけ。データのない年度は null
+  membershipLabel: string | null;
 };
 
 export type Roster = {
@@ -78,6 +82,8 @@ export async function getRoster(
   teamId: string,
   now: Date = new Date(),
 ): Promise<Roster> {
+  // 年度の開始月は協会ごと（associations はテナントに属さないので withTenant の外で読む・§5.14）
+  const startMonth = (await findAssociationById(db, associationId))?.fiscalYearStartMonth ?? 4;
   return withTenantOn(
     db,
     associationId,
@@ -87,6 +93,15 @@ export async function getRoster(
       const today = todayInTokyo(now);
       const rows = await listActiveRoster(tx, associationId, teamId);
       const invitations = canManage ? await listTeamInvitations(tx, associationId, teamId, ["pending", "expired"]) : [];
+      // 今年度の協会員の状態（§5.12「表示」）。協会員かどうかは §3.2 viewMembershipStatus の範囲でだけ出す
+      const year = currentFiscalYear(startMonth, now);
+      const displays = await membershipDisplays(
+        tx,
+        associationId,
+        rows.map((row) => row.memberId),
+        year,
+        now,
+      );
       const items = rows.map((row): RosterItem => {
         const isSelf = row.userId === principal.userId;
         const showPersonal = can(role, "viewPlayerPersonal", { self: isSelf });
@@ -98,6 +113,9 @@ export async function getRoster(
           kana: row.kana,
           isSelf,
           personal: showPersonal ? personalOf(row, today) : null,
+          membershipLabel: can(role, "viewMembershipStatus", { self: isSelf })
+            ? membershipDisplayText(displays.get(row.memberId) ?? "no_data", year)
+            : null,
           account: canManage
             ? {
                 linked: row.userId !== null,
