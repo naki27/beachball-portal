@@ -3,23 +3,26 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: B-10 申込③: 確認・送信・完了
-- 次のタスク: B-11 前回コピー
+- 最後に終わったタスク: B-18 1b の仕上げ（**Phase 1b は完了**）
+- 次のタスク: C-01 大会資料のアップロードと保管（1c）
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
-### B-08〜B-10（2026-09-20）
+### B-11〜B-18（2026-09-20）
 - やったこと:
-  - B-08: ビュー `player_suggestions`（付録 A）と `src/lib/search/`（`MemberSearch` と Postgres の実装・付録 C の SQL）。`POST /api/[スラッグ]/members/suggest`（`{q, members_only, year}`）と `…/members/same-name`（氏名の完全一致・最大 3 件）。**候補は代表者を務める有効なチームの現役の選手だけ**。正規化後 2 文字未満は 0 件、60 回/分/ユーザー。`TeamError` に 429、`date.ts` に `fiscalYear`
-  - B-09: 選手枠（`src/lib/entries/player-slots.ts` と `src/components/entries/player-slot.tsx`）。申し込むチームのプルダウン＋名前で探すサジェスト（200ms）、「協会員だけを表示」（その年度のデータがなければ出さない）、手入力（同意の文言）、「この方ですか？」、二重選択の防止、混合の部の男女の人数。`getEntryFormData` に `rosters`・`teamSizeMin/Max`・`year`・`showMembersOnly`・部の設定値。`src/lib/repo/memberships.ts`
-  - B-10: 確認ページ（`…/entry/confirm`・一時保存から読む）、`POST /api/[スラッグ]/tournaments/[id]/entries`（1 トランザクションでチーム作成・名寄せ・選手一覧への自動追加・`entries`/`entry_players`・`entry_count`・メール）、完了ページ `/[スラッグ]/entries/[id]`、`entry_completed` の雛形。`entries.submit_token` の一意制約で二重送信を止める。ADR 0024
-- 動作確認: lint / typecheck / test（TZ 2 回・593 本。`tests/db/member-suggest`・`entry-submit`・`entry-form`、`tests/unit/player-slots`・`date`・`forbidden-who`）、E2E は全 72 本（WebKit と Chromium）
+  - B-11: 前回コピー。`GET /api/[スラッグ]/teams/[id]/entries/latest`（選手と部の `code` だけ。生年月日は返さない）、入力ページの「前回と同じ選手にする」、`src/lib/entries/copy-previous.ts`（枠の復元・外した人の理由・`code` での部の対応づけ）。取り消した申込からも戻す（ADR 0025）
+  - B-12: 申込の変更・取消。`PATCH / DELETE /api/[スラッグ]/entries/[id]`、`/entries/[id]/edit`、詳細ページの取消（元に戻せない旨の確認）。締切後は代表者 409・管理者は可で `entry_audits`（生年月日なし）。`entry_updated` / `entry_cancelled` のメール。選手一覧からいなくなった人の印と、同じ大会の別の申込の警告（先に申し込んだ側にも）
+  - B-13: 管理者の申込一覧（`/admin/tournaments/[id]/entries`）と CSV（`src/lib/export/csv.ts`・1 選手 1 行・BOM・生年月日はチェック時だけ・`export_logs`）、「確認済みにする」、`date.ts` の `formatDateTimeTokyo`
+  - B-14: `StorageAdapter`（`local` / `r2`。R2 は SigV4 を自前で付ける。**本物の R2 では未確認**＝ X-01）、バックアップの暗号化（X25519＋AES-256-GCM の公開鍵方式）、日次ジョブ ②（締切後の申込一覧 CSV を開催日の翌日まで毎日）
+  - B-15: 要確認の解消と人物の統合（`/admin/members` の「確認が必要」→ 比較 →「別の人です」／「まとめる」）。1 トランザクションで付け替え、両方が別アカウントに紐づいていたら 409、`admin_access_logs`
+  - B-16: マイページの申込（代表者として操作できる分・選手として出る分）とトップの「あなたのやること」
+  - B-17: `/admin/trash` に大会・部・申込。大会と誤登録の申込の論理削除の API。人物の物理削除での申込の記録の扱い（保存期間＝生年月日だけ消す／本人の依頼・誤登録＝氏名も「（削除済み）」）、`entry_audits` の氏名の置き換え（マイグレーション 0015 の列を指定した GRANT）
+  - B-18: 1b の仕上げ。E2E `tests/e2e/entry-manage.spec.ts`（マイページ → 変更 → 管理者の一覧と CSV → 取消 → 前回コピー）、権限表のテストに 1b の行（`viewOwnTeamEntries` / `manageEntries` / `manageTournaments`）、README と `docs/ops.md`（大会と申込の運用・試験運用の手順）
+- 動作確認: lint / typecheck / test（TZ 2 回・669 本）、E2E は 74 本すべて（WebKit 375×667 と Chromium 360×640。メモリの都合で 3 回に分けて流した）
 - 次への申し送り・既知の課題:
-  - **`/[スラッグ]/entries/[id]` は今は読むだけ**。変更・取消のボタンは B-12 でこのページに足す（完了メールのリンク先も同じ）
-  - 申込の**警告は送信の応答（`warnings`）に入れているが、画面にはまだ出していない**。§5.5 の「1 件目の代表者にも確認ページで同じ警告」も B-12 以降
-  - `entry_players` は申込時点のスナップショット。脱退・削除された選手の印（§5.5）は B-12
-  - 前回コピー（B-11）のための `entries/latest` はまだない
-  - 一時保存は確認ページへ進む直前に `saveNow` で書く（移動で消えるため）。画面を足すときは同じ扱いに
-  - 大会・申込の論理削除と `TRASH_TABLES` は B-17。公開の応答に選手の情報を入れない決まりは `src/lib/public/tournaments.ts` の型と `tests/db/public-tournaments.test.ts` で守っている
-  - 画面を先に触ると React の初期化で入力が戻るため、E2E は `[data-hydrated]` を待ってから操作する
+  - **管理者が定員を超えて登録するときの「定員を超えています」の確認は未実装**（申込ページには入れていない。管理画面の申込一覧に説明文だけ置いた）
+  - 協会員区分は「協会員／非会員」だけ（`memberships` の年度データがなければ空欄）。「更新の受付中（昨年度は協会員）」などは D-05
+  - R2 の実装（`src/lib/storage/r2.ts`）は**本物の R2 につないで確かめていない**。X-01 で確かめる。バックアップの鍵はローカルだと `.local-storage/backup-test-key.json`
+  - E2E は全部いちどに流すと dev サーバーが落ちる（コンテナのメモリ）。ファイルを分けて流す
+  - `docs/p0-tasks.md` の C は B-14 のストレージの土台の上に載る（`StorageAdapter` の `private` / `public` はまだ使っていない）
 - 使った枠（/usage の変化）: 未計測

@@ -224,9 +224,12 @@ export function EntryEditForm({
         ) : null}
       </section>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="entry-edit-note" className="font-semibold">
+      <section aria-labelledby="entry-edit-note-heading" className="flex flex-col gap-1.5">
+        <h2 id="entry-edit-note-heading" className="text-lg font-bold">
           備考（任意）
+        </h2>
+        <label htmlFor="entry-edit-note" className="font-semibold">
+          運営に伝えること
         </label>
         <textarea
           id="entry-edit-note"
@@ -237,7 +240,7 @@ export function EntryEditForm({
           className="w-full rounded-md border border-border bg-background px-3 py-2 text-base"
         />
         {errors.note ? <p className="text-sm font-semibold text-danger">{errors.note}</p> : null}
-      </div>
+      </section>
 
       {failure ? <Message kind="error" title="変更できませんでした">{<p>{failure}</p>}</Message> : null}
       <Button fullWidth onClick={save} pending={pending} pendingLabel="変更しています…">

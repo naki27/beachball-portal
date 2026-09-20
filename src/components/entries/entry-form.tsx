@@ -155,7 +155,9 @@ export function EntryForm({
     setNotice(null);
     try {
       const response = await fetch(`/api/${slug}/teams/${teamId}/entries/latest`, { headers: { accept: "application/json" } });
-      const body = (await response.json()) as { entry?: { tournamentName: string; categoryCode: string; players: PreviousPlayer[] } | null };
+      const body = (await response.json()) as {
+        entry?: { tournamentName: string; categoryCode: string; cancelled: boolean; players: PreviousPlayer[] } | null;
+      };
       if (!response.ok || !body.entry) {
         setCopied({ title: "前回の申し込みが見つかりませんでした", dropped: null });
         return;
@@ -164,14 +166,16 @@ export function EntryForm({
       const { slots, dropped } = buildCopiedSlots(previous.players, rosters[teamId] ?? [], teamSizeMin, teamSizeMax);
       // 部は同じ code のものを選び直す（表示名が変わっていても対応づく）。今回の大会になければ空にする
       const categoryId = pickCategoryByCode(categories, previous.categoryCode);
-      setValues((current) => {
-        const updated = { ...current, slots, categoryId };
-        draft.saveNow(updated);
-        return updated;
-      });
+      // 一時保存はこの場で書く（描画の途中に書かないよう、状態の更新の外で呼ぶ）
+      const updated = { ...values, slots, categoryId };
+      setValues(updated);
+      draft.saveNow(updated);
       setSlotErrors({});
       setEligibility(null);
-      setCopied({ title: `前回（${previous.tournamentName}）と同じ選手にしました`, dropped: droppedMessage(dropped) });
+      setCopied({
+        title: `前回（${previous.tournamentName}${previous.cancelled ? "・取り消した申し込み" : ""}）と同じ選手にしました`,
+        dropped: droppedMessage(dropped),
+      });
     } catch {
       setCopied({ title: "読み込めませんでした。しばらくしてからもう一度お試しください", dropped: null });
     } finally {

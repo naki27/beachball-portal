@@ -261,6 +261,7 @@ export type LatestTeamEntry = {
   tournamentName: string;
   categoryCode: string;
   categoryLabel: string;
+  status: EntryStatus;
   submittedAt: Date;
 };
 
@@ -272,6 +273,7 @@ export async function findLatestEntryForTeam(tx: Tx, associationId: string, team
       tournamentName: tournaments.name,
       categoryCode: tournamentCategories.code,
       categoryLabel: tournamentCategories.label,
+      status: entries.status,
       submittedAt: entries.submittedAt,
     })
     .from(entries)
@@ -284,12 +286,12 @@ export async function findLatestEntryForTeam(tx: Tx, associationId: string, team
       and(
         eq(entries.associationId, associationId),
         eq(entries.teamId, teamId),
-        eq(entries.status, "submitted"),
         isNull(entries.deletedAt),
         isNull(tournaments.deletedAt),
       ),
     )
-    .orderBy(desc(entries.submittedAt))
+    // 取り消していない申込を先に。なければ取り消した申込から戻す（ADR 0025・§5.5(d)）
+    .orderBy(sql`case when ${entries.status} = 'submitted' then 0 else 1 end`, desc(entries.submittedAt))
     .limit(1);
   return row ?? null;
 }

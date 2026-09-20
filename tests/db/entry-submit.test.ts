@@ -313,6 +313,13 @@ describe("警告と運営の確認対象の印（§5.5）", () => {
     const second = await submitEntry(app, as(rep2Id), A, id, body({ teamId: team2Id, teamName: `${tag} つばき`, categoryId: cats.m_free }), NOW);
     expect(second.warnings.some((w) => w.kind === "duplicate_player")).toBe(true);
     expect(second.needsAdminCheck).toBe(false);
+
+    // 先に申し込んだ側の代表者にも、申込のページで同じ警告を出す（§5.5）
+    const firstDetail = await getEntryDetail(app, as(repId), A, first.entryId, NOW);
+    expect(firstDetail.warnings.some((w) => w.includes("別の申し込み"))).toBe(true);
+    // 選手として見ている人には出さない（§3.2）
+    const secondDetail = await getEntryDetail(app, as(rep2Id), A, second.entryId, NOW);
+    expect(secondDetail.warnings.length).toBeGreaterThan(0);
   });
 
   it("同じチームが同じ部に 2 件目を出すと警告（送信は止めない）", async () => {

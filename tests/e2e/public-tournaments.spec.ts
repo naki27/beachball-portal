@@ -4,6 +4,7 @@ import { closeDb, createDb } from "../../src/db/client";
 import { loadEnv, requireEnv } from "../../src/db/env";
 import { associationAdmins, entries, entryPlayers, teams, tournaments, users } from "../../src/db/schema";
 import { SAWARA_ASSOCIATION_ID, SAWARA_SLUG } from "../../src/db/seed";
+import { todayInTokyo } from "../../src/lib/date";
 import { withTenantOn } from "../../src/db/tenant";
 import { addCategoriesFromPresets, getCategoriesForAdmin } from "../../src/lib/admin/categories";
 import { createTournament } from "../../src/lib/admin/tournaments";
@@ -17,10 +18,10 @@ import { test } from "./fixtures";
 const S = SAWARA_ASSOCIATION_ID;
 
 // 今日からの相対で日付を作る（いつ流しても「受付中」のまま）
+// 画面の「あと◯日」は**日本時間の今日**から数える（§7.0）。UTC の今日で作ると、日本の夜（UTC 15:00 以降）に 1 日ずれる
 function dayFrom(days: number): string {
-  const now = new Date();
-  const shifted = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + days));
-  return shifted.toISOString().slice(0, 10);
+  const today = todayInTokyo();
+  return new Date(Date.UTC(today.year, today.month - 1, today.day + days)).toISOString().slice(0, 10);
 }
 
 test("未ログインで大会を見る（参加チーム一覧に選手の情報が出ない）", async ({ page, request }, testInfo) => {

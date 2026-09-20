@@ -2,11 +2,17 @@ import { and, eq, inArray, like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb, createDb } from "@/db/client";
 import { requireEnv } from "@/db/env";
-import { associationAdmins, associations, members, platformAdmins, teams, users } from "@/db/schema";
+import { associationAdmins, associations, mailLogs, members, platformAdmins, teams, tournaments, users } from "@/db/schema";
 import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
 import { withTenantOn } from "@/db/tenant";
 import { ACTIONS, type Action, ANONYMOUS, can, type Principal, type Role, ROLES } from "@/lib/authz";
-import { listTournamentsForAdmin } from "@/lib/admin/tournaments";
+import { getAdminEntries } from "@/lib/admin/entries";
+import { addCategoriesFromPresets, getCategoriesForAdmin } from "@/lib/admin/categories";
+import { createTournament, listTournamentsForAdmin } from "@/lib/admin/tournaments";
+import { getEntryDetail } from "@/lib/entries/entry-detail";
+import { getEntryEditData } from "@/lib/entries/entry-edit";
+import { submitEntry } from "@/lib/entries/submit-entry";
+import { listCategoryPresets } from "@/lib/repo/category-presets";
 import { countTrash } from "@/lib/admin/trash";
 import { getTeamForAdmin, listTeamsForAdmin } from "@/lib/admin/teams";
 import { searchMembersForAdmin } from "@/lib/admin/members";
@@ -41,6 +47,9 @@ let teamY = "";
 let otherTeam = "";
 let taroTeamMemberId = "";
 let teamYMemberId = "";
+// 1b の行（申込）のためのデータ
+let tournamentId = "";
+let entryId = "";
 const taro = { name: `${tag} 太郎`, kana: "", birthDate: "1992-02-02", sex: "male" };
 
 const as = (userId: string): Principal & { userId: string } => ({ ...ANONYMOUS, userId, sessionState: "active" });
@@ -86,10 +95,54 @@ beforeAll(async () => {
 
   await withTenantOn(owner, S, (tx) => tx.insert(associationAdmins).values({ associationId: S, userId: ids.association_admin }));
   await owner.insert(platformAdmins).values({ userId: ids.platformAdmin });
+
+  // 1b の行（申込・§5.5）のためのデータ: 受付中の大会と、チーム X の申込 1 件
+  const adminActor = actorOf("association_admin");
+  const presets = await withTenantOn(app, S, (tx) => listCategoryPresets(tx, S, { onlyActive: true }));
+  const preset = presets.find((p) => p.code === "m_free");
+  if (!preset) throw new Error("既定の部がない");
+  const day = (days: number) =>
+    new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + days)).toISOString().slice(0, 10);
+  const tournament = await createTournament(app, adminActor, S, {
+    name: `${tag} 大会`,
+    eventDate: day(60),
+    ageReferenceDate: day(60),
+    venue: "",
+    description: "",
+    entryStartDate: day(-5),
+    entryEndDate: day(10),
+    teamSizeMin: "4",
+    teamSizeMax: "8",
+    maxEntries: "",
+    status: "open",
+  });
+  tournamentId = tournament.id;
+  await addCategoriesFromPresets(app, adminActor, S, tournamentId, { presetIds: [preset.id] });
+  const categoryId = (await getCategoriesForAdmin(app, adminActor, S, tournamentId)).categories[0].id;
+
+  const entrySlots = [taro, { ...taro, name: `${tag} 次郎`, birthDate: "1991-03-03" }, { ...taro, name: `${tag} 三郎`, birthDate: "1990-04-04" }, { ...taro, name: `${tag} 四郎`, birthDate: "1989-05-05" }];
+  const slots = [];
+  for (const person of entrySlots.slice(1)) await addPlayer(app, actorOf("team_admin"), S, teamX, person);
+  for (const person of entrySlots) {
+    slots.push({ kind: "pick" as const, memberId: null, name: person.name, kana: null, birthDate: person.birthDate, sex: "male" as const });
+  }
+  // 選手枠は氏名で名寄せさせる（手入力の扱い。この表のテストでは誰が入るかは重要ではない）
+  const entry = await submitEntry(app, actorOf("team_admin"), S, tournamentId, {
+    teamId: teamX,
+    newTeamName: "",
+    teamName: `${tag} X`,
+    categoryId,
+    slots: slots.map((slot) => ({ ...slot, kind: "manual" as const })),
+    note: "",
+    token: crypto.randomUUID(),
+  });
+  entryId = entry.entryId;
 });
 
 afterAll(async () => {
+  await owner.delete(mailLogs).where(inArray(mailLogs.userId, Object.values(ids)));
   await withTenantOn(owner, S, async (tx) => {
+    await tx.delete(tournaments).where(like(tournaments.name, `${tag}%`));
     await tx.delete(teams).where(inArray(teams.createdBy, Object.values(ids)));
     await tx.delete(members).where(and(eq(members.associationId, S), like(members.nameNormalized, `${normalizeName(tag)}%`)));
     await tx.delete(associationAdmins).where(eq(associationAdmins.userId, ids.association_admin));
@@ -115,6 +168,10 @@ const CASES: readonly Case[] = [
   { action: "manageMemberships", name: "協会の人物の検索", run: (a) => searchMembersForAdmin(app, a, S, "") },
   { action: "manageTournaments", name: "大会の一覧（管理）", run: (a) => listTournamentsForAdmin(app, a, S) },
   { action: "physicalDelete", name: "削除済みデータの件数", run: (a) => countTrash(app, a, S) },
+  // 1b（申込・§5.5）
+  { action: "viewOwnTeamEntries", name: "自チームの申込を見る", run: (a) => getEntryDetail(app, a, S, entryId) },
+  { action: "manageEntries", name: "申込の変更の画面", run: (a) => getEntryEditData(app, a, S, entryId) },
+  { action: "manageTournaments", name: "申込一覧（管理）", run: (a) => getAdminEntries(app, a, S, tournamentId) },
 ];
 
 describe("権限表（§3.2）どおりに API が応える", () => {
@@ -122,7 +179,19 @@ describe("権限表（§3.2）どおりに API が応える", () => {
     for (const c of CASES) expect(ACTIONS[c.action]).toBeDefined();
     // 1a の API が守っている行は、すべてケースにしている
     const covered = new Set(CASES.map((c) => c.action));
-    for (const action of ["viewOwnTeamRoster", "manageRoster", "manageTeamAdmins", "editTeam", "viewOtherTeams", "manageMemberships", "physicalDelete"] as const) {
+    // 1a・1b の API が守っている行は、すべてケースにしている
+    for (const action of [
+      "viewOwnTeamRoster",
+      "manageRoster",
+      "manageTeamAdmins",
+      "editTeam",
+      "viewOtherTeams",
+      "manageMemberships",
+      "physicalDelete",
+      "viewOwnTeamEntries",
+      "manageEntries",
+      "manageTournaments",
+    ] as const) {
       expect(covered.has(action)).toBe(true);
     }
   });

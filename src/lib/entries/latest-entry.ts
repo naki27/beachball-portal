@@ -15,6 +15,8 @@ export type LatestEntryForCopy = {
   tournamentName: string;
   categoryCode: string;
   categoryLabel: string;
+  // 取り消した申込から戻すこともある（ADR 0025・§5.5(d)「申し込み直せる」）
+  cancelled: boolean;
   submittedAt: Date;
   players: PreviousPlayer[];
 };
@@ -41,6 +43,7 @@ export async function getLatestEntryForCopy(
         tournamentName: latest.tournamentName,
         categoryCode: latest.categoryCode,
         categoryLabel: latest.categoryLabel,
+        cancelled: latest.status === "cancelled",
         submittedAt: latest.submittedAt,
         // 生年月日は返さない（枠に戻す値は画面が選手一覧から取る・§12）
         players: players.map((player) => ({ memberId: player.memberId, name: player.name })),
