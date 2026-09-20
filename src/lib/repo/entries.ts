@@ -4,6 +4,7 @@ import {
   entryAudits,
   type EntryAuditAction,
   entryPlayers,
+  type EntryStatus,
   type EntryPlayerMatchType,
   type MemberSex,
   tournamentCategories,
@@ -424,4 +425,71 @@ export async function clearNeedsAdminCheck(tx: Tx, associationId: string, entryI
     .update(entries)
     .set({ needsAdminCheck: false, updatedBy, updatedAt: at })
     .where(and(eq(entries.associationId, associationId), eq(entries.id, entryId)));
+}
+
+// --- マイページ・「あなたのやること」（B-16・§5.3・§5.17） ---
+
+export type MyEntryRow = {
+  entryId: string;
+  tournamentId: string;
+  tournamentName: string;
+  categoryId: string;
+  categoryLabel: string;
+  teamId: string;
+  teamName: string;
+  status: EntryStatus;
+  submittedAt: Date;
+  // 締切は「部 → 大会」のフォールバック（deadline.ts と同じ規則）
+  entryEndAt: Date;
+  eventDate: string | null;
+};
+
+const MY_ENTRY_COLUMNS = {
+  entryId: entries.id,
+  tournamentId: entries.tournamentId,
+  tournamentName: tournaments.name,
+  categoryId: entries.categoryId,
+  categoryLabel: tournamentCategories.label,
+  teamId: entries.teamId,
+  teamName: entries.teamName,
+  status: entries.status,
+  submittedAt: entries.submittedAt,
+  entryEndAt: sql<Date>`coalesce(${tournamentCategories.entryEndAt}, ${tournaments.entryEndAt})`,
+  eventDate: tournaments.eventDate,
+};
+
+function myEntries(tx: Tx) {
+  return tx
+    .select(MY_ENTRY_COLUMNS)
+    .from(entries)
+    .innerJoin(tournaments, and(eq(tournaments.associationId, entries.associationId), eq(tournaments.id, entries.tournamentId)))
+    .innerJoin(
+      tournamentCategories,
+      and(eq(tournamentCategories.associationId, entries.associationId), eq(tournamentCategories.id, entries.categoryId)),
+    );
+}
+
+// 代表者として操作できる申込（そのチームの申込。取消も出す）
+export async function listEntriesForTeams(tx: Tx, associationId: string, teamIds: string[]): Promise<MyEntryRow[]> {
+  if (teamIds.length === 0) return [];
+  return myEntries(tx)
+    .where(and(eq(entries.associationId, associationId), inArray(entries.teamId, teamIds), isNull(entries.deletedAt)))
+    .orderBy(desc(entries.submittedAt))
+    .limit(200);
+}
+
+// 選手として出る申込（自分の人物が選手として入っているもの。取消は出さない）
+export async function listEntriesForMember(tx: Tx, associationId: string, memberId: string): Promise<MyEntryRow[]> {
+  return myEntries(tx)
+    .innerJoin(entryPlayers, and(eq(entryPlayers.associationId, entries.associationId), eq(entryPlayers.entryId, entries.id)))
+    .where(
+      and(
+        eq(entries.associationId, associationId),
+        eq(entryPlayers.memberId, memberId),
+        eq(entries.status, "submitted"),
+        isNull(entries.deletedAt),
+      ),
+    )
+    .orderBy(desc(entries.submittedAt))
+    .limit(200);
 }

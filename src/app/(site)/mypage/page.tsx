@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MyEntryList } from "@/components/entries/my-entry-list";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
+import { listMyEntries } from "@/lib/entries/my-entries";
 import { denyPage } from "@/lib/page/forbidden";
 import { loadAdminTeams, loadIndividualRegistration, loadMyAssociations, loadPlayerTeams } from "@/lib/page/my-associations";
 import { getMyPerson } from "@/lib/teams/self";
@@ -14,7 +16,7 @@ import { DisplayNameForm } from "./display-name-form";
 export const metadata: Metadata = { title: "マイページ" };
 
 // マイページ（設計書 §5.3）。テナントに属さない画面。協会ごとに枠を分ける（協会の列挙は §5.14「協会をまたぐ画面」）
-// 協会の枠: 代表者を務めるチーム（A-14）。申込・選手として所属するチームは後のタスクで足す
+// 協会の枠: 代表者を務めるチーム・選手として所属するチームと、代表者として操作できる申込・選手として出る申込
 export default async function MyPage() {
   const principal = await getPrincipal();
   if (!principal.userId) denyPage();
@@ -29,6 +31,8 @@ export default async function MyPage() {
   const playerTeams = await Promise.all(associations.map((a) => loadPlayerTeams(principal, a.id)));
   const me = { ...principal, userId: principal.userId };
   const persons = await Promise.all(associations.map((a) => getMyPerson(db, me, a.id)));
+  const entries = await Promise.all(associations.map((a) => listMyEntries(db, principal, a.id)));
+  const now = new Date();
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
@@ -104,6 +108,8 @@ export default async function MyPage() {
                 <p className="text-sm text-muted">情報の修正はチームの代表者だけができます。代表者に直接お伝えください</p>
               </div>
             ) : null}
+            <MyEntryList slug={a.slug} title="代表者として操作できる申し込み" entries={entries[i].managed} now={now} />
+            <MyEntryList slug={a.slug} title="選手として出る申し込み" entries={entries[i].asPlayer} now={now} />
             {persons[i] && !individuals[i] ? <UnlinkButton slug={a.slug} memberId={persons[i].memberId} personName={persons[i].name} /> : null}
             <p className="flex flex-wrap gap-x-4 gap-y-2">
               <Link href={`/${a.slug}`} className="font-semibold underline underline-offset-2">
