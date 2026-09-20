@@ -4,7 +4,7 @@ import { requireTenantUser, teamErrorResponse } from "@/lib/api/tenant";
 
 type Props = { params: Promise<{ slug: string; tournamentId: string }> };
 
-// POST /api/[slug]/admin/tournaments/[tournamentId]/age-reference — 「新しい基準日で確定する」（設計書 §5.4「年齢の基準日」）
+// POST /api/[slug]/admin/tournaments/[tournamentId]/age-reference/confirm — 「新しい基準日で確定する」（設計書 §5.4「年齢の基準日」）
 // 申込に保存された年齢を、いまの基準日で数えた年齢に上書きし、entry_audits に残す。押すまでは申込時点の値のまま
 export async function POST(request: Request, { params }: Props): Promise<Response> {
   const { slug, tournamentId } = await params;

@@ -50,7 +50,7 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/admin/tournaments/[tournamentId]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/categories", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/categories/[categoryId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
-  { path: "[slug]/admin/tournaments/[tournamentId]/age-reference", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
+  { path: "[slug]/admin/tournaments/[tournamentId]/age-reference/confirm", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets/[presetId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/contacts", methods: ["PATCH"], guard: { kind: "tenant", action: "manageContacts" } },

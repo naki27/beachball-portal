@@ -122,7 +122,7 @@ export function CategoryManager({
 
   function confirmAges() {
     if (!window.confirm("申し込みに保存されている年齢を、いまの基準日で数え直します。よろしいですか？")) return;
-    void send("ages", `${base}/age-reference`, "POST", {}, (body) => `${body?.entries ?? 0} 件の申し込みの年齢を確定しました`);
+    void send("ages", `${base}/age-reference/confirm`, "POST", {}, (body) => `${body?.entries ?? 0} 件の申し込みの年齢を確定しました`);
   }
 
   return (
