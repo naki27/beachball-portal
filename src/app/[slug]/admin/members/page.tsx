@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getDb } from "@/db/client";
 import { searchMembersForAdmin } from "@/lib/admin/members";
+import { listNeedsReview } from "@/lib/admin/merge-members";
 import { getPrincipal } from "@/lib/auth/principal";
 import { parsePlainDate } from "@/lib/date";
 import { denyPage } from "@/lib/page/forbidden";
@@ -15,14 +16,16 @@ type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ q?: st
 export const metadata: Metadata = { title: "メンバー管理" };
 
 // メンバー管理（運営）（設計書 §4.2 #15）。検索と一覧。テナント管理者は全員の生年月日を見られる（§3.2）
-// 要確認の解消と 2 つの人物をまとめる画面は B-15（ここでは「確認が必要」の印だけ）
+// 「確認が必要」の一覧から、解消とまとめる画面（§5.8）へ進む
 export default async function AdminMembersPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const { q = "" } = await searchParams;
   const association = await requireAssociation(slug);
   const principal = await getPrincipal();
   if (!principal.userId) denyPage();
-  const rows = await searchMembersForAdmin(getDb(), { ...principal, userId: principal.userId }, association.id, q).catch(pageErrorFrom);
+  const me = { ...principal, userId: principal.userId };
+  const rows = await searchMembersForAdmin(getDb(), me, association.id, q).catch(pageErrorFrom);
+  const needsReview = await listNeedsReview(getDb(), me, association.id).catch(pageErrorFrom);
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
@@ -32,6 +35,26 @@ export default async function AdminMembersPage({ params, searchParams }: Props) 
         </Link>
       </p>
       <h1 className="text-2xl font-bold">メンバー管理</h1>
+      {needsReview.length > 0 ? (
+        <section aria-labelledby="needs-review" className="flex flex-col gap-2 rounded-md border border-border p-4">
+          <h2 id="needs-review" className="text-lg font-bold">
+            確認が必要（{needsReview.length} 件）
+          </h2>
+          <p className="text-sm text-muted">同じ人が二重に登録されている疑いがあります。開いて、別の人か・同じ人かを選んでください。</p>
+          <ul className="flex flex-col gap-1">
+            {needsReview.map((m) => (
+              <li key={m.id}>
+                <Link href={`/${association.slug}/admin/members/${m.id}/review`} className="underline underline-offset-2">
+                  {m.name}
+                </Link>
+                <span className="ml-2 text-sm text-muted break-words">
+                  {m.birthDate}・{m.teamNames.length > 0 ? m.teamNames.join("・") : "チームなし"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <form method="get" className="flex gap-2">
         <label htmlFor="q" className="sr-only">
           氏名・ふりがなで探す

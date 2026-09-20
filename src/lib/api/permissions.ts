@@ -69,6 +69,9 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/admin/teams/[teamId]/members/[teamMemberId]", methods: ["DELETE"], guard: { kind: "tenant", action: "physicalDelete" } },
   { path: "[slug]/admin/members/[memberId]", methods: ["PATCH"], guard: { kind: "tenant", action: "viewOtherTeams" } },
   { path: "[slug]/admin/members/[memberId]", methods: ["DELETE"], guard: { kind: "tenant", action: "physicalDelete" } },
+  // 要確認の解消と人物の統合（§5.8）。統合は権限表の「物理削除・人物の統合」の行
+  { path: "[slug]/admin/members/[memberId]/reviewed", methods: ["POST"], guard: { kind: "tenant", action: "viewOtherTeams" } },
+  { path: "[slug]/admin/members/[memberId]/merge", methods: ["POST"], guard: { kind: "tenant", action: "physicalDelete" } },
   { path: "[slug]/admin/tournaments", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/categories", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
