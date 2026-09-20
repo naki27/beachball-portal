@@ -6,6 +6,7 @@ import { associationAdmins, associations, members, platformAdmins, teams, users 
 import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
 import { withTenantOn } from "@/db/tenant";
 import { ACTIONS, type Action, ANONYMOUS, can, type Principal, type Role, ROLES } from "@/lib/authz";
+import { listTournamentsForAdmin } from "@/lib/admin/tournaments";
 import { countTrash } from "@/lib/admin/trash";
 import { getTeamForAdmin, listTeamsForAdmin } from "@/lib/admin/teams";
 import { searchMembersForAdmin } from "@/lib/admin/members";
@@ -112,6 +113,7 @@ const CASES: readonly Case[] = [
   { action: "editTeam", name: "チーム情報の編集", run: (a) => editTeam(app, a, S, teamX, { name: `${tag} X` }) },
   { action: "viewOtherTeams", name: "協会のチーム一覧", run: (a) => listTeamsForAdmin(app, a, S, "") },
   { action: "manageMemberships", name: "協会の人物の検索", run: (a) => searchMembersForAdmin(app, a, S, "") },
+  { action: "manageTournaments", name: "大会の一覧（管理）", run: (a) => listTournamentsForAdmin(app, a, S) },
   { action: "physicalDelete", name: "削除済みデータの件数", run: (a) => countTrash(app, a, S) },
 ];
 

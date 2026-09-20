@@ -3,11 +3,24 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: B-01 大会・申込・会員のテーブル
-- 次のタスク: B-02 年齢・締切・受付の可否の関数
+- 最後に終わったタスク: B-04 大会の管理（作成・編集・状態）
+- 次のタスク: B-05 部門の管理と基準日の変更
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### B-02〜B-04（2026-09-20）
+- やったこと:
+  - B-02: `src/lib/deadline.ts`（`effectiveDeadline`・`effectiveAgeReferenceDate`・`entryState`・`isEntryOpen`）。締切と基準日は「部 → 大会」のフォールバック、受付の可否は状態と期間の両方で部ごとに判定。`ageAt`（`age.ts`）と日本時間の日付（`date.ts`）は A-04 の分をそのまま使った
+  - B-03: `src/lib/eligibility.ts`（`validateEligibility`・`hasEligibilityError`）。数値はすべて部門プリセットの設定値から読む。性別と年齢の下限は選手を名指しする error（画面の枠に出せるよう `playerIndex` を返す）、混合は登録人数で編成が組めるかを見る、合計年齢は判定せず数字と注意文を出して `needsAdminCheck` を立てる。画面の文言は §4.4 に合わせて「部」。ADR 0020
+  - B-04: `/[スラッグ]/admin/tournaments`（一覧・`new`・`[tournamentId]` の編集）。入力の検査は `src/lib/tournaments/tournament-input.ts` を画面と API で共用（日付は年月日だけ・開始は 0:00・締切は 23:59:59 で保存）。表をまたぐ整合性は `src/lib/admin/tournaments.ts` の `assertConsistentWithCategories` で 409。API: `POST /api/[スラッグ]/admin/tournaments`・`PATCH …/[tournamentId]`（`manageTournaments`）。リポジトリは `src/lib/repo/tournaments.ts`。管理トップに「大会の管理」を追加。状態の呼び名は `TOURNAMENT_STATUS_LABEL` の 1 か所。ADR 0021
+- 動作確認: lint / typecheck / test（TZ 2 回・472 本。`tests/unit/deadline.test.ts`・`eligibility.test.ts`（§5.5(e) の受け入れ条件すべて）・`tournament-input.test.ts`・`tests/db/tournaments.test.ts`（代表者は 403・別協会は 404・400 の欄名・下限 < コート人数は 409・部の締切より後の開始は 409））、E2E は `tests/e2e/admin-tournaments.spec.ts` を WebKit と Chromium の両方、`admin-teams` / `top` / `platform` も通した
+- 次への申し送り・既知の課題:
+  - 大会の削除（論理）と削除済みデータは B-17。`TRASH_TABLES` に大会・申込はまだ入れていない
+  - 部（`tournament_categories`）の追加・編集・基準日の変更後の再計算は B-05。編集画面に「出場する部の設定は準備中です」と出している
+  - `countOpenEntries` はまだ 0（`deadline.ts` はそろったので B-09 以降で本物にできる）
+  - 申込上限の判定（大会と部の両方・`for update` で 1 件ずつ）は B-09/B-10。`max_entries` は保存だけ
+- 使った枠（/usage の変化）: 未計測
+
 ### B-01（2026-09-20）
 - やったこと: 大会（`tournaments`・`tournament_categories`）・申込（`entries`・`entry_players`・`entry_audits`）・会員（`memberships`・`membership_periods`・`membership_declarations`）・`export_logs` を付録 A どおりに追加（`src/db/schema/tournaments.ts`・`entries.ts`・`memberships.ts`、`export_logs` は `logs.ts`）。`0011` が表・複合外部キー・CHECK、`0012` が RLS とロールの権限（0003 と同じ 5 文）。`mail_logs.entry_id`・`contact_messages` の大会（単一列）と申込（複合）の外部キーを足した。`platform_association_stats()` の受付中の大会を 0 固定から `status='open'` を数える形に差し替え。ADR 0019
 - 動作確認: `pnpm db:migrate`（通る）、lint / typecheck / test（TZ 2 回・426 本）。新規 `tests/db/tournaments-schema.test.ts` 11 本: 別の協会の大会・プリセット・部門・チーム・人物を指す INSERT はすべて 23503、CHECK（人数の下限>上限・下限 0・申込上限 0・開始≧締切・status / sex / match_type / action / source の値）、部分一意（部門の code・1 人 1 年度）、列を指定した SET NULL の実際の動き、`association_id` を持つ表に RLS の付け忘れがないかの機械的な確認
@@ -30,13 +43,4 @@
   - 日次ジョブの ①②⑥⑦（DB バックアップ・申込一覧 CSV・R2 の後始末・最小インスタンス数）は未実装。`entry_audits`・`export_logs` の保存期間は B-01 以降に `RETENTION_DAYS` へ足す
   - らくらくスマートフォンの実機は未確認（試用で見せてもらう）。プライバシーポリシー・利用規約の【要確認】は公開前に専門家へ
   - E2E のログイン・選手追加の補助関数は spec ごとに写している（共通化は未着手）
-- 使った枠（/usage の変化）: 未計測
-
-### A-26（2026-09-20）
-- やったこと: `/[スラッグ]/admin/trash`（種類で絞り込み・件数・復元・完全に削除（2 段階の確認＋理由））。表ごとの扱いは `src/lib/admin/trash.ts` の `TRASH_TABLES` の 1 か所（`teams`・`team_members`・`members`・`contact_messages`。1b・1c はここに足す）。物理削除は論理削除済みだけ（そうでなければ 409）・1 トランザクション・子は外部キーの cascade に任せ、`deletion_logs` に表名・ID・一緒に消えた件数・理由・実行者だけを残す。親が削除済みのままの子は復元させない（409）。論理削除の入口を足した: 問い合わせ（`/admin/contacts` の「削除する」）と人物（`/admin/members/[id]` の「この登録を削除する」）。`0010`: `contact_messages` に `app_user` の delete 権限。API: `GET /api/[スラッグ]/admin/trash?table=`・`POST …/trash/[table]/[id]/restore`・`DELETE …/trash/[table]/[id]`・`DELETE …/admin/members/[memberId]`・`DELETE …/admin/contacts/[id]`。ADR 0018
-- 動作確認: lint / typecheck / test（TZ 2 回・292 本。代表者は 403・論理削除していないものは 409・理由なしは 400・`deletion_logs` に氏名が入らない・復元で選手一覧の行まで元どおり・同じ氏名と生年月日で登録し直せる）、E2E 32 本 ×2 ブラウザ（削除 → 削除済みデータ → 復元 → もう一度削除して完全に削除）
-- 次への申し送り・既知の課題:
-  - 申込に出ている人物・申込が残っているチームは 409 で断っている。`entry_players` の書き換え（保存期間／本人の依頼の作り分け）は B-17、`countOpenEntries` は B-01 まで 0
-  - 人物の統合（まとめ先）がある人物は消せない。統合そのものは B-15
-  - `/admin/trash` は 1 ページに全部出す（件数が増えたら絞り込みか読み込みの追加を考える）
 - 使った枠（/usage の変化）: 未計測

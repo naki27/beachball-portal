@@ -46,6 +46,8 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/admin/teams/[teamId]/members/[teamMemberId]", methods: ["DELETE"], guard: { kind: "tenant", action: "physicalDelete" } },
   { path: "[slug]/admin/members/[memberId]", methods: ["PATCH"], guard: { kind: "tenant", action: "viewOtherTeams" } },
   { path: "[slug]/admin/members/[memberId]", methods: ["DELETE"], guard: { kind: "tenant", action: "physicalDelete" } },
+  { path: "[slug]/admin/tournaments", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
+  { path: "[slug]/admin/tournaments/[tournamentId]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/contacts", methods: ["PATCH"], guard: { kind: "tenant", action: "manageContacts" } },
   { path: "[slug]/admin/contacts/[id]", methods: ["DELETE"], guard: { kind: "tenant", action: "manageContacts" } },
   { path: "[slug]/admin/trash", methods: ["GET"], guard: { kind: "tenant", action: "physicalDelete" } },
