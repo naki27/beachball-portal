@@ -60,10 +60,16 @@ export default async function EntryPage({ params }: Props) {
         </Message>
       ) : null}
       <EntryForm
+        slug={association.slug}
         associationId={association.id}
         tournamentId={tournament.id}
         teams={data.teams}
         categories={data.categories.map((category) => toCategoryView(category, now))}
+        rosters={data.rosters}
+        teamSizeMin={data.teamSizeMin}
+        teamSizeMax={data.teamSizeMax}
+        year={data.year}
+        showMembersOnly={data.showMembersOnly}
         token={data.token}
       />
     </main>
@@ -79,5 +85,7 @@ function toCategoryView(category: EntryFormData["categories"][number], now: Date
     selectable: category.selectable,
     // 選べない部は、理由を選択肢の中に出す（内部の値は出さない・§4.4）
     note: category.selectable ? null : category.state === "not_started" ? "受付前" : "締切",
+    preset: category.preset,
+    referenceDate: category.ageReferenceDate,
   };
 }

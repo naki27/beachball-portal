@@ -18,6 +18,7 @@ import {
   sessions,
   teamAdmins,
   teams,
+  tournaments,
   users,
 } from "../../src/db/schema";
 import { SAWARA_ASSOCIATION_ID } from "../../src/db/seed";
@@ -108,6 +109,8 @@ async function resetTestState(): Promise<void> {
       if (ids.length > 0) {
         await tx.delete(associationAdmins).where(inArray(associationAdmins.userId, ids));
         await tx.delete(teamAdmins).where(inArray(teamAdmins.userId, ids));
+        // 大会（と申込）は、途中で止まった E2E が残すことがある。users を消す前に落とす
+        await tx.delete(tournaments).where(inArray(tournaments.createdBy, ids));
         await tx.delete(teams).where(inArray(teams.createdBy, ids)); // 選手一覧の行は cascade で消える
       }
       // E2E が名簿に入れた人物（氏名が E2E… で始まる。正規化後は小文字）

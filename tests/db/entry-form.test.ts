@@ -2,13 +2,14 @@ import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb, createDb } from "@/db/client";
 import { requireEnv } from "@/db/env";
-import { associationAdmins, associations, categoryPresets, members, teams, tournaments, users } from "@/db/schema";
+import { associationAdmins, associations, categoryPresets, members, memberships, teams, tournaments, users } from "@/db/schema";
 import { withTenantOn } from "@/db/tenant";
 import { addCategoriesFromPresets, editCategory, getCategoriesForAdmin } from "@/lib/admin/categories";
 import { createTournament } from "@/lib/admin/tournaments";
 import { ANONYMOUS, type Principal } from "@/lib/authz";
 import { getEntryFormData } from "@/lib/entries/entry-form";
 import { TeamError } from "@/lib/teams/errors";
+import { addPlayer } from "@/lib/teams/roster";
 import { registerIndividual } from "@/lib/teams/self";
 import { registerTeam, setTeamStatus } from "@/lib/teams/teams";
 
@@ -58,6 +59,7 @@ let pastId = "";
 let mainTeamId = "";
 let inactiveTeamId = "";
 const presetIds: Record<string, string> = {};
+const memberIds: Record<string, string> = {};
 
 beforeAll(async () => {
   const made = await owner
@@ -108,6 +110,10 @@ beforeAll(async () => {
   await setTeamStatus(app, as(repId), A, inactiveTeamId, "inactive");
   await registerIndividual(app, as(repId), A, { name: `${tag} 本人`, kana: null, birthDate: "1980-05-01", sex: "male" });
 
+  // 申し込むチームの選手一覧（プルダウンの候補）
+  memberIds.taro = (await addPlayer(app, as(repId), A, mainTeamId, { name: "枠 太郎", kana: "わく たろう", birthDate: "1980-04-01", sex: "male" })).memberId;
+  memberIds.hanako = (await addPlayer(app, as(repId), A, mainTeamId, { name: "枠 花子", kana: "わく はなこ", birthDate: "1990-06-15", sex: "female" })).memberId;
+
   openId = (await createTournament(app, as(adminId), A, input({ name: `${tag} 受付中` }))).id;
   draftId = (await createTournament(app, as(adminId), A, input({ name: `${tag} 準備中`, status: "draft" }))).id;
   pastId = (await createTournament(app, as(adminId), A, input({ name: `${tag} 締切後`, entryStartDate: "2026-07-01", entryEndDate: "2026-08-31" }))).id;
@@ -118,6 +124,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await withTenantOn(owner, A, async (tx) => {
+    await tx.delete(memberships).where(eq(memberships.associationId, A));
     await tx.delete(tournaments).where(eq(tournaments.associationId, A));
     await tx.delete(members).where(eq(members.associationId, A));
     await tx.delete(teams).where(eq(teams.associationId, A));
@@ -200,5 +207,44 @@ describe("出場する部（§5.5 入力ページ 2）", () => {
     expect(female?.selectable).toBe(false);
     // 1 つでも受け付けている部があれば、ページ自体は開ける
     expect(data.categories.some((c) => c.selectable)).toBe(true);
+  });
+});
+
+describe("選手枠の候補（§5.5 入力ページ 3・B-09）", () => {
+  it("申し込むチームの選手一覧を、生年月日・性別つきで返す（代表者を務めるチームなので出してよい・§3.2）", async () => {
+    const data = await getEntryFormData(app, as(repId), A, openId, NOW);
+    const roster = data.rosters[mainTeamId];
+    expect(roster.map((p) => p.memberId).sort()).toEqual([memberIds.taro, memberIds.hanako].sort());
+    const taro = roster.find((p) => p.memberId === memberIds.taro);
+    expect(taro?.birthDate).toBe("1980-04-01");
+    expect(taro?.sex).toBe("male");
+  });
+
+  it("代表を務めるチームがない人の選手一覧は空", async () => {
+    const data = await getEntryFormData(app, as(strangerId), A, openId, NOW);
+    expect(data.rosters).toEqual({});
+  });
+
+  it("人数の下限・上限と、資格バリデーションの設定値を返す", async () => {
+    const data = await getEntryFormData(app, as(repId), A, openId, NOW);
+    expect(data.teamSizeMin).toBe(4);
+    expect(data.teamSizeMax).toBe(7);
+    const male = data.categories.find((c) => c.label.startsWith("男子"));
+    expect(male?.preset).toMatchObject({ gender: "male", ruleType: "min_age", ruleValue: 40 });
+  });
+
+  it("年度は大会の開催日で決まる。その年度のデータがなければ「協会員だけを表示」を出さない（§5.12）", async () => {
+    const before = await getEntryFormData(app, as(repId), A, openId, NOW);
+    expect(before.year).toBe(2026); // 開催日 2026-11-23・開始月 4 月
+    expect(before.showMembersOnly).toBe(false);
+    expect(before.rosters[mainTeamId].every((p) => !p.isMember)).toBe(true);
+
+    await withTenantOn(owner, A, (tx) =>
+      tx.insert(memberships).values({ associationId: A, memberId: memberIds.taro, year: 2026, status: "approved" }),
+    );
+    const after = await getEntryFormData(app, as(repId), A, openId, NOW);
+    expect(after.showMembersOnly).toBe(true);
+    expect(after.rosters[mainTeamId].find((p) => p.memberId === memberIds.taro)?.isMember).toBe(true);
+    expect(after.rosters[mainTeamId].find((p) => p.memberId === memberIds.hanako)?.isMember).toBe(false);
   });
 });

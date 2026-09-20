@@ -1,41 +1,77 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Message } from "@/components/ui/message";
 import { TextField } from "@/components/ui/text-field";
 import { useDraft } from "@/hooks/use-draft";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { todayInTokyo } from "@/lib/date";
 import { draftKey } from "@/lib/draft";
+import type { EntryFormPlayer } from "@/lib/entries/entry-form";
 import { ENTRY_NOTE_MAX, type EntryField, parseEntryInput } from "@/lib/entries/entry-input";
+import {
+  countBySex,
+  emptySlot,
+  initialSlots,
+  isBlankSlot,
+  parsePlayerSlots,
+  type PlayerSlot,
+  toEligibilityPlayers,
+} from "@/lib/entries/player-slots";
+import { type EligibilityPreset, type EligibilityResult, validateEligibility } from "@/lib/eligibility";
 import { TEAM_NAME_MAX } from "@/lib/teams/team-input";
+import { PlayerSlotField, type PlayerSlotErrors } from "./player-slot";
 
 // 大会申込の入力ページ（設計書 §5.5「入力ページ」1・2・4・5）。選手枠は B-09、送信は B-10
 // 入力は一時保存する（§4.3）。セッションが切れて 403 になっても、ログインして戻れば保存した内容が戻る
 
 export type EntryFormTeamView = { id: string; name: string };
-export type EntryFormCategoryView = { id: string; label: string; condition: string; deadline: string; selectable: boolean; note: string | null };
+export type EntryFormCategoryView = {
+  id: string;
+  label: string;
+  condition: string;
+  deadline: string;
+  selectable: boolean;
+  note: string | null;
+  // 資格バリデーション（§5.5(e)）をその場で回すための設定値と基準日
+  preset: EligibilityPreset;
+  referenceDate: { year: number; month: number; day: number };
+};
 
 export type EntryFormValues = {
   teamId: string;
   newTeamName: string;
   teamName: string;
   categoryId: string;
+  slots: PlayerSlot[];
   note: string;
   token: string;
 };
 
 export function EntryForm({
+  slug,
   associationId,
   tournamentId,
   teams,
   categories,
+  rosters,
+  teamSizeMin,
+  teamSizeMax,
+  year,
+  showMembersOnly,
   token,
 }: {
+  slug: string;
   associationId: string;
   tournamentId: string;
   teams: EntryFormTeamView[];
   categories: EntryFormCategoryView[];
+  rosters: Record<string, EntryFormPlayer[]>;
+  teamSizeMin: number;
+  teamSizeMax: number;
+  year: number;
+  showMembersOnly: boolean;
   token: string;
 }) {
   const hydrated = useHydrated();
@@ -47,11 +83,16 @@ export function EntryForm({
     newTeamName: "",
     teamName: teams[0]?.name ?? "",
     categoryId: selectable.length === 1 ? selectable[0].id : "",
+    // 大会の下限人数を最初から表示する（§5.5）
+    slots: initialSlots(teamSizeMin),
     note: "",
     // 画面を開くたびに発行される値。下書きに入っていればそちらを使う（同じ申し込みの間は変えない）
     token,
   });
   const [errors, setErrors] = useState<Partial<Record<EntryField, string>>>({});
+  const [slotErrors, setSlotErrors] = useState<Record<number, PlayerSlotErrors>>({});
+  const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
+  const [membersOnly, setMembersOnly] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   // 下書きが残っていれば戻す（ログインし直したあともここで戻る）
@@ -68,19 +109,76 @@ export function EntryForm({
     });
   }
 
-  // 「確認へ」は入力を検査するところまで。確認ページは選手枠（B-09）と送信（B-10）がそろってから
-  function onNext() {
-    setNotice(null);
-    const parsed = parseEntryInput(values);
-    if (!parsed.ok) {
-      setErrors({ [parsed.field]: parsed.message });
-      return;
-    }
-    setErrors({});
-    setNotice("ここまでの入力は保存しました。選手を選ぶところができたら、確認へ進めるようになります。");
+  function setSlot(index: number, next: PlayerSlot) {
+    setValues((current) => {
+      const slots = current.slots.map((slot, i) => (i === index ? next : slot));
+      const updated = { ...current, slots };
+      draft.save(updated);
+      return updated;
+    });
+  }
+
+  function addSlot() {
+    setValues((current) => {
+      if (current.slots.length >= teamSizeMax) return current;
+      const updated = { ...current, slots: [...current.slots, emptySlot()] };
+      draft.save(updated);
+      return updated;
+    });
+  }
+
+  function removeSlot(index: number) {
+    setValues((current) => {
+      const updated = { ...current, slots: current.slots.filter((_, i) => i !== index) };
+      draft.save(updated);
+      return updated;
+    });
   }
 
   const chosen = categories.find((c) => c.id === values.categoryId);
+  const roster = rosters[values.teamId] ?? [];
+  // ほかの枠で選ばれている人は候補に出さない（二重選択を防ぐ・§5.5）
+  const taken = useMemo(
+    () => new Set(values.slots.map((slot) => slot.memberId).filter((id): id is string => !!id)),
+    [values.slots],
+  );
+  const filled = values.slots.filter((slot) => !isBlankSlot(slot));
+  const counts = countBySex(filled.filter((slot): slot is PlayerSlot & { sex: "male" | "female" } => slot.sex !== ""));
+
+  // 「確認へ」を押した時点で部門の資格バリデーション（§5.5(e)）。確認ページと送信は B-10
+  function onNext() {
+    setNotice(null);
+    setEligibility(null);
+    const parsed = parseEntryInput(values);
+    if (!parsed.ok) {
+      setErrors({ [parsed.field]: parsed.message });
+      setSlotErrors({});
+      return;
+    }
+    setErrors({});
+
+    const slots = parsePlayerSlots(values.slots, todayInTokyo());
+    if (!slots.ok) {
+      const found: Record<number, PlayerSlotErrors> = {};
+      for (const issue of slots.issues) found[issue.index] = { ...found[issue.index], [issue.field]: issue.message };
+      setSlotErrors(found);
+      return;
+    }
+    setSlotErrors({});
+
+    // 人数の下限・上限は資格バリデーションとは別に見る（§5.4）
+    if (slots.players.length < teamSizeMin) {
+      setNotice(null);
+      setSlotErrors({ 0: { memberId: `この大会は${teamSizeMin}人以上で申し込みます（いま${slots.players.length}人）` } });
+      return;
+    }
+
+    const category = categories.find((c) => c.id === parsed.value.categoryId);
+    if (category) {
+      setEligibility(validateEligibility(toEligibilityPlayers(slots.players), category.preset, category.referenceDate));
+    }
+    setNotice("ここまでの入力は保存しました。確認ページと送信は次の作業でつながります。");
+  }
 
   return (
     <div data-hydrated={hydrated || undefined} className="flex flex-col gap-6">
@@ -174,9 +272,62 @@ export function EntryForm({
         <h2 id="entry-players" className="text-lg font-bold">
           出場する選手
         </h2>
-        <Message kind="info" title="選手を選ぶところは準備中です">
-          <p>いまはチームと部だけを決められます。入れた内容はこの端末に残るので、続きからお使いいただけます。</p>
-        </Message>
+        <p className="text-sm text-muted">
+          {teamSizeMin}人以上{teamSizeMax}人まで。選手一覧から選ぶか、一覧にいない人は入力してください。
+        </p>
+        {showMembersOnly ? (
+          <label className="flex min-h-12 items-center gap-2 self-start">
+            <input type="checkbox" checked={membersOnly} onChange={(e) => setMembersOnly(e.target.checked)} />
+            協会員だけを表示
+          </label>
+        ) : null}
+        {chosen && chosen.preset.gender === "mixed" ? (
+          <p className="text-sm font-semibold" data-testid="entry-sex-counts">
+            いま 男性{counts.male}人・女性{counts.female}人（コートに出る{chosen.preset.courtSize}人のうち、男性
+            {chosen.preset.mixedMinMale}人以上・女性{chosen.preset.mixedMinFemale}人以上）
+          </p>
+        ) : null}
+        <ul className="flex flex-col gap-3">
+          {values.slots.map((slot, index) => (
+            <PlayerSlotField
+              // 枠は並べ替えない。増減は末尾だけなので添字で足りる
+              key={index}
+              index={index}
+              slot={slot}
+              onChange={(next) => setSlot(index, next)}
+              onRemove={values.slots.length > teamSizeMin ? () => removeSlot(index) : null}
+              roster={roster}
+              takenMemberIds={taken}
+              slug={slug}
+              year={year}
+              membersOnly={membersOnly}
+              referenceDate={chosen?.referenceDate ?? todayInTokyo()}
+              errors={slotErrors[index] ?? {}}
+            />
+          ))}
+        </ul>
+        {values.slots.length < teamSizeMax ? (
+          <Button variant="secondary" onClick={addSlot} className="self-start">
+            選手を追加
+          </Button>
+        ) : null}
+        {eligibility && eligibility.issues.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {eligibility.issues.map((issue) => (
+              <Message key={issue.message} kind={issue.level === "error" ? "error" : "info"} title={issue.message} />
+            ))}
+          </div>
+        ) : null}
+        {eligibility && eligibility.infos.length > 0 ? (
+          <dl className="flex flex-col gap-1 text-sm">
+            {eligibility.infos.map((info) => (
+              <div key={info.label} className="flex gap-2">
+                <dt className="font-semibold">{info.label}</dt>
+                <dd>{info.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
       </section>
 
       <section aria-labelledby="entry-note" className="flex flex-col gap-1.5">

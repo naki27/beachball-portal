@@ -2,17 +2,18 @@ import { expect, type Page } from "@playwright/test";
 import { eq, inArray, like } from "drizzle-orm";
 import { closeDb, createDb } from "../../src/db/client";
 import { loadEnv, requireEnv } from "../../src/db/env";
-import { associationAdmins, sessions, teams, tournaments, users } from "../../src/db/schema";
+import { associationAdmins, members, sessions, teams, tournaments, users } from "../../src/db/schema";
 import { SAWARA_ASSOCIATION_ID, SAWARA_SLUG } from "../../src/db/seed";
 import { withTenantOn } from "../../src/db/tenant";
 import { addCategoriesFromPresets } from "../../src/lib/admin/categories";
 import { createTournament } from "../../src/lib/admin/tournaments";
 import { ANONYMOUS, type Principal } from "../../src/lib/authz";
 import { listCategoryPresets } from "../../src/lib/repo/category-presets";
+import { addPlayer } from "../../src/lib/teams/roster";
 import { registerTeam } from "../../src/lib/teams/teams";
 import { test } from "./fixtures";
 
-// 大会申込の入力ページ（設計書 §5.5・B-07）: 代表者がチームと部を選ぶ。再読み込みしても入力が残る
+// 大会申込の入力ページ（設計書 §5.5・B-07 / B-09）: 代表者がチームと部と選手を選ぶ。再読み込みしても入力が残る
 const S = SAWARA_ASSOCIATION_ID;
 const MAILPIT = process.env.MAILPIT_URL ?? "http://mailpit:8025";
 type Req = Parameters<Parameters<typeof test>[2]>[0]["request"];
@@ -42,7 +43,7 @@ async function login(page: Page, request: Req, email: string, next: string) {
   await page.getByLabel("確認番号（6 けた）").fill(await latestCode(request, email));
 }
 
-test("代表者が申込ページでチームと部を選ぶ（再読み込みしても残る）", async ({ page, request }, testInfo) => {
+test("代表者が申込ページでチーム・部・選手を選ぶ（再読み込みしても残る）", async ({ page, request }, testInfo) => {
   test.setTimeout(150_000);
   loadEnv();
   const owner = createDb(requireEnv("MIGRATION_DATABASE_URL"), { max: 1 });
@@ -59,7 +60,7 @@ test("代表者が申込ページでチームと部を選ぶ（再読み込み�
 
   try {
     const presets = await withTenantOn(app, S, (tx) => listCategoryPresets(tx, S, { onlyActive: true }));
-    const chosen = presets.filter((p) => ["m_40", "w_free"].includes(p.code)).map((p) => p.id);
+    const chosen = presets.filter((p) => ["m_40", "w_free", "x_free"].includes(p.code)).map((p) => p.id);
     const tournament = await createTournament(app, actor, S, {
       name,
       eventDate: dayFrom(60),
@@ -74,13 +75,32 @@ test("代表者が申込ページでチームと部を選ぶ（再読み込み�
       status: "open",
     });
     await addCategoriesFromPresets(app, actor, S, tournament.id, { presetIds: chosen, mixedNotation: "kanji" });
-    await registerTeam(
+    const team = await registerTeam(
       app,
       S,
       rep.id,
       { name: teamName, kana: null, contactEmail: null, contactPhone: null, membershipRenewalTarget: false },
       { confirmSameName: true },
     );
+    // 申し込むチームの選手一覧（プルダウンの候補）
+    const repActor: Principal & { userId: string } = { ...ANONYMOUS, userId: rep.id, sessionState: "active" };
+    const ids: string[] = [];
+    for (const p of [
+      { name: `${name}アキラ`, kana: "あきら", birthDate: "1975-04-01", sex: "male" as const },
+      { name: `${name}イサム`, kana: "いさむ", birthDate: "1978-05-02", sex: "male" as const },
+      { name: `${name}ウメコ`, kana: "うめこ", birthDate: "1980-06-03", sex: "female" as const },
+    ]) {
+      ids.push((await addPlayer(app, repActor, S, team.id, p)).memberId);
+    }
+    // 代表を務めるもう 1 つのチーム（サジェストにだけ出る人）
+    const other = await registerTeam(
+      app,
+      S,
+      rep.id,
+      { name: `${teamName}別`, kana: null, contactEmail: null, contactPhone: null, membershipRenewalTarget: false },
+      { confirmSameName: true },
+    );
+    const etsuko = (await addPlayer(app, repActor, S, other.id, { name: `${name}エツコ`, kana: "えつこ", birthDate: "1982-07-04", sex: "female" })).memberId;
 
     // 大会ページの「申し込む」から入る
     const entryUrl = `/${SAWARA_SLUG}/tournaments/${tournament.id}/entry`;
@@ -94,7 +114,7 @@ test("代表者が申込ページでチームと部を選ぶ（再読み込み�
     // 「入力 → 確認 → 完了」の現在位置
     await expect(page.getByRole("navigation", { name: "申し込みの進み具合" }).getByText("入力")).toHaveAttribute("aria-current", "step");
 
-    // 代表を務めるチームが 1 つなので、そのまま表示され、公開されるチーム名に初期値が入る
+    // 代表を務めるチームが複数なのでプルダウンが出る。公開されるチーム名には選んだチームの名前が入る
     await expect(page.getByLabel("チーム名（公開されます）")).toHaveValue(teamName);
 
     // 部を選ぶと条件の文章が出る
@@ -110,7 +130,41 @@ test("代表者が申込ページでチームと部を選ぶ（再読み込み�
     await expect(page.getByLabel("運営に伝えること")).toHaveValue("駐車場を使います");
     await expect(page.getByLabel("部", { exact: true })).not.toHaveValue("");
 
-    // 「確認へ」は入力を検査するところまで（選手枠は次の作業）
+    // 選手がそろっていなければ「確認へ」で止まる（人数の下限・§5.4）
+    await page.getByRole("button", { name: "確認へ" }).click();
+    await expect(page.getByText("4人以上で申し込みます", { exact: false })).toBeVisible();
+
+    // 混合の部に変え、申し込むチームの選手一覧から 3 人を選ぶ（選ぶたびに枠の数が減る）
+    await page.getByLabel("部", { exact: true }).selectOption({ label: "混合フリーの部" });
+    await expect(page.getByTestId("entry-sex-counts")).toContainText("男性0人・女性0人");
+    const slotSelect = page.getByLabel("選手", { exact: true });
+    await slotSelect.first().selectOption(ids[0]);
+    await expect(page.getByTestId("entry-sex-counts")).toContainText("男性1人・女性0人");
+    await slotSelect.first().selectOption(ids[1]);
+    await slotSelect.first().selectOption(ids[2]);
+    await expect(page.getByTestId("entry-sex-counts")).toContainText("男性2人・女性1人");
+    // 選んだ人は、ほかの枠の候補から消える（二重選択の防止・§5.5）
+    await expect(slotSelect.first().getByRole("option", { name: `${name}アキラ`, exact: false })).toHaveCount(0);
+
+    // 4 人目は、代表を務めるほかのチームの選手をサジェストで探して選ぶ（§8.4）
+    await page.getByLabel("名前で探す（任意）").first().fill("えつこ");
+    await expect(slotSelect.first().getByRole("option", { name: `${name}エツコ`, exact: false })).toHaveCount(1, { timeout: 15_000 });
+    await slotSelect.first().selectOption(etsuko);
+    await expect(page.getByTestId("entry-sex-counts")).toContainText("男性2人・女性2人");
+
+    // 5 人目は手入力（一覧にいない人）。同意の文言が出る
+    await page.getByRole("button", { name: "選手を追加" }).click();
+    await page.getByLabel("選手", { exact: true }).last().selectOption("__manual__");
+    await expect(page.getByText("ご本人（未成年の方は保護者）の同意を得て入力してください。")).toBeVisible();
+    await page.getByLabel("氏名", { exact: true }).fill(`${name}オサム`);
+    await page.getByRole("radiogroup", { name: "生年月日の元号" }).getByText("西暦", { exact: true }).click();
+    await page.getByLabel("年", { exact: true }).fill("1985");
+    await page.getByLabel("月", { exact: true }).fill("8");
+    await page.getByLabel("日", { exact: true }).fill("9");
+    await page.getByRole("radio", { name: "男性" }).check();
+    await expect(page.getByTestId("entry-sex-counts")).toContainText("男性3人・女性2人");
+
+    // これで人数がそろい、資格バリデーション（§5.5(e)）まで通る
     await page.getByRole("button", { name: "確認へ" }).click();
     await expect(page.getByText("ここまでの入力は保存しました", { exact: false })).toBeVisible();
 
@@ -122,6 +176,7 @@ test("代表者が申込ページでチームと部を選ぶ（再読み込み�
     await withTenantOn(owner, S, async (tx) => {
       await tx.delete(tournaments).where(like(tournaments.name, `${name}%`));
       await tx.delete(teams).where(eq(teams.createdBy, rep.id));
+      await tx.delete(members).where(like(members.name, `${name}%`));
       await tx.delete(associationAdmins).where(eq(associationAdmins.userId, admin.id));
     });
     await owner.delete(users).where(inArray(users.id, [admin.id, rep.id]));
