@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { slugFromUrl } from "@/lib/slug";
 
-// フッタ。プライバシーポリシー・利用規約（画面は A-23）。困ったときの行き先は問い合わせフォームだけ
+// フッタ。プライバシーポリシー・利用規約（§5.18）。困ったときの行き先は問い合わせフォームだけ
 // 協会の画面から開いたときは、その協会宛ての問い合わせへ（§5.10）
 export function SiteFooter() {
   const pathname = usePathname();

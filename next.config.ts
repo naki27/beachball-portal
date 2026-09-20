@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   // 開発時だけ: 一度コンパイルしたページを 1 時間メモリに残す。既定（短時間で捨てる）だと、ページが増えるにつれて
   // E2E の途中で捨てたページの再コンパイルが走り、ログインの照合などが時間切れになる
   onDemandEntries: { maxInactiveAge: 60 * 60 * 1000, pagesBufferLength: 100 },
+  // 本番のビルドに、プライバシーポリシー・利用規約の文面（docs/legal/*.md）を含める（§5.18。画面が実行時に読む）
+  outputFileTracingIncludes: {
+    "/privacy": ["./docs/legal/*.md"],
+    "/terms": ["./docs/legal/*.md"],
+  },
   experimental: {
     // forbidden() で 403 のページを返す（リダイレクトしない・設計書 §3.1）
     authInterrupts: true,

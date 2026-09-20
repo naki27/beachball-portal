@@ -45,10 +45,24 @@ test("/dev/ui が開き、横にはみ出さない。部品が動く", async ({ 
   await page.screenshot({ path: testInfo.outputPath("dev-ui.png"), fullPage: true });
 });
 
-test("フッタにプライバシーポリシーと利用規約への案内がある", async ({ page }) => {
+test("フッタからプライバシーポリシーと利用規約を開ける（ログインしていなくても）", async ({ page }) => {
   await page.goto("/sawara");
-  await expect(page.getByRole("link", { name: "プライバシーポリシー" })).toHaveAttribute("href", "/privacy");
   await expect(page.getByRole("link", { name: "利用規約" })).toHaveAttribute("href", "/terms");
+  await page.getByRole("link", { name: "プライバシーポリシー" }).click();
+  await expect(page).toHaveURL(/\/privacy$/, { timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "プライバシーポリシー", level: 1 })).toBeVisible();
+  // サイト名は置き換えて入る。版は TERMS_VERSION と同じ
+  await expect(page.getByText("ビーチボール大会申し込みサイト（以下「本サービス」）", { exact: false }).first()).toBeVisible();
+  await expect(page.getByText("版: 2027-01-31")).toBeVisible();
+  await expect(page.getByRole("table").first()).toBeVisible();
+  // 375px でも横にはみ出さない（表は表の中だけで横に動く）
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+
+  await page.getByRole("link", { name: "利用規約" }).click();
+  await expect(page).toHaveURL(/\/terms$/, { timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "利用規約", level: 1 })).toBeVisible();
+  await expect(page.getByText("第12条（準拠法・裁判所）")).toBeVisible();
 });
 
 test("タブの題名: 協会のページは「ページ名｜協会名」", async ({ page }) => {
