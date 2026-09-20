@@ -3,11 +3,20 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: A-21 管理画面: チームとメンバー（1a の分）（A-12 は人の確認待ち）
-- 次のタスク: A-22 問い合わせフォーム［M］
+- 最後に終わったタスク: A-22 問い合わせフォーム
+- 次のタスク: A-23 プライバシーポリシー・利用規約のページ
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### A-22（2026-09-20）
+- やったこと: `/[スラッグ]/contact`（その協会宛て。`?entryId=` は B-01 用に受けるだけ）と `/contact`（宛先を選ぶ。協会は役割を持つ協会、なければ全協会）。ログイン済みなら氏名・メールを補完。honeypot と 5 件/時（IP・メール）。受付控えと転送（協会の `contact_email`、未設定なら `CONTACT_TO`）を同じトランザクションで積む。雛形は受付番号から本文を読む（`params` は `messageId` と `scope` だけ）。`/[スラッグ]/admin/contacts`・`/platform/contacts`（未対応が既定・すべて・対応済み／未対応に戻す）。フッタと `/login/help` から問い合わせへ（協会の画面ならその協会宛て）。種別と画面の言い方は `src/lib/contact-subjects.ts` の 1 か所。API: `POST /api/contact`・`POST /api/site-contact`・`PATCH /api/[スラッグ]/admin/contacts`・`PATCH /api/platform/contacts`。ADR 0016
+- 動作確認: lint / typecheck / test（TZ 2 回・271 本。控えと転送の 2 通・params に本文を入れない・honeypot・6 件目は 429・ほかの協会の分は見えない／変えられない・削除済みは出ない）、E2E 58 本（フッタ → ログインせずに送る → job:mail → Mailpit に控えと転送 → 管理者が一覧で対応済みに）
+- 次への申し送り・既知の課題:
+  - 大会・申込の自動入力（`tournament_id`・申込番号）は B-01 以降。いまは `entry_id` を受けるだけで外部キーはない
+  - 問い合わせの削除（論理削除の実行と復元）は A-26。一覧は `deleted_at` を既定で除いている
+  - 試験で `processMailQueue` を呼ぶのは `mail.test.ts` だけにした（送信待ちを全部さらうので、2 つの試験が同時に流れると取り合って落ちる。`admin-invitations.test.ts` は `composeMail` と `mail_logs` の確認に変えた。別コミット）
+- 使った枠（/usage の変化）: 未計測
+
 ### A-21（2026-09-18）
 - やったこと: `/[slug]/admin` に「チーム管理」「メンバー管理」。`/admin/teams`（一覧・名前で検索・件数）、`/admin/teams/[id]`（代表者の付け替え（既存のアカウントを承諾なしで追加・解除）・チームの状態・チーム情報の編集・削除（論理。返事待ちの招待を取り消す））、`/admin/members`（氏名・ふりがなの正規化後の部分一致。空なら最新 100 件で要確認を先に）、`/admin/members/[id]`（載っている選手一覧と誤登録の行の削除・アカウントとの紐づけの解除・登録情報の修正）。`src/lib/admin/{access,teams,members}.ts`。API: `DELETE /api/[slug]/admin/teams/[id]`、`POST …/admin/teams/[id]/admins`、`DELETE …/admin/teams/[id]/members/[tmId]`、`PATCH …/admin/members/[id]`（編集・無効化は代表者と同じ `PATCH /api/[slug]/teams/[id]`）。ADR 0015
 - 動作確認: lint / typecheck / test（TZ 2 回・260 本。代表者は 403・付け替え・削除で招待が取り消される・行の削除で人物は残る）、E2E 54 本（テナント管理者がチームを探して代表者を付け替え → メンバーを探して誤登録の行を消す）
@@ -33,13 +42,4 @@
   - 期限切れの検出（`expired` にして `team_invitation_expired` を送る）は日次ジョブ（A-27）
   - API: `POST/DELETE …/teams/[id]/invitations[/[invId]]`、`POST …/invitations/[invId]/resend`、`DELETE /api/[slug]/members/[memberId]/link`
   - bash のヒアドキュメントに長い Python を渡すと解釈に失敗することがある。長い編集はスクラッチパッドにスクリプトを書いて実行する
-- 使った枠（/usage の変化）: 未計測
-
-### A-18（2026-09-18）
-- やったこと: `/[slug]/teams/new` に「チームで登録／個人で登録」の切り替え（`?kind=individual`）。個人で登録は本人の情報だけ・`kind = individual`・名前は本人の氏名・常に協会員の登録をする・1 協会 1 つ（409）・自分のアカウントに紐づけ、すでに紐づいた人物があれば確認だけ（`SelfConfirm`）。チームのページは個人登録なら「あなたの登録情報」（タブは「登録情報」）。選手の追加に「自分を選手として登録する」（`?self=1`。紐づいた人物があれば確認だけ）。マイページの枠に「あなたの登録情報」と「個人で登録する」。`src/lib/teams/self.ts`（`registerIndividual`・`registerSelfAsPlayer`・`getMyPerson`）、`PlayerForm` は送り先を `submit` で受ける形に。API: `POST /api/[slug]/teams { kind: "individual" }`、`POST …/members { self: true }`。ADR 0012
-- 動作確認: lint / typecheck / test（TZ 2 回・239 本。1 協会で個人登録は 1 つまで・1 アカウント = 1 人物・同じ人物がほかの人に紐づいていれば新しい人物を要確認で）、E2E 48 本（個人で登録 → マイページ → 2 つ目は不可 → チームに自分を選手として（確認だけ））
-- 次への申し送り・既知の課題:
-  - **E2E は `tests/e2e/fixtures.ts` の `test` を使う**（`@playwright/test` の `test` は使わない）。テストごとにログインのレート制限の行を消す。ログインが 20 回を超えて「◯時まで送れません」で落ちていたため
-  - 個人登録の連絡先の編集は P0 ではできない（ADR 0012）。`teams.name` は作成時の氏名のまま
-  - `/` とマイページの役割の表示は、個人登録だけの人にも「チームの代表者」と出る（`getMembership` はチームの種類を持たない）。気になれば後で直す
 - 使った枠（/usage の変化）: 未計測

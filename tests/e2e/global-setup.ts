@@ -9,9 +9,11 @@ import {
   associations,
   associationSlugHistory,
   categoryPresets,
+  contactMessages,
   mailLogs,
   members,
   platformAdmins,
+  platformContactMessages,
   rateLimits,
   sessions,
   teamAdmins,
@@ -32,6 +34,10 @@ const PATHS = [
   "/sawara/admin/teams/00000000-0000-4000-8000-000000000000",
   "/sawara/admin/members",
   "/sawara/admin/members/00000000-0000-4000-8000-000000000000",
+  "/sawara/admin/contacts",
+  "/contact",
+  "/sawara/contact",
+  "/platform/contacts",
   "/nothing",
   "/login",
   "/login?next=%2Fsawara",
@@ -55,8 +61,8 @@ const PATHS = [
   "/robots.txt",
 ];
 
-// 2. ログインのレート制限（IP 単位 20 回/時など）は、E2E を繰り返すと同じ IP で上限に達する。
-//    テストの前にログイン系の数えた行を消す（テスト用の DB だけ。本番の DB に向けない）
+// 2. レート制限（ログインは IP 単位 20 回/時など、問い合わせは IP・メールごと 5 件/時）は、E2E を繰り返すと同じ IP で上限に達する。
+//    テストの前に数えた行を消す（テスト用の DB だけ。本番の DB に向けない）
 // 3. タイムアウトで止まった E2E は後片付け（finally）まで進まない。e2e-… のアカウントとその役割・招待を消しておく
 //    （残ると、早良区協会の管理者と招待の「5 名まで」に当たる）
 async function resetTestState(): Promise<void> {
@@ -65,7 +71,15 @@ async function resetTestState(): Promise<void> {
   if (!url) return;
   const db = createDb(url, { max: 1 });
   try {
-    await db.delete(rateLimits).where(or(like(rateLimits.key, "login_request:%"), like(rateLimits.key, "login_verify:%")));
+    await db
+      .delete(rateLimits)
+      .where(
+        or(
+          like(rateLimits.key, "login_request:%"),
+          like(rateLimits.key, "login_verify:%"),
+          like(rateLimits.key, "contact:%"),
+        ),
+      );
 
     // E2E が作った協会（スラッグ e2e-…）ごと消す
     const e2eAssociations = await db.select({ id: associations.id }).from(associations).where(like(associations.slug, "e2e-%"));
@@ -94,8 +108,10 @@ async function resetTestState(): Promise<void> {
       // E2E が名簿に入れた人物（氏名が E2E… で始まる。正規化後は小文字）
       await tx.delete(members).where(like(members.nameNormalized, "e2e%"));
       await tx.delete(associationAdminInvitations).where(like(associationAdminInvitations.email, "e2e-%@example.com"));
+      await tx.delete(contactMessages).where(like(contactMessages.senderEmail, "e2e-%@example.com"));
     });
     await db.delete(mailLogs).where(like(mailLogs.toEmail, "e2e-%@example.com"));
+    await db.delete(platformContactMessages).where(like(platformContactMessages.senderEmail, "e2e-%@example.com"));
     if (ids.length > 0) {
       await db.delete(sessions).where(inArray(sessions.userId, ids));
       await db.delete(adminAccessLogs).where(inArray(adminAccessLogs.userId, ids));
@@ -137,6 +153,10 @@ const API_PATHS = [
   `/api/sawara/admin/teams/${NO_ID}/members/${NO_ID}`,
   `/api/sawara/admin/members/${NO_ID}`,
   `/api/me/invitations/${NO_ID}/reject`,
+  "/api/contact",
+  "/api/site-contact",
+  "/api/sawara/admin/contacts",
+  "/api/platform/contacts",
 ];
 
 export default async function globalSetup(config: FullConfig): Promise<void> {

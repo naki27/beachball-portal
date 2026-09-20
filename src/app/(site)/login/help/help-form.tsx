@@ -15,6 +15,7 @@ import {
   useRememberedEmail,
   useRememberedNext,
 } from "@/lib/auth/login-client";
+import { slugFromUrl } from "@/lib/slug";
 
 // 受信設定のページ（各社の案内。URL は運用手順書で見直す）
 const CARRIERS = [
@@ -35,6 +36,9 @@ export function HelpForm({ senderDomain }: { senderDomain: string }) {
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "success" | "error" | "info"; title: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  // 協会のページから来ていれば、その協会宛ての問い合わせへ（§5.10）。そうでなければ宛先を選ぶ画面へ
+  const contactSlug = slugFromUrl(rememberedNext ?? "/");
+  const contactHref = contactSlug ? `/${contactSlug}/contact` : "/contact";
 
   async function copyDomain() {
     try {
@@ -111,7 +115,7 @@ export function HelpForm({ senderDomain }: { senderDomain: string }) {
       </li>
       <li>
         それでも届かないときは、
-        <Link href="/contact" className="underline underline-offset-2">
+        <Link href={contactHref} className="underline underline-offset-2">
           問い合わせフォーム
         </Link>
         からご連絡ください。

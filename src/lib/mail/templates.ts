@@ -1,7 +1,16 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { associationAdminInvitations, members, teamInvitations, teams, users } from "@/db/schema";
+import {
+  associationAdminInvitations,
+  contactMessages,
+  members,
+  platformContactMessages,
+  teamInvitations,
+  teams,
+  users,
+} from "@/db/schema";
 import type { Tx } from "@/db/tenant";
+import { subjectLabel } from "@/lib/contact-subjects";
 import { formatDateWithWeekday, todayInTokyo } from "@/lib/date";
 import { SITE_NAME } from "@/lib/site";
 import type { MailType, OutgoingMail } from "./types";
@@ -59,6 +68,21 @@ async function loadTeamInvitation(tx: Tx | Db, params: Record<string, unknown>) 
     inviterName: inviter?.displayName ?? null,
     roleText: row.kind === "admin" ? "代表者" : `選手${member?.name ? `（${member.name}）` : ""}`,
   };
+}
+
+// 問い合わせ（§5.10）。本文は params に入れず、受付番号から読む（付録 A・§11「送り方」）
+// 協会宛ては協会に固定したトランザクションで contact_messages、サイトの運営者宛ては platform_contact_messages
+async function loadContactMessage(tx: Tx | Db, params: Record<string, unknown>) {
+  const id = typeof params.messageId === "string" ? params.messageId : "";
+  // 宛先が協会かサイトの運営者かは、積むときの scope で分ける（協会宛ては mail_logs の association_id も入る）
+  if (params.scope === "platform") {
+    const [row] = await tx.select().from(platformContactMessages).where(eq(platformContactMessages.id, id)).limit(1);
+    if (!row) throw new Error("問い合わせがありません");
+    return row;
+  }
+  const [row] = await tx.select().from(contactMessages).where(eq(contactMessages.id, id)).limit(1);
+  if (!row) throw new Error("問い合わせがありません");
+  return row;
 }
 
 // 送信待ちから送る種別の雛形。ここにないものは送れず failed になる（各タスクで足す）
@@ -171,6 +195,46 @@ const TEMPLATES: Partial<Record<MailType, Template>> = {
       text: [
         `${brandOf(ctx)} の管理者への招待（${invitation.email}）は期限（${untilText(invitation.expiresAt)}）が過ぎました。`,
         "必要なら、運営管理の画面からもう一度送ってください。",
+      ].join("\n"),
+    };
+  },
+
+  contact_received: async (params, ctx, tx) => {
+    const message = await loadContactMessage(tx, params);
+    return {
+      subject: subjectWithBrand(ctx, "お問い合わせを受け付けました"),
+      text: [
+        `${message.senderName} 様`,
+        "",
+        `${brandOf(ctx)}へのお問い合わせを受け付けました。控えをお送りします。`,
+        "運営はボランティアのため、返信に数日かかることがあります。",
+        "",
+        `お問い合わせの種類: ${subjectLabel(message.subjectType)}`,
+        "----------------",
+        message.body,
+        "----------------",
+        "",
+        "このメールに心当たりがないときは、破棄してください。",
+      ].join("\n"),
+    };
+  },
+
+  contact_forwarded: async (params, ctx, tx) => {
+    const message = await loadContactMessage(tx, params);
+    return {
+      subject: subjectWithBrand(ctx, `お問い合わせが届きました（${subjectLabel(message.subjectType)}）`),
+      text: [
+        `${brandOf(ctx)}へのお問い合わせが届きました。`,
+        "",
+        `お問い合わせの種類: ${subjectLabel(message.subjectType)}`,
+        `お名前: ${message.senderName}`,
+        `返信先: ${message.senderEmail}`,
+        `受付番号: ${message.id}`,
+        "----------------",
+        message.body,
+        "----------------",
+        "",
+        "返事はこのメールの返信先へ直接お送りください。対応が終わったら、管理画面の「問い合わせ管理」で対応済みにできます。",
       ].join("\n"),
     };
   },

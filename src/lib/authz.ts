@@ -127,10 +127,12 @@ export const ACTIONS = {
   exportOwnTeamRoster: { label: "自チームの名簿出力", minRole: "team_admin" },
   viewOtherTeams: { label: "他チームの情報", minRole: "association_admin" },
   manageTournaments: { label: "大会・部・資料・トップページの管理", minRole: "association_admin" },
+  manageContacts: { label: "協会宛ての問い合わせの閲覧・対応済み化", minRole: "association_admin" },
   manageMemberships: { label: "会員の承認・協会全体の名簿出力", minRole: "association_admin" },
   physicalDelete: { label: "物理削除・人物の統合", minRole: "association_admin" },
   viewBilling: { label: "契約の内容・領収書のダウンロード（P1）", minRole: "association_admin" },
   manageAssociationAdmins: { label: "テナント管理者の招待・解除", minRole: "platform_admin" },
+  managePlatformContacts: { label: "サイト運営者宛ての問い合わせの閲覧・対応済み化", minRole: "platform_admin" },
   managePlatform: { label: "テナントの作成、全テナントの件数・状態の確認", minRole: "platform_admin" },
 } as const satisfies Record<string, ActionRule>;
 

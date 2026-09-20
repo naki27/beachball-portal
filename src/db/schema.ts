@@ -6,5 +6,6 @@ export * from "./schema/auth";
 export * from "./schema/admins";
 export * from "./schema/logs";
 export * from "./schema/category-presets";
+export * from "./schema/contacts";
 export * from "./schema/members";
 export * from "./schema/teams";
