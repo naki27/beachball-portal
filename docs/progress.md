@@ -3,11 +3,21 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: A-29 1a の仕上げ（Phase 1a の実装が一巡した）
-- 次のタスク: B-01 大会・申込・会員のテーブル
+- 最後に終わったタスク: B-01 大会・申込・会員のテーブル
+- 次のタスク: B-02 年齢・締切・受付の可否の関数
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### B-01（2026-09-20）
+- やったこと: 大会（`tournaments`・`tournament_categories`）・申込（`entries`・`entry_players`・`entry_audits`）・会員（`memberships`・`membership_periods`・`membership_declarations`）・`export_logs` を付録 A どおりに追加（`src/db/schema/tournaments.ts`・`entries.ts`・`memberships.ts`、`export_logs` は `logs.ts`）。`0011` が表・複合外部キー・CHECK、`0012` が RLS とロールの権限（0003 と同じ 5 文）。`mail_logs.entry_id`・`contact_messages` の大会（単一列）と申込（複合）の外部キーを足した。`platform_association_stats()` の受付中の大会を 0 固定から `status='open'` を数える形に差し替え。ADR 0019
+- 動作確認: `pnpm db:migrate`（通る）、lint / typecheck / test（TZ 2 回・426 本）。新規 `tests/db/tournaments-schema.test.ts` 11 本: 別の協会の大会・プリセット・部門・チーム・人物を指す INSERT はすべて 23503、CHECK（人数の下限>上限・下限 0・申込上限 0・開始≧締切・status / sex / match_type / action / source の値）、部分一意（部門の code・1 人 1 年度）、列を指定した SET NULL の実際の動き、`association_id` を持つ表に RLS の付け忘れがないかの機械的な確認
+- 次への申し送り・既知の課題:
+  - **列を指定した `ON DELETE SET NULL` の 3 か所（`entry_players.member_id`・`memberships.team_id`・`contact_messages.entry_id`）は `0011` を手で直している**。drizzle は出せない（ADR 0019）。この 3 表を作り直すマイグレーションを書くときは同じ手直しが必要
+  - `countOpenEntries`（`src/lib/repo/entries.ts`）はまだ 0 のまま。締切の判定が要るので B-02 のあとに本物にする（チームの無効化・削除の 409 がそれで効く）
+  - `TRASH_TABLES`（`src/lib/admin/trash.ts`）に大会・申込は未追加（B-17）。`entry_audits`・`export_logs` の保存期間も未追加（足すときは `app_job` に delete の権限が必要。いまは select と insert だけ）
+  - `entry_players.birth_date` が必須・部門がその大会のものであること・`team_size_min ≧ court_size` は DB では見ない（アプリで検査。B-04・B-09）
+- 使った枠（/usage の変化）: 未計測
+
 ### A-27〜A-29（2026-09-20）
 - やったこと:
   - A-27: `pnpm job:daily`（`src/lib/jobs/daily.ts`）。期限切れの確認番号・セッション・レート制限の物理削除、期限切れの招待を `expired` にして招待した人に知らせる（削除済みのアカウントには積まない）、保存期間を過ぎた記録（招待 1 年・`mail_logs` 1 年・`admin_access_logs` 3 年）の物理削除。保存期間は `RETENTION_DAYS` の 1 か所。協会に属する表は `withTenantOn` で協会ごと
@@ -29,19 +39,4 @@
   - 申込に出ている人物・申込が残っているチームは 409 で断っている。`entry_players` の書き換え（保存期間／本人の依頼の作り分け）は B-17、`countOpenEntries` は B-01 まで 0
   - 人物の統合（まとめ先）がある人物は消せない。統合そのものは B-15
   - `/admin/trash` は 1 ページに全部出す（件数が増えたら絞り込みか読み込みの追加を考える）
-- 使った枠（/usage の変化）: 未計測
-
-### A-23〜A-25（2026-09-20）
-- やったこと:
-  - A-23: `/privacy`・`/terms`（未ログインで開ける）。文面は `docs/legal/privacy.md`・`terms.md`（`templates.md` から起こした下書き。公開前に専門家の確認）。表示は `src/lib/legal/markdown.ts` の小さなマークダウンの解釈（見出し・段落・箇条書き・表・強調・リンク。HTML コメントは出さない）。サイト名は `{{SITE_NAME}}` を置き換え。版は文面の「版: …」＝ `.env` の `TERMS_VERSION`
-  - A-24: `/mypage/email`（新しいアドレスに番号 → 確定 → 古いアドレスに `email_changed`。使われているアドレスなら 409・ほかの端末のセッションを終了・返事待ちの招待があれば先に返事をするよう案内）。API: `POST /api/me/email/request` / `verify`
-  - A-25: `/mypage/delete`（代表者・協会の管理者・運営管理者は理由と次の手順を出して削除させない。いまのアドレスに番号 → `DELETE /api/me`）。`0009`: `my_account_deletion_block()` と `delete_my_account(new_email)`（協会をまたぐので SECURITY DEFINER）。メールアドレスを `deleted-…@deleted.invalid` に置き換え・表示名を消す・人物の紐づけを外す・返事待ちの招待を取り消す・全セッション終了
-  - 確認番号の照合を `src/lib/auth/match-code.ts` に 1 つだけ置き、ログインとメールアドレスの変更が同じ規則を使う。ADR 0016（A-22）・0017
-- 動作確認: lint / typecheck / test（TZ 2 回・285 本）、E2E は spec ごと・数本ずつで全部通る（フッタ →/privacy・/terms／メールアドレスの変更 → Mailpit に新旧 2 通 → 新しいアドレスでログイン／代表者は削除できない → 降りれば削除でき同じアドレスで作り直せる）、`pnpm build`
-- 次への申し送り・既知の課題:
-  - 文面の【要確認】（専門家に見てもらう点）は `docs/legal/*.md` の末尾にコメントで残してある。公開の前に埋める
-  - 規約の改定で同意を取り直すかは P1（`users.terms_version` と `TERMS_VERSION` を比べれば判定できる）
-  - `app_definer` に書き込みの権限を足したのは `delete_my_account` のためだけ（0009）。A-26 の物理削除も同じ形で足す
-  - 削除したアカウントの `mail_logs`・問い合わせに残るアドレスは保存期間が過ぎるまで残る（画面にもそう書いた）
-  - **`pnpm test:e2e` を全部いちどに流すと、21 本あたりで dev サーバーが落ちる**（`roster` や `team-admins` の途中で「Connection refused」）。A-23〜A-25 を外した状態でも同じなので、このコンテナのメモリ不足（`free -m` で swap を使い切っていた）。当面は `--project` かファイルを分けて流す。改善するなら `next.config.ts` の `onDemandEntries`（1 時間・100 ページ保持）を見直すか、コンテナのメモリを増やす
 - 使った枠（/usage の変化）: 未計測
