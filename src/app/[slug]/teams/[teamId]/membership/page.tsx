@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DeclarationForm, type DeclarationPlayerView } from "@/components/memberships/declaration-form";
 import { getDb } from "@/db/client";
-import { getPrincipal } from "@/lib/auth/principal";
+import { getMembership, getPrincipal } from "@/lib/auth/principal";
+import { resolveRole, roleIncludes } from "@/lib/authz";
 import { type MembershipDisplay, membershipDisplayText } from "@/lib/membership";
 import { type DeclarationForm as FormData, getDeclarationForm } from "@/lib/memberships/declaration";
 import { denyPage } from "@/lib/page/forbidden";
@@ -22,7 +23,12 @@ export default async function TeamMembershipPage({ params }: Props) {
   const principal = await getPrincipal();
   if (!principal.userId) denyPage();
   const now = new Date();
-  const form = await getDeclarationForm(getDb(), { ...principal, userId: principal.userId }, association.id, teamId, now).catch(pageErrorFrom);
+  // テナント管理者が開いたときは代理の入力（締切後も直せる・§5.12）
+  const membership = await getMembership(principal, association.id);
+  const asAdmin = roleIncludes(resolveRole(principal, membership, { associationId: association.id }), "association_admin");
+  const form = await getDeclarationForm(getDb(), { ...principal, userId: principal.userId }, association.id, teamId, now, { asAdmin }).catch(
+    pageErrorFrom,
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
@@ -32,7 +38,9 @@ export default async function TeamMembershipPage({ params }: Props) {
         </Link>
       </p>
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">{form.year}年度も登録する人を選ぶ</h1>
+        <h1 className="text-2xl font-bold">
+          {form.mode === "additional" ? `${form.year}年度の協会員を追加する` : `${form.year}年度も登録する人を選ぶ`}
+        </h1>
         <p className="text-sm text-muted">{deadlineText(form.closesAt, now)}</p>
       </div>
       <DeclarationForm
@@ -42,6 +50,8 @@ export default async function TeamMembershipPage({ params }: Props) {
         players={form.players.map((player) => toView(player, form.year))}
         submitted={form.submittedAt !== null}
         autoApprove={form.autoApprove}
+        mode={form.mode}
+        asAdmin={asAdmin}
       />
     </main>
   );
@@ -56,6 +66,7 @@ function toView(player: FormData["players"][number], year: number): DeclarationP
     name: player.name,
     kana: player.kana,
     wasMemberLastYear: player.wasMemberLastYear,
+    locked: player.locked,
     statusText: player.status ? membershipDisplayText(DISPLAY_OF[player.status], year) : null,
     checked: player.checked,
   };

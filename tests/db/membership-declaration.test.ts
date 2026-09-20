@@ -135,9 +135,9 @@ describe("申告の画面", () => {
     ]);
   });
 
-  it("対象でないチーム・締切後・無効なチームは 409", async () => {
+  it("対象でないチームは 409。締切後は「追加の申告」になる（D-04）", async () => {
     expect(await statusOf(() => getDeclarationForm(app, as(repId), A, notTargetTeamId, DURING))).toBe(409);
-    expect(await statusOf(() => getDeclarationForm(app, as(repId), A, teamId, AFTER))).toBe(409);
+    expect((await getDeclarationForm(app, as(repId), A, teamId, AFTER)).mode).toBe("additional");
   });
 
   it("代表者でない人は 403。ないチームは 404", async () => {
@@ -149,7 +149,7 @@ describe("申告の画面", () => {
 describe("申告の送信", () => {
   it("チェックした人が applied になり、外した昨年度の会員は declined になる", async () => {
     const result = await submitDeclaration(app, as(repId), A, teamId, { memberIds: [lastYear1, newcomer] }, DURING);
-    expect(result).toEqual({ year: 2027, added: 2, removed: 1, unchanged: 0 });
+    expect(result).toEqual({ year: 2027, mode: "renewal", added: 2, removed: 1, unchanged: 0 });
     expect(await statusOfMember(lastYear1)).toBe("applied");
     expect(await statusOfMember(newcomer)).toBe("applied");
     expect(await statusOfMember(lastYear2)).toBe("declined");
@@ -196,7 +196,7 @@ describe("申告の送信", () => {
     // 新顔のチェックだけ外して送り直す
     const result = await submitDeclaration(app, as(repId), A, teamId, { memberIds: [lastYear1] }, DURING);
     // 変わるのは外した新顔だけ（承認済みの継続A と、すでに declined の継続B はそのまま）
-    expect(result).toEqual({ year: 2027, added: 0, removed: 1, unchanged: 2 });
+    expect(result).toEqual({ year: 2027, mode: "renewal", added: 0, removed: 1, unchanged: 2 });
     // 承認済みのままで、承認が取り消されていない
     expect(await statusOfMember(lastYear1)).toBe("approved");
     expect(await statusOfMember(newcomer)).toBe("declined");
@@ -219,8 +219,10 @@ describe("申告の送信", () => {
     expect(form.players.every((p) => !p.checked)).toBe(true);
   });
 
-  it("締切後は代表者が送れない（409）", async () => {
-    expect(await statusOf(() => submitDeclaration(app, as(repId), A, teamId, { memberIds: [lastYear1] }, AFTER))).toBe(409);
+  it("締切後は「追加の申告」になり、外せない（D-04。増やすだけ）", async () => {
+    const result = await submitDeclaration(app, as(repId), A, teamId, { memberIds: [lastYear1] }, AFTER);
+    expect(result.mode).toBe("additional");
+    expect(result.removed).toBe(0);
   });
 
   it("選手一覧にいない人は選べない（400）", async () => {

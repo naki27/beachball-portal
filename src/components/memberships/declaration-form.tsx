@@ -15,6 +15,8 @@ export type DeclarationPlayerView = {
   name: string;
   kana: string | null;
   wasMemberLastYear: boolean;
+  // 追加の申告では、すでに登録した人は外せない
+  locked: boolean;
   // いまの状態の文言（「協会員（2027年度）」「運営の確認待ち」など）。まだ何もなければ null
   statusText: string | null;
   checked: boolean;
@@ -27,6 +29,8 @@ export function DeclarationForm({
   players,
   submitted,
   autoApprove,
+  mode,
+  asAdmin = false,
 }: {
   slug: string;
   teamId: string;
@@ -36,6 +40,10 @@ export function DeclarationForm({
   submitted: boolean;
   // 承認を省く年度か
   autoApprove: boolean;
+  // renewal = 受付期間中の申告 / additional = 締切後の追加の申告（増やすだけ）
+  mode: "renewal" | "additional";
+  // 運営が代理で入力しているか（締切後も直せる・§5.12）
+  asAdmin?: boolean;
 }) {
   const router = useRouter();
   const [checked, setChecked] = useState<Set<string>>(() => new Set(players.filter((p) => p.checked).map((p) => p.memberId)));
@@ -58,10 +66,11 @@ export function DeclarationForm({
     setDone(null);
     setPending(true);
     try {
-      const response = await fetch(`/api/${slug}/teams/${teamId}/membership`, {
+      const url = asAdmin ? `/api/${slug}/admin/memberships/${year}/declarations` : `/api/${slug}/teams/${teamId}/membership`;
+      const response = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ memberIds: [...checked] }),
+        body: JSON.stringify(asAdmin ? { teamId, memberIds: [...checked] } : { memberIds: [...checked] }),
       });
       const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
       if (response.ok) {
@@ -81,7 +90,17 @@ export function DeclarationForm({
     <section className="flex flex-col gap-4">
       {notice ? <Message kind="error" title={notice} /> : null}
       {done ? <Message kind="success" title={done} /> : null}
-      {submitted && !done ? (
+      {asAdmin ? (
+        <Message kind="info" title="運営として代理で入力しています">
+          締切を過ぎたあとも直せます。チームの代表者には申告の控えが届きます。
+        </Message>
+      ) : null}
+      {mode === "additional" ? (
+        <Message kind="info" title={`${year}年度の受付は終了しました（追加の申告ができます）`}>
+          あとから入った人を増やせます。すでに登録した人を外すには、運営にお問い合わせください。運営が確認してから協会員になります。
+        </Message>
+      ) : null}
+      {submitted && !done && mode === "renewal" ? (
         <Message kind="info" title={`${year}年度の申告は送信済みです`}>
           締切までは、選ぶ人を変えて送り直せます。変えなかった人の状態はそのままです。
         </Message>
@@ -98,6 +117,7 @@ export function DeclarationForm({
               <input
                 type="checkbox"
                 checked={checked.has(player.memberId)}
+                disabled={player.locked}
                 onChange={() => toggle(player.memberId)}
                 className="size-6 shrink-0"
               />
@@ -121,7 +141,7 @@ export function DeclarationForm({
           選手を追加
         </Link>{" "}
         してから選んでください。
-        {autoApprove ? "この年度は、送るとそのまま協会員になります。" : "送ったあと、運営が確認して協会員になります。"}
+        {mode === "renewal" && autoApprove ? "この年度は、送るとそのまま協会員になります。" : "送ったあと、運営が確認して協会員になります。"}
       </p>
 
       <Button pending={pending} pendingLabel="送っています…" onClick={() => void submit()} fullWidth>

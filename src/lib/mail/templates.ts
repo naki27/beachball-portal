@@ -136,7 +136,8 @@ async function loadDeclaration(tx: Tx | Db, params: Record<string, unknown>) {
     .where(and(eq(memberships.teamId, teamId), eq(memberships.year, year), isNull(memberships.deletedAt)))
     .orderBy(asc(members.name));
   const names = rows.filter((row) => row.status === "applied" || row.status === "approved").map((row) => row.name);
-  return { team, year, names };
+  const approved = rows.filter((row) => row.status === "approved").map((row) => row.name);
+  return { team, year, names, approved };
 }
 
 const TEMPLATES: Partial<Record<MailType, Template>> = {
@@ -362,6 +363,25 @@ const TEMPLATES: Partial<Record<MailType, Template>> = {
         ...(names.length > 0 ? names.map((name) => `　${name}`) : ["　（選ばれた人はいません）"]),
         "",
         "受付の締切までは、下のページから選ぶ人を変えて送り直せます。",
+        pageUrl,
+        "",
+        "このメールに心当たりがない場合は、運営までお知らせください。",
+      ].join("\n"),
+    };
+  },
+
+  // 承認のお知らせ（§11 の membership_approved）。承認された会員の一覧（氏名だけ）
+  membership_approved: async (params, ctx, tx) => {
+    const { team, year, approved } = await loadDeclaration(tx, params);
+    const pageUrl = ctx.associationSlug ? `${ctx.baseUrl}/${ctx.associationSlug}/teams/${team.id}` : ctx.baseUrl;
+    return {
+      subject: subjectWithBrand(ctx, `${year}年度の協会員の登録が承認されました（${team.name}）`),
+      text: [
+        `${team.name}の${year}年度の協会員の登録が承認されました。`,
+        "",
+        `${year}年度の協会員（${approved.length}人）:`,
+        ...(approved.length > 0 ? approved.map((name) => `　${name}`) : ["　（承認された人はいません）"]),
+        "",
         pageUrl,
         "",
         "このメールに心当たりがない場合は、運営までお知らせください。",

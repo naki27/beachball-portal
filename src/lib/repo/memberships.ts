@@ -1,5 +1,5 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
-import { membershipDeclarations, membershipPeriods, memberships } from "@/db/schema";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { members, membershipDeclarations, membershipPeriods, memberships, teams } from "@/db/schema";
 import type { MembershipSource, MembershipStatus } from "@/db/schema/memberships";
 import type { Tx } from "@/db/tenant";
 
@@ -229,4 +229,72 @@ export async function upsertMembershipDeclaration(
   await tx
     .insert(membershipDeclarations)
     .values({ associationId, teamId, year, submittedBy, submittedAt: now, updatedAt: now });
+}
+
+// 承認待ち・承認済みの申告（運営の画面。追加の申告を分けて出す・§5.12）
+export type MembershipRow = {
+  memberId: string;
+  memberName: string;
+  teamId: string | null;
+  teamName: string | null;
+  status: MembershipStatus;
+  source: MembershipSource;
+  appliedAt: Date | null;
+};
+
+export async function listMembershipsForYear(
+  tx: Tx,
+  associationId: string,
+  year: number,
+  statuses: readonly MembershipStatus[],
+): Promise<MembershipRow[]> {
+  if (statuses.length === 0) return [];
+  return tx
+    .select({
+      memberId: memberships.memberId,
+      memberName: members.name,
+      teamId: memberships.teamId,
+      teamName: teams.name,
+      status: memberships.status,
+      source: memberships.source,
+      appliedAt: memberships.appliedAt,
+    })
+    .from(memberships)
+    .innerJoin(members, and(eq(members.associationId, memberships.associationId), eq(members.id, memberships.memberId)))
+    .leftJoin(teams, and(eq(teams.associationId, memberships.associationId), eq(teams.id, memberships.teamId)))
+    .where(
+      and(
+        eq(memberships.associationId, associationId),
+        eq(memberships.year, year),
+        isNull(memberships.deletedAt),
+        inArray(memberships.status, [...statuses]),
+      ),
+    )
+    .orderBy(asc(teams.name), asc(members.name));
+}
+
+// 一括承認（§5.12）。applied の行だけを approved にする。承認した件数を返す
+export async function approveMemberships(
+  tx: Tx,
+  associationId: string,
+  year: number,
+  memberIds: readonly string[],
+  approvedBy: string,
+  now: Date,
+): Promise<number> {
+  if (memberIds.length === 0) return 0;
+  const updated = await tx
+    .update(memberships)
+    .set({ status: "approved", approvedBy, approvedAt: now })
+    .where(
+      and(
+        eq(memberships.associationId, associationId),
+        eq(memberships.year, year),
+        eq(memberships.status, "applied"),
+        isNull(memberships.deletedAt),
+        inArray(memberships.memberId, [...memberIds]),
+      ),
+    )
+    .returning({ id: memberships.id });
+  return updated.length;
 }

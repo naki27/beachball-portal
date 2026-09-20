@@ -89,6 +89,9 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   // 年度更新（§5.12）。受付の開始・期間の変更はテナント管理者だけ
   { path: "[slug]/admin/memberships", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
   { path: "[slug]/admin/memberships/[year]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageMemberships" } },
+  { path: "[slug]/admin/memberships/[year]/approvals", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
+  // 運営の代理の申告・修正（締切後も可・§5.12）
+  { path: "[slug]/admin/memberships/[year]/declarations", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
   { path: "[slug]/admin/category-presets", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets/[presetId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/contacts", methods: ["PATCH"], guard: { kind: "tenant", action: "manageContacts" } },

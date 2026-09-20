@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ApprovalList } from "@/components/memberships/approval-list";
 import { PeriodManager, type PeriodRow } from "@/components/memberships/period-manager";
 import { getDb } from "@/db/client";
-import { type AdminMembershipsView, getMembershipsForAdmin } from "@/lib/admin/memberships";
+import { type AdminMembershipsView, getMembershipsForAdmin, getRenewalStatusForAdmin } from "@/lib/admin/memberships";
 import { getPrincipal } from "@/lib/auth/principal";
 import { formatDateWithWeekday, formatPlainDate, todayInTokyo } from "@/lib/date";
 import { periodYearText } from "@/lib/memberships/period-input";
@@ -22,7 +23,10 @@ export default async function AdminMembershipsPage({ params }: Props) {
   const principal = await getPrincipal();
   if (!principal.userId) denyPage();
   const now = new Date();
-  const view = await getMembershipsForAdmin(getDb(), { ...principal, userId: principal.userId }, association.id, now).catch(pageErrorFrom);
+  const actor = { ...principal, userId: principal.userId };
+  const view = await getMembershipsForAdmin(getDb(), actor, association.id, now).catch(pageErrorFrom);
+  // 申告の状況は「いまの年度」について出す（過去の年度の締めは、受付の一覧から年度を選ぶ形にはしていない）
+  const status = await getRenewalStatusForAdmin(getDb(), actor, association.id, view.currentYear, now).catch(pageErrorFrom);
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
@@ -34,6 +38,20 @@ export default async function AdminMembershipsPage({ params }: Props) {
       <h1 className="text-2xl font-bold">協会員の管理</h1>
       <p className="text-sm text-muted">いまは{periodYearText(view.currentYear)}です（{view.fiscalYearStartMonth}月に始まる年度）。</p>
       <PeriodManager slug={association.slug} periods={view.periods.map((row) => toRow(row, now))} nextYear={view.currentYear} />
+      <hr className="border-border" />
+      <h2 className="text-xl font-bold">{view.currentYear}年度の申告</h2>
+      {status.state === null ? (
+        <p className="text-muted">{view.currentYear}年度の受付はまだ始めていません。</p>
+      ) : (
+        <ApprovalList
+          slug={association.slug}
+          year={status.year}
+          pending={status.pending}
+          additional={status.additional}
+          undeclared={status.undeclared}
+          approvedCount={status.approvedCount}
+        />
+      )}
     </main>
   );
 }
