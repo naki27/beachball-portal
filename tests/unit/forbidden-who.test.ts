@@ -14,6 +14,7 @@ describe("whoCanSee", () => {
     expect(whoCanSee("/sawara/teams/abc")).toBe("チームの選手");
     expect(whoCanSee("/sawara/teams/abc/edit")).toBe("チームの代表者");
     expect(whoCanSee("/sawara/teams/new")).toBe("ログインした人");
+    expect(whoCanSee("/sawara/tournaments/abc/entry")).toBe("ログインした人");
     expect(whoCanSee("/mypage")).toBe("ログインした人");
     expect(whoCanSee("/invitations")).toBe("ログインした人");
     expect(whoCanSee("/")).toBe("ログインした人");

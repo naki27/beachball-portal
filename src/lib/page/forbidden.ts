@@ -20,6 +20,8 @@ const WHO_BY_PATH: ReadonlyArray<[RegExp, string]> = [
   [/^\/platform(\/|$)/, ROLE_LABEL.platform_admin],
   [/^\/[^/]+\/admin(\/|$)/, ROLE_LABEL.association_admin],
   [/^\/[^/]+\/teams\/new$/, ROLE_LABEL.registered],
+  // 申込の入力ページはログインした人なら開ける（そのチームの代表者かは送信時に検査・§5.5）
+  [/^\/[^/]+\/tournaments\/[^/]+\/entry(\/|$)/, ROLE_LABEL.registered],
   [/^\/[^/]+\/teams\/[^/]+\/members\/(new|[^/]+\/edit)(\/|$)/, ROLE_LABEL.team_admin],
   [/^\/[^/]+\/teams\/[^/]+\/(edit|entries|admins|invitations|membership|export)(\/|$)/, ROLE_LABEL.team_admin],
   [/^\/[^/]+\/teams\/[^/]+(\/|$)/, ROLE_LABEL.player],
