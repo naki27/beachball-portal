@@ -137,3 +137,96 @@ export async function listDeclaredTeamIds(tx: Tx, associationId: string, year: n
     .where(and(eq(membershipDeclarations.associationId, associationId), eq(membershipDeclarations.year, year)));
   return new Set(rows.map((row) => row.teamId));
 }
+
+export type MembershipValues = {
+  memberId: string;
+  teamId: string | null;
+  year: number;
+  status: MembershipStatus;
+  source: MembershipSource;
+  appliedBy: string | null;
+  appliedAt: Date | null;
+  approvedBy: string | null;
+  approvedAt: Date | null;
+};
+
+// その年度の資格を書く（なければ作る）。削除済みの行は無視して作り直す（部分一意インデックスに合わせる）
+export async function upsertMembershipStatus(tx: Tx, associationId: string, values: MembershipValues): Promise<void> {
+  const updated = await tx
+    .update(memberships)
+    .set({
+      teamId: values.teamId,
+      status: values.status,
+      source: values.source,
+      appliedBy: values.appliedBy,
+      appliedAt: values.appliedAt,
+      approvedBy: values.approvedBy,
+      approvedAt: values.approvedAt,
+    })
+    .where(
+      and(
+        eq(memberships.associationId, associationId),
+        eq(memberships.memberId, values.memberId),
+        eq(memberships.year, values.year),
+        isNull(memberships.deletedAt),
+      ),
+    )
+    .returning({ id: memberships.id });
+  if (updated.length > 0) return;
+  await tx.insert(memberships).values({ associationId, ...values });
+}
+
+// チームの申告の送信記録（行がない = 未申告・§5.12）
+export type MembershipDeclaration = { teamId: string; year: number; submittedAt: Date; updatedAt: Date; submittedBy: string | null };
+
+export async function findMembershipDeclaration(
+  tx: Tx,
+  associationId: string,
+  teamId: string,
+  year: number,
+): Promise<MembershipDeclaration | null> {
+  const [row] = await tx
+    .select({
+      teamId: membershipDeclarations.teamId,
+      year: membershipDeclarations.year,
+      submittedAt: membershipDeclarations.submittedAt,
+      updatedAt: membershipDeclarations.updatedAt,
+      submittedBy: membershipDeclarations.submittedBy,
+    })
+    .from(membershipDeclarations)
+    .where(
+      and(
+        eq(membershipDeclarations.associationId, associationId),
+        eq(membershipDeclarations.teamId, teamId),
+        eq(membershipDeclarations.year, year),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+// 送信の記録。2 回目からは最終更新だけを書き換える（最初の送信日時は残す）
+export async function upsertMembershipDeclaration(
+  tx: Tx,
+  associationId: string,
+  teamId: string,
+  year: number,
+  submittedBy: string,
+  now: Date,
+): Promise<void> {
+  const updated = await tx
+    .update(membershipDeclarations)
+    .set({ updatedAt: now, submittedBy })
+    .where(
+      and(
+        eq(membershipDeclarations.associationId, associationId),
+        eq(membershipDeclarations.teamId, teamId),
+        eq(membershipDeclarations.year, year),
+      ),
+    )
+    .returning({ id: membershipDeclarations.id });
+  if (updated.length > 0) return;
+  await tx
+    .insert(membershipDeclarations)
+    .values({ associationId, teamId, year, submittedBy, submittedAt: now, updatedAt: now });
+}

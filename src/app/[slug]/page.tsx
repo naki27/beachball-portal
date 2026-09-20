@@ -43,7 +43,7 @@ export default async function AssociationTop({ params }: Props) {
       ...notices.map((notice) => ({
         key: `renewal-${notice.year}-${notice.teamId}`,
         text: `${notice.teamName}: ${renewalNoticeText(notice, now)}`,
-        href: `/${association.slug}/teams/${notice.teamId}`,
+        href: `/${association.slug}/teams/${notice.teamId}/membership`,
       })),
       ...todos,
     ];

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import {
   associationAdminInvitations,
@@ -6,6 +6,7 @@ import {
   entries,
   entryPlayers,
   members,
+  memberships,
   platformContactMessages,
   teamInvitations,
   teams,
@@ -118,6 +119,24 @@ async function loadEntry(tx: Tx | Db, params: Record<string, unknown>) {
     deadline: category?.entryEndAt ?? tournament.entryEndAt,
     players,
   };
+}
+
+
+// 年度更新の申告（membership_applied / membership_approved）。チームとその年度の対象者の氏名
+async function loadDeclaration(tx: Tx | Db, params: Record<string, unknown>) {
+  const teamId = typeof params.teamId === "string" ? params.teamId : "";
+  const year = typeof params.year === "number" ? params.year : Number(params.year);
+  if (!isUuid(teamId) || !Number.isInteger(year)) throw new Error("申告がありません");
+  const [team] = await tx.select({ id: teams.id, name: teams.name }).from(teams).where(eq(teams.id, teamId)).limit(1);
+  if (!team) throw new Error("チームがありません");
+  const rows = await tx
+    .select({ name: members.name, status: memberships.status })
+    .from(memberships)
+    .innerJoin(members, eq(members.id, memberships.memberId))
+    .where(and(eq(memberships.teamId, teamId), eq(memberships.year, year), isNull(memberships.deletedAt)))
+    .orderBy(asc(members.name));
+  const names = rows.filter((row) => row.status === "applied" || row.status === "approved").map((row) => row.name);
+  return { team, year, names };
 }
 
 const TEMPLATES: Partial<Record<MailType, Template>> = {
@@ -324,6 +343,26 @@ const TEMPLATES: Partial<Record<MailType, Template>> = {
         "",
         "取り消した申し込みは元に戻せません。もう一度出る場合は、締切までに申し込み直してください。",
         entryUrl,
+        "",
+        "このメールに心当たりがない場合は、運営までお知らせください。",
+      ].join("\n"),
+    };
+  },
+
+  // 年度更新の申告の控え（§11 の membership_applied）。氏名だけを載せる（生年月日は載せない・§5.16）
+  membership_applied: async (params, ctx, tx) => {
+    const { team, year, names } = await loadDeclaration(tx, params);
+    const pageUrl = ctx.associationSlug ? `${ctx.baseUrl}/${ctx.associationSlug}/teams/${team.id}/membership` : ctx.baseUrl;
+    return {
+      subject: subjectWithBrand(ctx, `${year}年度の協会員の申告を受け付けました（${team.name}）`),
+      text: [
+        `${team.name}から、${year}年度の協会員の申告を受け付けました。`,
+        "",
+        `${year}年度も登録する人（${names.length}人）:`,
+        ...(names.length > 0 ? names.map((name) => `　${name}`) : ["　（選ばれた人はいません）"]),
+        "",
+        "受付の締切までは、下のページから選ぶ人を変えて送り直せます。",
+        pageUrl,
         "",
         "このメールに心当たりがない場合は、運営までお知らせください。",
       ].join("\n"),

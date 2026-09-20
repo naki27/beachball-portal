@@ -89,7 +89,9 @@ export default async function TeamPage({ params, searchParams }: Props) {
 
       {notice ? (
         <Message kind={notice.declared ? "success" : "info"} title={renewalNoticeText(notice, now)}>
-          {notice.declared ? "締切までは、選ぶ人を変えて送り直せます。" : "協会員の登録をするチームです。"}
+          <Link href={`/${association.slug}/teams/${team.id}/membership`} className="font-semibold underline underline-offset-2">
+            {notice.declared ? `${notice.year}年度の申告を見直す` : `${notice.year}年度も登録する人を選ぶ`}
+          </Link>
         </Message>
       ) : null}
 

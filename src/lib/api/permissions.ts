@@ -43,6 +43,8 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/teams", methods: ["POST"], guard: { kind: "tenant", action: "createTeam" } },
   { path: "[slug]/teams/[teamId]", methods: ["PATCH"], guard: { kind: "tenant", action: "editTeam" } },
   { path: "[slug]/teams/[teamId]/members", methods: ["GET"], guard: { kind: "tenant", action: "viewOwnTeamRoster" } },
+  // 年度更新の申告（§5.12）。締切後・対象でないチームは 409
+  { path: "[slug]/teams/[teamId]/membership", methods: ["POST"], guard: { kind: "tenant", action: "declareMembership" } },
   { path: "[slug]/teams/[teamId]/members", methods: ["POST"], guard: { kind: "tenant", action: "manageRoster" } },
   { path: "[slug]/teams/[teamId]/members/[teamMemberId]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageRoster" } },
   { path: "[slug]/teams/[teamId]/members/[teamMemberId]/leave", methods: ["POST"], guard: { kind: "tenant", action: "manageRoster" } },
