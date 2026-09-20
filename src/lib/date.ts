@@ -73,6 +73,21 @@ export function diffDays(a: PlainDate, b: PlainDate): number {
   return Math.round((to - from) / MS_PER_DAY);
 }
 
+const tokyoDateTimeFormat = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Tokyo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+// 「2026-09-20 12:34」（日本時間）。CSV・記録の日時に使う（§5.13）。サーバーの TZ には頼らない
+export function formatDateTimeTokyo(at: Date): string {
+  return tokyoDateTimeFormat.format(at).replace(", ", " ");
+}
+
 // 年度（開始年）。開始月が 4 なら 2026-04-01〜2027-03-31 が「2026 年度」（設計書 §5.12）
 // 協会ごとに開始月が違う（associations.fiscal_year_start_month）
 export function fiscalYear(d: PlainDate, startMonth: number): number {

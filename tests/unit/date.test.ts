@@ -7,6 +7,7 @@ import {
   formatDateWithWeekday,
   formatPlainDate,
   isValidPlainDate,
+  formatDateTimeTokyo,
   parsePlainDate,
   startOfDayTokyo,
   todayInTokyo,
@@ -112,5 +113,13 @@ describe("fiscalYear", () => {
     // 10 月始まり
     expect(fiscalYear({ year: 2026, month: 9, day: 30 }, 10)).toBe(2025);
     expect(fiscalYear({ year: 2026, month: 10, day: 1 }, 10)).toBe(2026);
+  });
+});
+
+describe("日時の表示（§5.13 の CSV・記録）", () => {
+  it("日本時間の「YYYY-MM-DD HH:MM」。サーバーの TZ に関係なく同じ", () => {
+    expect(formatDateTimeTokyo(new Date("2026-09-20T03:04:00Z"))).toBe("2026-09-20 12:04");
+    // 日本時間では翌日の 0:30
+    expect(formatDateTimeTokyo(new Date("2026-09-20T15:30:00Z"))).toBe("2026-09-21 00:30");
   });
 });

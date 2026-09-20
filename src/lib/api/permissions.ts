@@ -61,6 +61,9 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/members/same-name", methods: ["POST"], guard: { kind: "tenant", action: "viewPlayerPersonal" } },
 
   // 協会の管理（テナント管理者・切り替えて入った運営管理者）
+  // 申込一覧と CSV（§5.5(f)）。CSV の出力は export_logs に記録する
+  { path: "[slug]/admin/entries/[entryId]/checked", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
+  { path: "[slug]/admin/tournaments/[tournamentId]/entries/exports", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/teams/[teamId]", methods: ["DELETE"], guard: { kind: "tenant", action: "physicalDelete" } },
   { path: "[slug]/admin/teams/[teamId]/admins", methods: ["POST"], guard: { kind: "tenant", action: "viewOtherTeams" } },
   { path: "[slug]/admin/teams/[teamId]/members/[teamMemberId]", methods: ["DELETE"], guard: { kind: "tenant", action: "physicalDelete" } },

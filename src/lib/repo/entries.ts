@@ -338,3 +338,90 @@ export async function insertEntryAudit(
 ): Promise<void> {
   await tx.insert(entryAudits).values({ associationId, ...input });
 }
+
+// --- 管理画面の申込一覧・CSV（B-13・§5.5(f)） ---
+
+export type AdminEntryRow = {
+  entryId: string;
+  categoryId: string;
+  categoryCode: string;
+  categoryLabel: string;
+  categorySortOrder: number;
+  teamId: string;
+  teamName: string;
+  note: string | null;
+  needsAdminCheck: boolean;
+  submittedAt: Date;
+  updatedAt: Date;
+};
+
+// 取消済み・削除済みは出さない（§5.5(f)）。並びは 部 → 申込日時
+export function listEntriesForAdmin(tx: Tx, associationId: string, tournamentId: string): Promise<AdminEntryRow[]> {
+  return tx
+    .select({
+      entryId: entries.id,
+      categoryId: entries.categoryId,
+      categoryCode: tournamentCategories.code,
+      categoryLabel: tournamentCategories.label,
+      categorySortOrder: tournamentCategories.sortOrder,
+      teamId: entries.teamId,
+      teamName: entries.teamName,
+      note: entries.note,
+      needsAdminCheck: entries.needsAdminCheck,
+      submittedAt: entries.submittedAt,
+      updatedAt: entries.updatedAt,
+    })
+    .from(entries)
+    .innerJoin(
+      tournamentCategories,
+      and(eq(tournamentCategories.associationId, entries.associationId), eq(tournamentCategories.id, entries.categoryId)),
+    )
+    .where(
+      and(
+        eq(entries.associationId, associationId),
+        eq(entries.tournamentId, tournamentId),
+        eq(entries.status, "submitted"),
+        isNull(entries.deletedAt),
+      ),
+    )
+    .orderBy(asc(tournamentCategories.sortOrder), asc(tournamentCategories.code), asc(entries.submittedAt))
+    .limit(5000);
+}
+
+// 大会に出る申込の選手をまとめて読む（1 選手 1 行の CSV・一覧の人数）
+export type AdminEntryPlayerRow = EntryPlayerRow & { entryId: string };
+
+export function listEntryPlayersForTournament(tx: Tx, associationId: string, tournamentId: string): Promise<AdminEntryPlayerRow[]> {
+  return tx
+    .select({
+      entryId: entryPlayers.entryId,
+      id: entryPlayers.id,
+      position: entryPlayers.position,
+      name: entryPlayers.name,
+      kana: entryPlayers.kana,
+      birthDate: entryPlayers.birthDate,
+      sex: entryPlayers.sex,
+      ageAtEvent: entryPlayers.ageAtEvent,
+      memberId: entryPlayers.memberId,
+    })
+    .from(entryPlayers)
+    .innerJoin(entries, and(eq(entries.associationId, entryPlayers.associationId), eq(entries.id, entryPlayers.entryId)))
+    .where(
+      and(
+        eq(entries.associationId, associationId),
+        eq(entries.tournamentId, tournamentId),
+        eq(entries.status, "submitted"),
+        isNull(entries.deletedAt),
+      ),
+    )
+    .orderBy(asc(entryPlayers.entryId), asc(entryPlayers.position))
+    .limit(20000);
+}
+
+// 「確認済み」（運営の確認対象の印を外す・§5.5）
+export async function clearNeedsAdminCheck(tx: Tx, associationId: string, entryId: string, updatedBy: string, at: Date): Promise<void> {
+  await tx
+    .update(entries)
+    .set({ needsAdminCheck: false, updatedBy, updatedAt: at })
+    .where(and(eq(entries.associationId, associationId), eq(entries.id, entryId)));
+}

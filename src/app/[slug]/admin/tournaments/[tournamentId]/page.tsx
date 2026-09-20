@@ -41,6 +41,11 @@ export default async function EditTournamentPage({ params, searchParams }: Props
       </p>
       <h1 className="text-2xl font-bold break-words">{tournament.name}</h1>
       {created ? <Message kind="success" title="大会を作りました" /> : null}
+      <p>
+        <Link href={`/${association.slug}/admin/tournaments/${tournament.id}/entries`} className="underline underline-offset-2">
+          申し込みの管理（一覧・CSV）
+        </Link>
+      </p>
       <TournamentForm
         slug={association.slug}
         mode="edit"
