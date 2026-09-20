@@ -10,7 +10,7 @@ import { denyPage } from "@/lib/page/forbidden";
 import { requireAssociation } from "@/lib/page/require-association";
 import { pageErrorFrom } from "@/lib/page/team-errors";
 import { SEX_LABEL } from "@/lib/teams/player-input";
-import { CheckedButton } from "./checked-button";
+import { CheckedButton, DeleteEntryButton } from "./checked-button";
 
 type Props = { params: Promise<{ slug: string; tournamentId: string }> };
 
@@ -116,6 +116,7 @@ export default async function AdminEntriesPage({ params }: Props) {
                   代理で直す
                 </Link>
                 {entry.needsAdminCheck ? <CheckedButton slug={association.slug} entryId={entry.entryId} /> : null}
+                <DeleteEntryButton slug={association.slug} entryId={entry.entryId} />
               </div>
             </li>
           ))}

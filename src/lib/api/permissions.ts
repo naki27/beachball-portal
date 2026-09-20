@@ -63,6 +63,8 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   // 協会の管理（テナント管理者・切り替えて入った運営管理者）
   // 申込一覧と CSV（§5.5(f)）。CSV の出力は export_logs に記録する
   { path: "[slug]/admin/entries/[entryId]/checked", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
+  // 誤登録の申込の論理削除（§5.16）。完全に削除するのは /admin/trash から
+  { path: "[slug]/admin/entries/[entryId]", methods: ["DELETE"], guard: { kind: "tenant", action: "physicalDelete" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/entries/exports", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/teams/[teamId]", methods: ["DELETE"], guard: { kind: "tenant", action: "physicalDelete" } },
   { path: "[slug]/admin/teams/[teamId]/admins", methods: ["POST"], guard: { kind: "tenant", action: "viewOtherTeams" } },
@@ -74,6 +76,7 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/admin/members/[memberId]/merge", methods: ["POST"], guard: { kind: "tenant", action: "physicalDelete" } },
   { path: "[slug]/admin/tournaments", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageTournaments" } },
+  { path: "[slug]/admin/tournaments/[tournamentId]", methods: ["DELETE"], guard: { kind: "tenant", action: "physicalDelete" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/categories", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/categories/[categoryId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/age-reference/confirm", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },

@@ -180,3 +180,13 @@ export async function findPublicTournament(tx: Tx, associationId: string, id: st
     .limit(1);
   return row ? toTournament(row) : null;
 }
+
+// 大会の論理削除（§5.16。物理削除は /admin/trash から）。削除済みなら false
+export async function softDeleteTournament(tx: Tx, associationId: string, id: string, deletedBy: string): Promise<boolean> {
+  const rows = await tx
+    .update(tournaments)
+    .set({ deletedAt: new Date(), deletedBy, updatedAt: new Date() })
+    .where(and(eq(tournaments.associationId, associationId), eq(tournaments.id, id), isNull(tournaments.deletedAt)))
+    .returning({ id: tournaments.id });
+  return rows.length > 0;
+}

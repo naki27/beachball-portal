@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Message } from "@/components/ui/message";
 import { TextField } from "@/components/ui/text-field";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { PURGE_REASON_KEYS, PURGE_REASON_LABEL, type PurgeReasonKind } from "@/lib/admin/purge-reasons";
 import type { TrashItem, TrashTable } from "@/lib/admin/trash";
 import { formatDateWithWeekday, todayInTokyo } from "@/lib/date";
 
@@ -18,6 +19,8 @@ export function TrashList({ slug, table, label, items }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  // 人物を消すときは、理由で申込の記録の残り方が変わる（§5.16）
+  const [reasonKind, setReasonKind] = useState<PurgeReasonKind>("other");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -49,7 +52,7 @@ export function TrashList({ slug, table, label, items }: Props) {
       const response = await fetch(`/api/${slug}/admin/trash/${table}/${item.id}`, {
         method: "DELETE",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ reason, reason_kind: reasonKind }),
       });
       const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
       if (!response.ok) {
@@ -94,12 +97,36 @@ export function TrashList({ slug, table, label, items }: Props) {
               <p className="font-semibold text-danger">本当に完全に削除しますか？</p>
               <p className="leading-relaxed">{item.cascade}</p>
               <p className="leading-relaxed">元に戻せません。</p>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor={`reason-kind-${item.id}`} className="font-semibold">
+                  理由の種類
+                </label>
+                <select
+                  id={`reason-kind-${item.id}`}
+                  value={reasonKind}
+                  onChange={(event) => setReasonKind(event.target.value as PurgeReasonKind)}
+                  className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+                >
+                  {PURGE_REASON_KEYS.map((key) => (
+                    <option key={key} value={key}>
+                      {PURGE_REASON_LABEL[key]}
+                    </option>
+                  ))}
+                </select>
+                {table === "members" ? (
+                  <p className="text-sm">
+                    {reasonKind === "retention"
+                      ? "申し込みの記録には氏名・性別・年齢が残り、生年月日だけが消えます。"
+                      : "申し込みの記録の氏名・ふりがな・生年月日が「（削除済み）」になります（申し込みの件数は変わりません）。"}
+                  </p>
+                ) : null}
+              </div>
               <TextField
                 id={`reason-${item.id}`}
-                label="理由"
+                label="理由のメモ"
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
-                hint="例: 誤登録／本人からの依頼／保存期間の満了"
+                hint="例: 本人から削除の依頼あり（2026-09-20 受付）"
               />
               <Button
                 type="button"

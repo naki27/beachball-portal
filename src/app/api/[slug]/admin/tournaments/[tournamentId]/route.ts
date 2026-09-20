@@ -2,7 +2,7 @@ import { getDb } from "@/db/client";
 import { jsonError } from "@/lib/api/errors";
 import { readJson } from "@/lib/api/request";
 import { requireTenantUser, teamErrorResponse } from "@/lib/api/tenant";
-import { editTournament } from "@/lib/admin/tournaments";
+import { deleteTournament, editTournament } from "@/lib/admin/tournaments";
 
 type Props = { params: Promise<{ slug: string; tournamentId: string }> };
 
@@ -17,6 +17,20 @@ export async function PATCH(request: Request, { params }: Props): Promise<Respon
   try {
     const tournament = await editTournament(getDb(), gate.principal, gate.association.id, tournamentId, body);
     return Response.json({ ok: true, tournament: { id: tournament.id } }, { headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    return teamErrorResponse(error);
+  }
+}
+
+// DELETE /api/[slug]/admin/tournaments/[tournamentId] — 大会の論理削除（設計書 §5.16）
+// 完全に削除するのは /admin/trash から（部・申し込みも一緒に消える）
+export async function DELETE(request: Request, { params }: Props): Promise<Response> {
+  const { slug, tournamentId } = await params;
+  const gate = await requireTenantUser(request, slug);
+  if (gate instanceof Response) return gate;
+  try {
+    await deleteTournament(getDb(), gate.principal, gate.association.id, tournamentId);
+    return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return teamErrorResponse(error);
   }

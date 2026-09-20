@@ -17,6 +17,7 @@ import { requireAssociation } from "@/lib/page/require-association";
 import { pageErrorFrom } from "@/lib/page/team-errors";
 import type { Tournament } from "@/lib/repo/tournaments";
 import { categoryConditionText } from "@/lib/tournaments/category-text";
+import { DeleteTournament } from "./delete-tournament";
 
 type Props = { params: Promise<{ slug: string; tournamentId: string }>; searchParams: Promise<{ created?: string }> };
 
@@ -62,6 +63,12 @@ export default async function EditTournamentPage({ params, searchParams }: Props
         ageWarnings={view.ageWarnings.map(toAgeWarning)}
         tournamentEntryEndText={dateText(todayInTokyo(tournament.entryEndAt))}
         tournamentAgeReferenceText={dateText(tournament.ageReferenceDate)}
+      />
+      <hr className="border-border" />
+      <DeleteTournament
+        slug={association.slug}
+        tournamentId={tournament.id}
+        entryCount={view.categories.reduce((total, c) => total + c.entries, 0)}
       />
       <p className="text-sm text-muted">
         候補に出す部は{" "}

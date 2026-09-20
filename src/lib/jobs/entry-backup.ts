@@ -21,7 +21,7 @@ export function entryBackupKey(associationId: string, tournamentId: string, day:
   return `${BACKUP_PREFIX}/${associationId}/${tournamentId}/${formatPlainDate(day)}.csv.enc`;
 }
 
-export type EntryBackupResult = { tournaments: number; rows: number };
+export type EntryBackupResult = { tournaments: number; rows: number; skipped: number };
 
 export async function backupClosedTournamentEntries(
   db: Db,
@@ -30,11 +30,12 @@ export async function backupClosedTournamentEntries(
 ): Promise<EntryBackupResult> {
   const today = todayInTokyo(now);
   const publicKey = backupPublicKey();
-  const result: EntryBackupResult = { tournaments: 0, rows: 0 };
+  const result: EntryBackupResult = { tournaments: 0, rows: 0, skipped: 0 };
 
   for (const association of await listAllAssociations(db)) {
     // 年度の開始月は協会ごとに違う（associations はテナントに属さないので withTenant の外で読む）
     const startMonth = (await findAssociationById(db, association.id))?.fiscalYearStartMonth ?? 4;
+    let skipped = 0;
     const jobs = await withTenantOn(db, association.id, async (tx) => {
       const found: { tournamentId: string; body: string; rowCount: number }[] = [];
       for (const tournament of await listTournaments(tx, association.id)) {
@@ -44,13 +45,19 @@ export async function backupClosedTournamentEntries(
         // 開催日の翌日まで。開催日が未定の大会は締切を過ぎたあともしばらく作り続ける（日数は同じ規則で数える）
         if (tournament.eventDate && diffDays(tournament.eventDate, today) > 1) continue;
         const year = fiscalYear(tournament.eventDate ?? today, startMonth);
-        const csv = await buildEntriesCsv(tx, association.id, tournament.id, year, { includeBirthDate: false });
-        if (csv.rowCount === 0) continue; // 申込のない大会は作らない
-        found.push({ tournamentId: tournament.id, body: csv.body, rowCount: csv.rowCount });
+        // 1 つの大会で失敗しても、ほかの大会のバックアップは作る（消された直後などはここで飛ばす）
+        try {
+          const csv = await buildEntriesCsv(tx, association.id, tournament.id, year, { includeBirthDate: false });
+          if (csv.rowCount === 0) continue; // 申込のない大会は作らない
+          found.push({ tournamentId: tournament.id, body: csv.body, rowCount: csv.rowCount });
+        } catch {
+          skipped += 1;
+        }
       }
       return found;
     });
 
+    result.skipped += skipped;
     for (const job of jobs) {
       await storage.put("backup", entryBackupKey(association.id, job.tournamentId, today), encryptForBackup(publicKey, job.body), {
         contentType: "application/octet-stream",

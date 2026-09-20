@@ -100,7 +100,9 @@ test("テナント管理者がチームを削除 → 削除済みデータに出
     await page.locator("[data-hydrated]").first().waitFor();
     await again.getByRole("button", { name: "完全に削除する" }).click();
     await expect(again.getByText("本当に完全に削除しますか？")).toBeVisible();
-    await again.getByLabel("理由").fill("誤登録");
+    // 理由の種類（人物を消すときの申込の記録の扱いが変わる・§5.16）とメモ
+    await again.getByLabel("理由の種類").selectOption("mistake");
+    await again.getByLabel("理由のメモ").fill("誤登録");
     await again.getByRole("button", { name: "完全に削除する" }).click();
     await expect(page.getByText("を完全に削除しました", { exact: false })).toBeVisible({ timeout: 15_000 });
     await expect(page.locator("article", { hasText: `${tag} チーム` })).toHaveCount(0, { timeout: 15_000 });
@@ -111,7 +113,8 @@ test("テナント管理者がチームを削除 → 削除済みデータに出
     const [log] = await withTenantOn(owner, SAWARA_ASSOCIATION_ID, (tx) =>
       tx.select().from(deletionLogs).where(eq(deletionLogs.recordId, teamId)),
     );
-    expect(log).toMatchObject({ tableName: "teams", reason: "誤登録", deletedBy: admin.id });
+    // 記録の理由は「理由の種類：メモ」（§5.16）
+    expect(log).toMatchObject({ tableName: "teams", reason: "誤登録：誤登録", deletedBy: admin.id });
     expect(JSON.stringify(log)).not.toContain(tag);
   } finally {
     await owner.delete(sessions).where(eq(sessions.userId, admin.id));

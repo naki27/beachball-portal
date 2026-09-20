@@ -38,6 +38,8 @@ export const RETENTION_DAYS = {
 export type DailyJobResult = {
   // 締切後の申込一覧 CSV のバックアップ（②・§5.5(f)）
   backedUpTournaments: number;
+  // 作れなかった大会（消された直後など）。次の日にまた試す
+  skippedBackups: number;
   // 期限切れの物理削除（③）
   loginCodes: number;
   sessions: number;
@@ -155,6 +157,7 @@ export async function runDailyJob(db: Db, options: DailyJobOptions = {}): Promis
   const result: DailyJobResult = {
     ...(await purgeExpiredAuth(db, now)),
     backedUpTournaments: 0,
+    skippedBackups: 0,
     expiredTeamInvitations: 0,
     expiredAdminInvitations: 0,
     purgedTeamInvitations: 0,
@@ -184,6 +187,7 @@ export async function runDailyJob(db: Db, options: DailyJobOptions = {}): Promis
   // ② 締切後の申込一覧 CSV のバックアップ（暗号化してバックアップ用の保存先へ・§5.5(f)）
   const backup = await backupClosedTournamentEntries(db, options.storage ?? getStorage(), now);
   result.backedUpTournaments = backup.tournaments;
+  result.skippedBackups = backup.skipped;
 
   return result;
 }
@@ -196,6 +200,6 @@ export function formatDailyJobResult(result: DailyJobResult): string {
     `レート制限 ${result.rateLimits} 件`,
     `期限切れの招待 チーム ${result.expiredTeamInvitations} 件 / 協会の管理者 ${result.expiredAdminInvitations} 件`,
     `保存期間切れ 招待 ${result.purgedTeamInvitations + result.purgedAdminInvitations} 件 / 送信記録 ${result.purgedMailLogs} 件 / 操作記録 ${result.purgedAdminAccessLogs} 件`,
-    `申込一覧のバックアップ ${result.backedUpTournaments} 大会`,
+    `申込一覧のバックアップ ${result.backedUpTournaments} 大会${result.skippedBackups > 0 ? `（${result.skippedBackups} 大会は作れず）` : ""}`,
   ].join("、");
 }

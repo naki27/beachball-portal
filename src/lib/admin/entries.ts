@@ -12,6 +12,7 @@ import {
   insertEntryAudit,
   listEntriesForAdmin,
   listEntryPlayersForTournament,
+  softDeleteEntry,
 } from "@/lib/repo/entries";
 import { insertExportLog } from "@/lib/repo/export-logs";
 import { hasMembershipsForYear, listApprovedMemberIds } from "@/lib/repo/memberships";
@@ -250,4 +251,26 @@ export async function exportEntriesCsv(
 function formatFileDate(now: Date): string {
   const today = todayInTokyo(now);
   return `${today.year}${String(today.month).padStart(2, "0")}${String(today.day).padStart(2, "0")}`;
+}
+
+// 申込の論理削除（§5.16。誤登録の取り消し。取消（status = cancelled）とは別物で、一覧・CSV から消える）
+// 完全に削除するのは /admin/trash から
+export async function deleteEntryByAdmin(
+  db: Db,
+  principal: Principal & { userId: string },
+  associationId: string,
+  entryId: string,
+  now: Date = new Date(),
+): Promise<void> {
+  await withTenantOn(
+    db,
+    associationId,
+    async (tx) => {
+      await authorizeAssociationAdmin(tx, principal, associationId);
+      if (!isUuid(entryId)) throw new TeamError(404, "申し込みが見つかりません");
+      const deleted = await softDeleteEntry(tx, associationId, entryId, principal.userId, now);
+      if (!deleted) throw new TeamError(404, "申し込みが見つかりません");
+    },
+    { userId: principal.userId },
+  );
 }

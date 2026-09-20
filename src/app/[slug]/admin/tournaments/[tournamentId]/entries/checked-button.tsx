@@ -38,3 +38,52 @@ export function CheckedButton({ slug, entryId }: { slug: string; entryId: string
     </div>
   );
 }
+
+// 誤登録の申込を削除する（論理削除・§5.16）。取消（代表者の操作）とは別物で、削除済みデータから元に戻せる
+export function DeleteEntryButton({ slug, entryId }: { slug: string; entryId: string }) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  async function remove() {
+    if (pending) return;
+    setPending(true);
+    setFailure(null);
+    try {
+      const response = await fetch(`/api/${slug}/admin/entries/${entryId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+        setFailure(body?.error?.message ?? "削除できませんでした");
+        return;
+      }
+      setConfirming(false);
+      router.refresh();
+    } catch {
+      setFailure("削除できませんでした。電波の状態を確かめてください");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {failure ? <p className="text-sm font-semibold text-danger">{failure}</p> : null}
+      {confirming ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm">誤登録として削除します（削除済みデータから元に戻せます）</span>
+          <Button variant="danger" className="min-h-10" onClick={remove} pending={pending} pendingLabel="削除しています…">
+            削除する
+          </Button>
+          <Button variant="secondary" className="min-h-10" onClick={() => setConfirming(false)} disabled={pending}>
+            やめる
+          </Button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setConfirming(true)} className="min-h-11 self-start px-1 text-sm underline underline-offset-2">
+          誤登録として削除する
+        </button>
+      )}
+    </div>
+  );
+}

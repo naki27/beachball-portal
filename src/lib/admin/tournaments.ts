@@ -9,6 +9,7 @@ import {
   insertTournament,
   listCategoryRules,
   listTournaments,
+  softDeleteTournament,
   updateTournament,
   type Tournament,
 } from "@/lib/repo/tournaments";
@@ -122,6 +123,26 @@ export async function editTournament(
       const updated = await updateTournament(tx, associationId, tournamentId, parsed.value);
       if (!updated) throw new TeamError(404, "大会が見つかりません");
       return updated;
+    },
+    { userId: principal.userId },
+  );
+}
+
+// 大会の論理削除（§5.16）。完全に削除するのは /admin/trash から（申込も一緒に消える）
+export async function deleteTournament(
+  db: Db,
+  principal: Principal & { userId: string },
+  associationId: string,
+  tournamentId: string,
+): Promise<void> {
+  if (!isUuid(tournamentId)) throw new TeamError(404, "大会が見つかりません");
+  await withTenantOn(
+    db,
+    associationId,
+    async (tx) => {
+      await authorizeAssociationAdmin(tx, principal, associationId);
+      const deleted = await softDeleteTournament(tx, associationId, tournamentId, principal.userId);
+      if (!deleted) throw new TeamError(404, "大会が見つかりません");
     },
     { userId: principal.userId },
   );

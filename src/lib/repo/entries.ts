@@ -493,3 +493,22 @@ export async function listEntriesForMember(tx: Tx, associationId: string, member
     .orderBy(desc(entries.submittedAt))
     .limit(200);
 }
+
+// 申込の論理削除（§5.16。誤登録の取り消し。取消（status = cancelled）とは別物）
+export async function softDeleteEntry(tx: Tx, associationId: string, entryId: string, deletedBy: string, at: Date): Promise<boolean> {
+  const rows = await tx
+    .update(entries)
+    .set({ deletedAt: at, deletedBy, updatedAt: at })
+    .where(and(eq(entries.associationId, associationId), eq(entries.id, entryId), isNull(entries.deletedAt)))
+    .returning({ id: entries.id });
+  return rows.length > 0;
+}
+
+// そのチームの申込の数（取消も含む。削除済みは除く）。申込が 1 件でもあるチームは物理削除できない（§5.16）
+export async function countEntriesForTeam(tx: Tx, associationId: string, teamId: string): Promise<number> {
+  const [row] = await tx
+    .select({ value: sql<number>`count(*)::int` })
+    .from(entries)
+    .where(and(eq(entries.associationId, associationId), eq(entries.teamId, teamId), isNull(entries.deletedAt)));
+  return row?.value ?? 0;
+}
