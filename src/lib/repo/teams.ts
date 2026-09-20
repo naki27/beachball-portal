@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { members, type TeamKind, type TeamStatus, teamAdmins, teamMembers, teams, users } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 import { type ReadOptions, tenantScope } from "./scope";
@@ -158,4 +158,21 @@ export async function setTeamStatusRow(tx: Tx, associationId: string, teamId: st
     .update(teams)
     .set({ status, updatedAt: new Date() })
     .where(and(tenantScope(teams, associationId), eq(teams.id, teamId)));
+}
+
+// 年度更新の対象のチーム（membership_renewal_target。無効化したチームは数えない・§5.12）
+export function listRenewalTargetTeams(tx: Tx, associationId: string): Promise<Team[]> {
+  return tx
+    .select()
+    .from(teams)
+    .where(and(tenantScope(teams, associationId), eq(teams.membershipRenewalTarget, true), eq(teams.status, "active")))
+    .orderBy(asc(teams.name));
+}
+
+export async function countRenewalTargetTeams(tx: Tx, associationId: string): Promise<number> {
+  const [row] = await tx
+    .select({ value: sql<number>`count(*)::int` })
+    .from(teams)
+    .where(and(tenantScope(teams, associationId), eq(teams.membershipRenewalTarget, true), eq(teams.status, "active")));
+  return row?.value ?? 0;
 }

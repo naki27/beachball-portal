@@ -5,6 +5,7 @@ import { type TodoItem, YourTodos } from "@/components/top/your-todos";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { entryTodos, listMyEntries } from "@/lib/entries/my-entries";
+import { loadRenewalNotices, renewalNoticeText } from "@/lib/memberships/renewal-notice";
 import { loadAdminTeams, loadIndividualRegistration } from "@/lib/page/my-associations";
 import { requireAssociation } from "@/lib/page/require-association";
 import { listRecentDocumentsForPublic, listTournamentsForPublic } from "@/lib/public/tournaments";
@@ -13,7 +14,7 @@ type Props = { params: Promise<{ slug: string }> };
 
 // 協会のトップ（設計書 §5.17「表示」）。タブの題名は layout の既定（協会名）
 // ログイン中は「あなたのやること」をブロックの上に出す。ブロックは既定の並び（受付中の大会 → 今後の大会 → 新しい資料）
-// やることは申込の分（B-16）。資料は 1c（C-03）、年度更新は 1d、並びのカスタマイズ（P1）は後のタスク
+// やることは年度更新の案内（D-02）と申込の分（B-16）。並びのカスタマイズ（P1）は後のタスク
 export default async function AssociationTop({ params }: Props) {
   const { slug } = await params;
   const association = await requireAssociation(slug);
@@ -36,6 +37,16 @@ export default async function AssociationTop({ params }: Props) {
       entries.managed,
       adminTeams.length > 0 || individual !== null,
     );
+    // 年度更新の案内（対象のチームの代表者だけ・受付期間中だけ・§5.12）
+    const notices = await loadRenewalNotices(principal, association.id, now);
+    todos = [
+      ...notices.map((notice) => ({
+        key: `renewal-${notice.year}-${notice.teamId}`,
+        text: `${notice.teamName}: ${renewalNoticeText(notice, now)}`,
+        href: `/${association.slug}/teams/${notice.teamId}`,
+      })),
+      ...todos,
+    ];
   }
 
   return (

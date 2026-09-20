@@ -7,6 +7,7 @@ import { withTenant } from "@/db/tenant";
 import { can } from "@/lib/authz";
 import { parsePlainDate } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
+import { loadRenewalNotices, renewalNoticeText } from "@/lib/memberships/renewal-notice";
 import { requireAssociation } from "@/lib/page/require-association";
 import { requireTeam } from "@/lib/page/require-team";
 import { pageErrorFrom } from "@/lib/page/team-errors";
@@ -36,6 +37,9 @@ export default async function TeamPage({ params, searchParams }: Props) {
   const association = await requireAssociation(slug);
   const { team, role, principal } = await requireTeam(association, teamId, "viewOwnTeamRoster");
   const canEdit = can(role, "editTeam");
+  // 年度更新の案内（協会員の登録をするチームの代表者だけ・受付期間中だけ・§5.12）
+  const now = new Date();
+  const notice = canEdit ? (await loadRenewalNotices(principal, association.id, now)).find((row) => row.teamId === team.id) : undefined;
 
   if (team.kind === "individual") {
     const roster = await getRoster(getDb(), { ...principal, userId: principal.userId as string }, association.id, teamId).catch(pageErrorFrom);
@@ -82,6 +86,12 @@ export default async function TeamPage({ params, searchParams }: Props) {
         <h1 className="text-2xl font-bold break-words">{team.name}</h1>
         {team.kana ? <p className="text-sm text-muted">{team.kana}</p> : null}
       </div>
+
+      {notice ? (
+        <Message kind={notice.declared ? "success" : "info"} title={renewalNoticeText(notice, now)}>
+          {notice.declared ? "締切までは、選ぶ人を変えて送り直せます。" : "協会員の登録をするチームです。"}
+        </Message>
+      ) : null}
 
       <p>
         <Link

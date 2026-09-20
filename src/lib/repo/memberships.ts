@@ -1,5 +1,5 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
-import { membershipPeriods, memberships } from "@/db/schema";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { membershipDeclarations, membershipPeriods, memberships } from "@/db/schema";
 import type { MembershipSource, MembershipStatus } from "@/db/schema/memberships";
 import type { Tx } from "@/db/tenant";
 
@@ -93,4 +93,47 @@ export async function findMembershipPeriod(tx: Tx, associationId: string, year: 
     .where(and(eq(membershipPeriods.associationId, associationId), eq(membershipPeriods.year, year)))
     .limit(1);
   return row ?? null;
+}
+
+export async function listMembershipPeriods(tx: Tx, associationId: string): Promise<MembershipPeriod[]> {
+  return tx
+    .select({
+      id: membershipPeriods.id,
+      year: membershipPeriods.year,
+      opensAt: membershipPeriods.opensAt,
+      closesAt: membershipPeriods.closesAt,
+      autoApprove: membershipPeriods.autoApprove,
+    })
+    .from(membershipPeriods)
+    .where(eq(membershipPeriods.associationId, associationId))
+    .orderBy(desc(membershipPeriods.year));
+}
+
+export type MembershipPeriodValues = { year: number; opensAt: Date; closesAt: Date; autoApprove: boolean };
+
+export async function insertMembershipPeriod(tx: Tx, associationId: string, values: MembershipPeriodValues): Promise<void> {
+  await tx.insert(membershipPeriods).values({ associationId, ...values });
+}
+
+export async function updateMembershipPeriod(
+  tx: Tx,
+  associationId: string,
+  year: number,
+  values: Omit<MembershipPeriodValues, "year">,
+): Promise<boolean> {
+  const updated = await tx
+    .update(membershipPeriods)
+    .set(values)
+    .where(and(eq(membershipPeriods.associationId, associationId), eq(membershipPeriods.year, year)))
+    .returning({ id: membershipPeriods.id });
+  return updated.length > 0;
+}
+
+// 申告を送信したチーム（membership_declarations に行があるチーム）。未申告の一覧はこの裏を取る
+export async function listDeclaredTeamIds(tx: Tx, associationId: string, year: number): Promise<Set<string>> {
+  const rows = await tx
+    .select({ teamId: membershipDeclarations.teamId })
+    .from(membershipDeclarations)
+    .where(and(eq(membershipDeclarations.associationId, associationId), eq(membershipDeclarations.year, year)));
+  return new Set(rows.map((row) => row.teamId));
 }

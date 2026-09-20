@@ -10,7 +10,7 @@ type Props = { params: Promise<{ slug: string }> };
 export const metadata: Metadata = { title: "管理" };
 
 // 協会の管理画面の入口。協会の管理者だけ。権限はサーバー側で検査する（§3.1）
-// 1a の分: チーム管理・メンバー管理・問い合わせ・削除済みデータ。大会と協会の設定は B-04 / B-05、会員は 1d で足す
+// 大会（B-04 / B-05）・資料（C-01）・協会員の年度更新（D-02）まで。並びは使う頻度の順
 export default async function AdminHome({ params }: Props) {
   const { slug } = await params;
   const association = await requireAssociation(slug);
@@ -33,6 +33,9 @@ export default async function AdminHome({ params }: Props) {
         <Link href={`/${association.slug}/admin/members`} className={itemClass}>
           メンバー管理
         </Link>
+        <Link href={`/${association.slug}/admin/memberships`} className={itemClass}>
+          協会員の管理（年度更新）
+        </Link>
         <Link href={`/${association.slug}/admin/contacts`} className={itemClass}>
           問い合わせ管理
         </Link>
@@ -43,7 +46,6 @@ export default async function AdminHome({ params }: Props) {
           協会の設定（よく使う部）
         </Link>
       </nav>
-      <p className="text-sm text-muted">会員の管理は準備中です。</p>
     </main>
   );
 }
