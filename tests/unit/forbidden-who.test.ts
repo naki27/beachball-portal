@@ -25,3 +25,14 @@ describe("whoCanSee", () => {
     expect(whoCanSee("/sawara")).toBe("権限のある人");
   });
 });
+
+describe("申込の確認ページ（§5.7・§3.2）", () => {
+  it("そのチームの選手なら見られる", () => {
+    expect(whoCanSee("/sawara/entries/00000000-0000-4000-8000-000000000001")).toBe("チームの選手");
+  });
+
+  it("申込の入力ページは、ログインした人なら開ける（確認ページも同じ）", () => {
+    expect(whoCanSee("/sawara/tournaments/abc/entry")).toBe("ログインした人");
+    expect(whoCanSee("/sawara/tournaments/abc/entry/confirm")).toBe("ログインした人");
+  });
+});

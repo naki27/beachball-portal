@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne, or } from "drizzle-orm";
+import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { type MemberSex, type MemberStatus, members } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 import { type ReadOptions, tenantScope } from "./scope";
@@ -128,4 +128,13 @@ export async function updateMemberStatus(tx: Tx, associationId: string, memberId
     .update(members)
     .set({ status, updatedAt: new Date() })
     .where(and(tenantScope(members, associationId), eq(members.id, memberId)));
+}
+
+// 申込が成立したときの参加回数・最終参加日（§5.5(c) 6）。サジェストの並び順に使う
+export async function bumpEntryCounts(tx: Tx, associationId: string, memberIds: string[], at: Date): Promise<void> {
+  if (memberIds.length === 0) return;
+  await tx
+    .update(members)
+    .set({ entryCount: sql`${members.entryCount} + 1`, lastEntryAt: at, updatedAt: at })
+    .where(and(tenantScope(members, associationId), inArray(members.id, memberIds)));
 }

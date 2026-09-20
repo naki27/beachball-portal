@@ -31,6 +31,8 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/tournaments", methods: ["GET"], guard: { kind: "publicTenant", action: "viewPublic" } },
   { path: "[slug]/tournaments/[tournamentId]", methods: ["GET"], guard: { kind: "publicTenant", action: "viewPublic" } },
   { path: "[slug]/tournaments/[tournamentId]/entries", methods: ["GET"], guard: { kind: "publicTenant", action: "viewPublic" } },
+  // 申込の作成。入口はログインした人まで（チームの代表者かは送信時にサービス層が検査する・§5.5）
+  { path: "[slug]/tournaments/[tournamentId]/entries", methods: ["POST"], guard: { kind: "tenant", action: "manageEntries" } },
 
   // 協会の中（代表者・選手）
   { path: "[slug]/teams", methods: ["POST"], guard: { kind: "tenant", action: "createTeam" } },

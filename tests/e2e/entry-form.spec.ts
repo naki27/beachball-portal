@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import { eq, inArray, like } from "drizzle-orm";
 import { closeDb, createDb } from "../../src/db/client";
 import { loadEnv, requireEnv } from "../../src/db/env";
-import { associationAdmins, members, sessions, teams, tournaments, users } from "../../src/db/schema";
+import { associationAdmins, entries, mailLogs, members, sessions, teams, tournaments, users } from "../../src/db/schema";
 import { SAWARA_ASSOCIATION_ID, SAWARA_SLUG } from "../../src/db/seed";
 import { withTenantOn } from "../../src/db/tenant";
 import { addCategoriesFromPresets } from "../../src/lib/admin/categories";
@@ -13,7 +13,7 @@ import { addPlayer } from "../../src/lib/teams/roster";
 import { registerTeam } from "../../src/lib/teams/teams";
 import { test } from "./fixtures";
 
-// 大会申込の入力ページ（設計書 §5.5・B-07 / B-09）: 代表者がチームと部と選手を選ぶ。再読み込みしても入力が残る
+// 大会申込（設計書 §5.5・§5.7・B-07 / B-09 / B-10）: 入力 → 確認 → 完了。再読み込みしても入力が残り、再送しても 1 件
 const S = SAWARA_ASSOCIATION_ID;
 const MAILPIT = process.env.MAILPIT_URL ?? "http://mailpit:8025";
 type Req = Parameters<Parameters<typeof test>[2]>[0]["request"];
@@ -43,7 +43,7 @@ async function login(page: Page, request: Req, email: string, next: string) {
   await page.getByLabel("確認番号（6 けた）").fill(await latestCode(request, email));
 }
 
-test("代表者が申込ページでチーム・部・選手を選ぶ（再読み込みしても残る）", async ({ page, request }, testInfo) => {
+test("代表者が申し込む（入力 → 確認 → 完了。再読み込みしても残る・再送しても 1 件）", async ({ page, request }, testInfo) => {
   test.setTimeout(150_000);
   loadEnv();
   const owner = createDb(requireEnv("MIGRATION_DATABASE_URL"), { max: 1 });
@@ -164,15 +164,55 @@ test("代表者が申込ページでチーム・部・選手を選ぶ（再読�
     await page.getByRole("radio", { name: "男性" }).check();
     await expect(page.getByTestId("entry-sex-counts")).toContainText("男性3人・女性2人");
 
-    // これで人数がそろい、資格バリデーション（§5.5(e)）まで通る
+    // これで人数がそろい、資格バリデーション（§5.5(e)）まで通って確認ページへ進む
     await page.getByRole("button", { name: "確認へ" }).click();
-    await expect(page.getByText("ここまでの入力は保存しました", { exact: false })).toBeVisible();
+    await expect(page).toHaveURL(/\/entry\/confirm$/, { timeout: 20_000 });
+    await expect(page.getByRole("navigation", { name: "申し込みの進み具合" }).getByText("確認")).toHaveAttribute("aria-current", "step");
+    await expect(page.getByText(`${teamName}B`, { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(`${name}オサム`, { exact: false })).toBeVisible();
+    await expect(page.getByText("駐車場を使います")).toBeVisible();
 
     // 画面幅 375px で横にはみ出さない（§4.3）
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
+
+    // 「入力に戻って直す」で戻っても入力は消えない（§5.5）
+    await page.getByRole("button", { name: "入力に戻って直す" }).first().click();
+    await expect(page.getByLabel("運営に伝えること")).toHaveValue("駐車場を使います", { timeout: 20_000 });
+    await page.getByRole("button", { name: "確認へ" }).click();
+    await expect(page).toHaveURL(/\/entry\/confirm$/, { timeout: 20_000 });
+
+    // 送信 → 完了ページ（§5.7）
+    await page.getByRole("button", { name: "申し込む" }).click();
+    await expect(page).toHaveURL(/\/entries\/[0-9a-f-]+\?done=1$/, { timeout: 30_000 });
+    await expect(page.getByRole("navigation", { name: "申し込みの進み具合" }).getByText("完了")).toHaveAttribute("aria-current", "step");
+    await expect(page.getByText("申し込みが完了しました")).toBeVisible();
+    await expect(page.getByText("混合フリーの部")).toBeVisible();
+    await expect(page.getByText(`${name}オサム`, { exact: false })).toBeVisible();
+
+    // 申込完了メールが Mailpit に届く（送信ジョブを待たずに、送信待ちに積まれたことを DB で見る）
+    const queued = await owner
+      .select({ mailType: mailLogs.mailType, toEmail: mailLogs.toEmail })
+      .from(mailLogs)
+      .where(eq(mailLogs.toEmail, repEmail));
+    expect(queued.some((m) => m.mailType === "entry_completed")).toBe(true);
+
+    // 完了後にブラウザの「戻る」で確認ページに戻っても、再送させずに完了ページへ案内する（§5.5）
+    await page.goBack();
+    await expect(page.getByText("この申し込みはすでに完了しています")).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("button", { name: "申し込みの内容を見る" }).click();
+    await expect(page).toHaveURL(/\/entries\/[0-9a-f-]+/, { timeout: 20_000 });
+    const rows = await withTenantOn(owner, S, (tx) =>
+      tx.select({ id: entries.id }).from(entries).where(eq(entries.tournamentId, tournament.id)),
+    );
+    expect(rows).toHaveLength(1);
+
+    // 参加チーム一覧に出る（§5.6）。公開のチーム名は申込で入れた名前
+    await page.goto(`/${SAWARA_SLUG}/tournaments/${tournament.id}/entries`);
+    await expect(page.getByText(`${teamName}B`, { exact: false }).first()).toBeVisible({ timeout: 20_000 });
   } finally {
     await owner.delete(sessions).where(inArray(sessions.userId, [admin.id, rep.id]));
+    await owner.delete(mailLogs).where(eq(mailLogs.toEmail, repEmail));
     await withTenantOn(owner, S, async (tx) => {
       await tx.delete(tournaments).where(like(tournaments.name, `${name}%`));
       await tx.delete(teams).where(eq(teams.createdBy, rep.id));

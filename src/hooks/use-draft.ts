@@ -33,7 +33,7 @@ const getServerSnapshot = () => null;
 
 // 入力の一時保存の hook（§4.3「通信」）。key は src/lib/draft.ts の draftKey() で作る
 // - 最初に読めた値を restored で返し、onRestore で 1 回だけ知らせる（フォームの初期値に使う）
-// - save は少し待ってからまとめて書く（打つたびに書かない）
+// - save は少し待ってからまとめて書く（打つたびに書かない）。saveNow は待たずに書く（ページを離れる直前）
 // - clear は送信が完了したときに必ず呼ぶ（生年月日を残さない）
 export function useDraft<T>(key: string, options: { onRestore?: (value: T) => void; delayMs?: number } = {}) {
   const { onRestore, delayMs = 500 } = options;
@@ -73,6 +73,19 @@ export function useDraft<T>(key: string, options: { onRestore?: (value: T) => vo
     [key, delayMs],
   );
 
+  // すぐに書く（次のページへ進む直前など。待っている分が消えないように）
+  const saveNow = useCallback(
+    (value: T) => {
+      const s = storage();
+      if (!s) return;
+      if (timer.current) clearTimeout(timer.current);
+      writeDraft(s, key, value);
+      notify(key);
+      setSavedAt(new Date());
+    },
+    [key],
+  );
+
   const clear = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     const s = storage();
@@ -88,5 +101,5 @@ export function useDraft<T>(key: string, options: { onRestore?: (value: T) => vo
     [],
   );
 
-  return { restored, savedAt, save, clear };
+  return { restored, savedAt, save, saveNow, clear };
 }

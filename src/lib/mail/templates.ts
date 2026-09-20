@@ -3,15 +3,20 @@ import type { Db } from "@/db/client";
 import {
   associationAdminInvitations,
   contactMessages,
+  entries,
+  entryPlayers,
   members,
   platformContactMessages,
   teamInvitations,
   teams,
+  tournamentCategories,
+  tournaments,
   users,
 } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 import { subjectLabel } from "@/lib/contact-subjects";
 import { formatDateWithWeekday, todayInTokyo } from "@/lib/date";
+import { isUuid } from "@/lib/ids";
 import { SITE_NAME } from "@/lib/site";
 import type { MailType, OutgoingMail } from "./types";
 
@@ -86,6 +91,35 @@ async function loadContactMessage(tx: Tx | Db, params: Record<string, unknown>) 
 }
 
 // 送信待ちから送る種別の雛形。ここにないものは送れず failed になる（各タスクで足す）
+// 申込完了（§5.7・§11）: 申込番号・大会名・部・チーム名・選手一覧・締切・変更方法を ID から読む
+// **生年月日はメールに載せない**（§5.7）。年齢・性別も載せない（本文に残さない）
+async function loadEntry(tx: Tx | Db, params: Record<string, unknown>) {
+  const id = typeof params.entryId === "string" ? params.entryId : "";
+  // 形が違えば問い合わせない（uuid 以外を渡すと Postgres がトランザクションごと落とす）
+  if (!isUuid(id)) throw new Error("申し込みがありません");
+  const [entry] = await tx.select().from(entries).where(eq(entries.id, id)).limit(1);
+  if (!entry) throw new Error("申し込みがありません");
+  const [tournament] = await tx.select().from(tournaments).where(eq(tournaments.id, entry.tournamentId)).limit(1);
+  const [category] = await tx
+    .select({ label: tournamentCategories.label, entryEndAt: tournamentCategories.entryEndAt })
+    .from(tournamentCategories)
+    .where(eq(tournamentCategories.id, entry.categoryId))
+    .limit(1);
+  const players = await tx
+    .select({ position: entryPlayers.position, name: entryPlayers.name })
+    .from(entryPlayers)
+    .where(eq(entryPlayers.entryId, entry.id))
+    .orderBy(entryPlayers.position);
+  if (!tournament) throw new Error("大会がありません");
+  return {
+    entry,
+    tournamentName: tournament.name,
+    categoryLabel: category?.label ?? "",
+    deadline: category?.entryEndAt ?? tournament.entryEndAt,
+    players,
+  };
+}
+
 const TEMPLATES: Partial<Record<MailType, Template>> = {
   test: async (params, ctx) => ({
     subject: subjectWithBrand(ctx, "テスト送信"),
@@ -226,6 +260,29 @@ const TEMPLATES: Partial<Record<MailType, Template>> = {
         "----------------",
         "",
         "このメールに心当たりがないときは、破棄してください。",
+      ].join("\n"),
+    };
+  },
+
+  // 申込完了（§5.7）。そのチームの有効な代表者全員へ。変更方法の文言は §4.4 の定型文
+  entry_completed: async (params, ctx, tx) => {
+    const e = await loadEntry(tx, params);
+    const entryUrl = ctx.associationSlug ? `${ctx.baseUrl}/${ctx.associationSlug}/entries/${e.entry.id}` : ctx.baseUrl;
+    return {
+      subject: subjectWithBrand(ctx, `${e.tournamentName}のお申し込みを受け付けました`),
+      text: [
+        `${e.tournamentName}のお申し込みを受け付けました。`,
+        "",
+        `申込番号: ${e.entry.id}`,
+        `部: ${e.categoryLabel}`,
+        `チーム名: ${e.entry.teamName}`,
+        "出場する選手:",
+        ...e.players.map((p) => `　${p.position}. ${p.name}`),
+        "",
+        `${formatDateWithWeekday(todayInTokyo(e.deadline))}までは、下のページから変更・取り消しができます。`,
+        entryUrl,
+        "",
+        "このメールに心当たりがない場合は、運営までお知らせください。",
       ].join("\n"),
     };
   },

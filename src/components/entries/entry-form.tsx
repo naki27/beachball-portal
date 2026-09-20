@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Message } from "@/components/ui/message";
@@ -19,7 +20,8 @@ import {
   type PlayerSlot,
   toEligibilityPlayers,
 } from "@/lib/entries/player-slots";
-import { type EligibilityPreset, type EligibilityResult, validateEligibility } from "@/lib/eligibility";
+import { type EntrySubmitError, takeSubmitError } from "@/lib/entries/submit-error";
+import { type EligibilityPreset, type EligibilityResult, hasEligibilityError, validateEligibility } from "@/lib/eligibility";
 import { TEAM_NAME_MAX } from "@/lib/teams/team-input";
 import { PlayerSlotField, type PlayerSlotErrors } from "./player-slot";
 
@@ -74,6 +76,7 @@ export function EntryForm({
   showMembersOnly: boolean;
   token: string;
 }) {
+  const router = useRouter();
   const hydrated = useHydrated();
   const key = draftKey({ associationId, screen: "entry-form", targetId: tournamentId });
   const selectable = categories.filter((c) => c.selectable);
@@ -94,6 +97,9 @@ export function EntryForm({
   const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
   const [membersOnly, setMembersOnly] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // 確認ページで断られた理由（締切・定員・資格）。該当する枠・欄の下にも出す（§5.5）
+  // sessionStorage から 1 回だけ読む（URL には載せない・§12）。描画は hydrated のあとなので食い違わない
+  const [rejected, setRejected] = useState<EntrySubmitError | null>(() => takeSubmitError(key));
 
   // 下書きが残っていれば戻す（ログインし直したあともここで戻る）
   const onRestore = useCallback((restored: EntryFormValues) => setValues(restored), []);
@@ -142,12 +148,18 @@ export function EntryForm({
     () => new Set(values.slots.map((slot) => slot.memberId).filter((id): id is string => !!id)),
     [values.slots],
   );
+  // 断られた理由は、該当する枠（または部の欄）の誤りとしても出す
+  const slotErrorsView = rejected && typeof rejected.playerIndex === "number"
+    ? { ...slotErrors, [rejected.playerIndex]: { ...slotErrors[rejected.playerIndex], memberId: rejected.message } }
+    : slotErrors;
+  const errorsView = rejected && rejected.field === "categoryId" ? { ...errors, categoryId: rejected.message } : errors;
   const filled = values.slots.filter((slot) => !isBlankSlot(slot));
   const counts = countBySex(filled.filter((slot): slot is PlayerSlot & { sex: "male" | "female" } => slot.sex !== ""));
 
-  // 「確認へ」を押した時点で部門の資格バリデーション（§5.5(e)）。確認ページと送信は B-10
+  // 「確認へ」を押した時点で部門の資格バリデーション（§5.5(e)）。通れば確認ページへ進む
   function onNext() {
     setNotice(null);
+    setRejected(null);
     setEligibility(null);
     const parsed = parseEntryInput(values);
     if (!parsed.ok) {
@@ -175,9 +187,14 @@ export function EntryForm({
 
     const category = categories.find((c) => c.id === parsed.value.categoryId);
     if (category) {
-      setEligibility(validateEligibility(toEligibilityPlayers(slots.players), category.preset, category.referenceDate));
+      const result = validateEligibility(toEligibilityPlayers(slots.players), category.preset, category.referenceDate);
+      setEligibility(result);
+      // エラーがあれば進ませない（警告と「表示のみ」は進める・§5.5(e)）
+      if (hasEligibilityError(result)) return;
     }
-    setNotice("ここまでの入力は保存しました。確認ページと送信は次の作業でつながります。");
+    // 入力は一時保存にあるので、確認ページはそれを読む（§4.3）。待たずに書く（移動で消えないように）
+    draft.saveNow(values);
+    router.push(`/${slug}/tournaments/${tournamentId}/entry/confirm`);
   }
 
   return (
@@ -264,7 +281,7 @@ export function EntryForm({
           <p id="entry-category-condition" className="text-sm text-muted">
             {chosen ? `${chosen.condition}${chosen.deadline}` : "部を選ぶと、出場できる条件がここに出ます。"}
           </p>
-          {errors.categoryId ? <p className="text-sm font-semibold text-danger">{errors.categoryId}</p> : null}
+          {errorsView.categoryId ? <p className="text-sm font-semibold text-danger">{errorsView.categoryId}</p> : null}
         </div>
       </section>
 
@@ -302,7 +319,7 @@ export function EntryForm({
               year={year}
               membersOnly={membersOnly}
               referenceDate={chosen?.referenceDate ?? todayInTokyo()}
-              errors={slotErrors[index] ?? {}}
+              errors={slotErrorsView[index] ?? {}}
             />
           ))}
         </ul>
@@ -352,6 +369,11 @@ export function EntryForm({
         {errors.note ? <p className="text-sm font-semibold text-danger">{errors.note}</p> : null}
       </section>
 
+      {rejected ? (
+        <Message kind="error" title="この内容では申し込めませんでした">
+          <p>{rejected.message}</p>
+        </Message>
+      ) : null}
       {notice ? <Message kind="success" title={notice} /> : null}
       {draft.savedAt ? <p className="text-sm text-muted">入力した内容をこの端末に保存しました。</p> : null}
       <Button fullWidth onClick={onNext}>

@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { members } from "./members";
@@ -36,6 +37,8 @@ export const entries = pgTable(
     note: text(), // 連絡先はチーム（teams）に一本化
     status: text().$type<EntryStatus>().notNull().default("submitted"),
     needsAdminCheck: boolean().notNull().default(false), // 合計年齢部門など、運営の確認対象
+    // 入力ページで発行したワンタイムの値（§5.5・ADR 0024）。二重送信はこの一意制約で止める
+    submitToken: uuid(),
     submittedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     cancelledAt: timestamp({ withTimezone: true }),
     updatedBy: uuid().references(() => users.id), // 締切後の管理者編集を記録
@@ -46,6 +49,7 @@ export const entries = pgTable(
   (t) => [
     unique("entries_association_id_id_unique").on(t.associationId, t.id),
     check("entries_status_check", sql`${t.status} in ('submitted', 'cancelled')`),
+    uniqueIndex("entries_submit_token_uk").on(t.associationId, t.submitToken).where(sql`${t.submitToken} is not null`),
     foreignKey({
       name: "entries_tournament_fk",
       columns: [t.associationId, t.tournamentId],
