@@ -27,3 +27,24 @@ export async function readJson(request: Request): Promise<Record<string, unknown
     return null;
   }
 }
+
+// multipart/form-data の本文を読む（ファイルのアップロード・§5.9）。形が違えば null
+// 大きすぎる本文はメモリに載せる前に Content-Length で弾く（上限の判定そのものは checkPdf）
+export async function readFormData(request: Request, maxBytes: number): Promise<FormData | "too_large" | null> {
+  const type = request.headers.get("content-type") ?? "";
+  if (!type.toLowerCase().startsWith("multipart/form-data")) return null;
+  const length = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(length) && length > maxBytes + 64 * 1024) return "too_large";
+  try {
+    return await request.formData();
+  } catch {
+    return null;
+  }
+}
+
+// FormData の文字列の欄だけを取り出す（File は落とす）。parse… に渡す形にする
+export function formFields(form: FormData): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  for (const [key, value] of form.entries()) if (typeof value === "string") fields[key] = value;
+  return fields;
+}

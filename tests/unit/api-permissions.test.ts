@@ -61,7 +61,7 @@ describe("API の権限表（§3.2 と URL の対応）", () => {
 
   it("URL に氏名・メールアドレスを載せない（動的な部分は ID かスラッグだけ・§10）", () => {
     // リクエストログに残るため、検索語も含めて POST の本文で送る（受け入れ条件）
-    const allowed = new Set(["[slug]", "[teamId]", "[teamMemberId]", "[memberId]", "[tournamentId]", "[categoryId]", "[presetId]", "[entryId]", "[invitationId]", "[userId]", "[id]", "[table]"]);
+    const allowed = new Set(["[slug]", "[teamId]", "[teamMemberId]", "[memberId]", "[tournamentId]", "[categoryId]", "[presetId]", "[entryId]", "[documentId]", "[invitationId]", "[userId]", "[id]", "[table]"]);
     const dynamic = API_PERMISSIONS.flatMap((p) => p.path.split("/")).filter((segment) => segment.startsWith("["));
     expect([...new Set(dynamic)].filter((segment) => !allowed.has(segment))).toEqual([]);
   });

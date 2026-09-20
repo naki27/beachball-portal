@@ -11,4 +11,5 @@ export * from "./schema/members";
 export * from "./schema/teams";
 export * from "./schema/tournaments";
 export * from "./schema/entries";
+export * from "./schema/tournament-documents";
 export * from "./schema/memberships";
