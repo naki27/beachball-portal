@@ -36,8 +36,10 @@ const emails: Record<keyof typeof ids, string> = { ...ids };
 
 let otherAssociationId = "";
 let teamX = "";
+let teamY = "";
 let otherTeam = "";
 let taroTeamMemberId = "";
+let teamYMemberId = "";
 const taro = { name: `${tag} 太郎`, kana: "", birthDate: "1992-02-02", sex: "male" };
 
 const as = (userId: string): Principal & { userId: string } => ({ ...ANONYMOUS, userId, sessionState: "active" });
@@ -74,6 +76,12 @@ beforeAll(async () => {
   const added = await addPlayer(app, actorOf("team_admin"), S, teamX, taro);
   taroTeamMemberId = added.teamMemberId;
   await withTenantOn(owner, S, (tx) => tx.update(members).set({ userId: ids.player }).where(eq(members.id, added.memberId)));
+
+  // 代表者の人は、別のチーム（Y）では選手（§3.1 のロールはチームごとに決まる）
+  teamY = (await registerTeam(app, S, ids.registered, { ...base, name: `${tag} Y` })).id;
+  const hanako = await addPlayer(app, as(ids.registered), S, teamY, { ...taro, name: `${tag} 花子`, sex: "female" });
+  await withTenantOn(owner, S, (tx) => tx.update(members).set({ userId: ids.team_admin }).where(eq(members.id, hanako.memberId)));
+  teamYMemberId = hanako.teamMemberId;
 
   await withTenantOn(owner, S, (tx) => tx.insert(associationAdmins).values({ associationId: S, userId: ids.association_admin }));
   await owner.insert(platformAdmins).values({ userId: ids.platformAdmin });
@@ -136,6 +144,20 @@ describe("権限表（§3.2）どおりに API が応える", () => {
     expect(await statusOf(() => listTeamsForAdmin(app, entered, S, ""))).toBe("ok");
     // 入っていない協会では、運営管理者でも協会の管理者にはならない
     expect(await statusOf(() => listTeamsForAdmin(app, { ...entered }, otherAssociationId, ""))).toBe(403);
+  });
+});
+
+describe("同じ人が、あるチームでは代表者・別のチームでは選手（§3.1 の 2 段の判定）", () => {
+  it("代表者を務めるチームの選手一覧は編集でき、選手として載っているだけのチームは編集できない（403）", async () => {
+    const both = actorOf("team_admin");
+    expect(await statusOf(() => getRoster(app, both, S, teamX))).toBe("ok");
+    expect(await statusOf(() => getRoster(app, both, S, teamY))).toBe("ok");
+    expect(await statusOf(() => updatePlayer(app, both, S, teamX, taroTeamMemberId, taro))).toBe("ok");
+    expect(await statusOf(() => updatePlayer(app, both, S, teamY, teamYMemberId, { ...taro, name: `${tag} 花子`, sex: "female" }))).toBe(403);
+    // 選手として見えるのは自分の情報だけ（ほかの人の生年月日は返さない・§3.2）
+    const roster = await getRoster(app, both, S, teamY);
+    expect(roster.canManage).toBe(false);
+    expect(roster.items.find((i) => i.isSelf)?.personal?.birthDate).toBe(taro.birthDate);
   });
 });
 

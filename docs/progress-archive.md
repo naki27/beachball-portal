@@ -2,6 +2,15 @@
 
 `docs/progress.md` から移した古い申し送り（新しいものを上に）。タスクでは読まない。
 
+### A-22（2026-09-20）
+- やったこと: `/[スラッグ]/contact`（その協会宛て。`?entryId=` は B-01 用に受けるだけ）と `/contact`（宛先を選ぶ。協会は役割を持つ協会、なければ全協会）。ログイン済みなら氏名・メールを補完。honeypot と 5 件/時（IP・メール）。受付控えと転送（協会の `contact_email`、未設定なら `CONTACT_TO`）を同じトランザクションで積む。雛形は受付番号から本文を読む（`params` は `messageId` と `scope` だけ）。`/[スラッグ]/admin/contacts`・`/platform/contacts`（未対応が既定・すべて・対応済み／未対応に戻す）。フッタと `/login/help` から問い合わせへ（協会の画面ならその協会宛て）。種別と画面の言い方は `src/lib/contact-subjects.ts` の 1 か所。API: `POST /api/contact`・`POST /api/site-contact`・`PATCH /api/[スラッグ]/admin/contacts`・`PATCH /api/platform/contacts`。ADR 0016
+- 動作確認: lint / typecheck / test（TZ 2 回・271 本。控えと転送の 2 通・params に本文を入れない・honeypot・6 件目は 429・ほかの協会の分は見えない／変えられない・削除済みは出ない）、E2E 58 本（フッタ → ログインせずに送る → job:mail → Mailpit に控えと転送 → 管理者が一覧で対応済みに）
+- 次への申し送り・既知の課題:
+  - 大会・申込の自動入力（`tournament_id`・申込番号）は B-01 以降。いまは `entry_id` を受けるだけで外部キーはない
+  - 問い合わせの削除（論理削除の実行と復元）は A-26。一覧は `deleted_at` を既定で除いている
+  - 試験で `processMailQueue` を呼ぶのは `mail.test.ts` だけにした（送信待ちを全部さらうので、2 つの試験が同時に流れると取り合って落ちる。`admin-invitations.test.ts` は `composeMail` と `mail_logs` の確認に変えた。別コミット）
+- 使った枠（/usage の変化）: 未計測
+
 ### A-08（2026-09-18）
 - やったこと: `src/lib/auth/`: `cookies.ts`（名前と属性は 1 か所。`APP_BASE_URL` が https のときだけ `__Host-`・`Secure`）、`login-input.ts`（ブラウザでも使う正規化）、`login-code.ts`（乱数・HMAC・SHA-256。サーバー専用）、`rate-limit.ts`（`rate_limits` の UPSERT。メール 5/時・IP 20/時・全体 150/時）、`request-login-code.ts`（登録済みかどうかを見ないので文言も所要時間も同じ。番号は HMAC だけ保存。応答の前に送り `mail_logs` に sent/failed。再送は同じ試行 ID で、待ち時間 30→60→120 秒）、`login-client.ts`（sessionStorage を `useSyncExternalStore` で読む。`safeNext`）。`src/lib/api/{csrf,request}.ts`。`POST /api/auth/request`（Origin 検査 → 形式 400 → レート制限 429 → 発行 → Cookie `login_attempt` 15 分）。画面 `/login`（同意の一文）・`/login/code`（6 桁 1 欄・自動照合・間違えたら全選択・「あと N 秒で送れます」・もう一度送る）・`/login/help`（§11.3。ドメインのコピー・送り直し・問い合わせへ）。`src/hooks/use-hydrated.ts`（E2E が押してよい印 `data-hydrated`）、`tests/e2e/global-setup.ts`（ページを温める）
 - 動作確認: lint / typecheck / test（TZ 2 回・111 本）、E2E 28 本 ×2（Mailpit に「【早良区協会】確認番号 123456」が届くところまで）
