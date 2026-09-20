@@ -46,6 +46,10 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/teams/[teamId]/admins/[userId]", methods: ["DELETE"], guard: { kind: "tenant", action: "manageTeamAdmins" } },
   // 紐づけの解除は本人とテナント管理者だけ（§3.2 の注）。サービス層で本人かを見る
   { path: "[slug]/members/[memberId]/link", methods: ["DELETE"], guard: { kind: "tenant", action: "viewOwnTeamRoster" } },
+  // 申込の選手枠のサジェストと「この方ですか？」（§8.4・§8.3）。候補は代表者を務めるチームの選手だけなので、
+  // 返してよい情報の行は「選手の生年月日・年齢・性別」。代表者を務めるチームがなければ結果が 0 件になる（403 にはしない）
+  { path: "[slug]/members/suggest", methods: ["POST"], guard: { kind: "tenant", action: "viewPlayerPersonal" } },
+  { path: "[slug]/members/same-name", methods: ["POST"], guard: { kind: "tenant", action: "viewPlayerPersonal" } },
 
   // 協会の管理（テナント管理者・切り替えて入った運営管理者）
   { path: "[slug]/admin/teams/[teamId]", methods: ["DELETE"], guard: { kind: "tenant", action: "physicalDelete" } },

@@ -72,3 +72,9 @@ export function diffDays(a: PlainDate, b: PlainDate): number {
   const to = Date.UTC(b.year, b.month - 1, b.day);
   return Math.round((to - from) / MS_PER_DAY);
 }
+
+// 年度（開始年）。開始月が 4 なら 2026-04-01〜2027-03-31 が「2026 年度」（設計書 §5.12）
+// 協会ごとに開始月が違う（associations.fiscal_year_start_month）
+export function fiscalYear(d: PlainDate, startMonth: number): number {
+  return d.month >= startMonth ? d.year : d.year - 1;
+}

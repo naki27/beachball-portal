@@ -92,6 +92,13 @@
       "when": 1789880703131,
       "tag": "0012_rls-tournaments-and-entries",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789880704131,
+      "tag": "0013_player-suggestions-view",
+      "breakpoints": true
     }
   ]
 }

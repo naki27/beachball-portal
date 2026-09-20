@@ -3,6 +3,7 @@ import {
   comparePlainDate,
   diffDays,
   endOfDayTokyo,
+  fiscalYear,
   formatDateWithWeekday,
   formatPlainDate,
   isValidPlainDate,
@@ -94,5 +95,22 @@ describe("diffDays", () => {
     // 月・年をまたいでも、うるう年でも数えられる（TZ・サマータイムに影響されない）
     expect(diffDays({ year: 2026, month: 12, day: 31 }, { year: 2027, month: 1, day: 1 })).toBe(1);
     expect(diffDays({ year: 2028, month: 2, day: 28 }, { year: 2028, month: 3, day: 1 })).toBe(2);
+  });
+});
+
+describe("fiscalYear", () => {
+  it("開始月が 4 なら 4/1〜翌 3/31 が同じ年度（§5.12）", () => {
+    expect(fiscalYear({ year: 2026, month: 4, day: 1 }, 4)).toBe(2026);
+    expect(fiscalYear({ year: 2026, month: 12, day: 31 }, 4)).toBe(2026);
+    expect(fiscalYear({ year: 2027, month: 3, day: 31 }, 4)).toBe(2026);
+    expect(fiscalYear({ year: 2027, month: 4, day: 1 }, 4)).toBe(2027);
+  });
+
+  it("協会ごとに開始月が違う（1 月始まりなら暦年と同じ）", () => {
+    expect(fiscalYear({ year: 2026, month: 1, day: 1 }, 1)).toBe(2026);
+    expect(fiscalYear({ year: 2026, month: 12, day: 31 }, 1)).toBe(2026);
+    // 10 月始まり
+    expect(fiscalYear({ year: 2026, month: 9, day: 30 }, 10)).toBe(2025);
+    expect(fiscalYear({ year: 2026, month: 10, day: 1 }, 10)).toBe(2026);
   });
 });
