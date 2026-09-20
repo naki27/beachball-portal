@@ -78,6 +78,20 @@
       "when": 1789877516177,
       "tag": "0010_trash-grants",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789880702131,
+      "tag": "0011_tournaments-and-entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789880703131,
+      "tag": "0012_rls-tournaments-and-entries",
+      "breakpoints": true
     }
   ]
 }
