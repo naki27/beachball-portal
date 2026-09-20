@@ -154,6 +154,41 @@ export async function markEntryChecked(
 
 export type EntriesCsv = { filename: string; body: string; rowCount: number };
 
+// CSV の中身（見出し＋ 1 選手 1 行）。管理画面からの出力と、日次のバックアップ（B-14）で同じものを使う
+export async function buildEntriesCsv(
+  tx: Tx,
+  associationId: string,
+  tournamentId: string,
+  year: number,
+  options: { includeBirthDate: boolean },
+): Promise<{ body: string; rowCount: number }> {
+  const { rows } = await readEntries(tx, associationId, tournamentId, year);
+  const header = options.includeBirthDate ? [...BASE_COLUMNS, "生年月日"] : [...BASE_COLUMNS];
+  const lines: (string | number | null)[][] = [header];
+  for (const entry of rows) {
+    for (const player of entry.players) {
+      const line: (string | number | null)[] = [
+        entry.entryId,
+        entry.categoryLabel,
+        entry.teamName,
+        player.position,
+        player.name,
+        player.kana,
+        SEX_LABEL[player.sex],
+        player.age,
+        player.membership,
+        entry.needsAdminCheck ? "要確認" : "",
+        entry.note,
+        formatDateTimeTokyo(entry.submittedAt),
+        formatDateTimeTokyo(entry.updatedAt),
+      ];
+      if (options.includeBirthDate) line.push(player.birthDate);
+      lines.push(line);
+    }
+  }
+  return { body: toCsv(lines), rowCount: lines.length - 1 };
+}
+
 const BASE_COLUMNS = [
   "申込番号",
   "部",
@@ -189,33 +224,8 @@ export async function exportEntriesCsv(
       const tournament = await findTournament(tx, associationId, tournamentId);
       if (!tournament) throw new TeamError(404, "大会が見つかりません");
       const year = fiscalYear(tournament.eventDate ?? todayInTokyo(now), startMonth);
-      const { rows } = await readEntries(tx, associationId, tournamentId, year);
+      const { body, rowCount } = await buildEntriesCsv(tx, associationId, tournamentId, year, options);
 
-      const header = options.includeBirthDate ? [...BASE_COLUMNS, "生年月日"] : [...BASE_COLUMNS];
-      const lines: (string | number | null)[][] = [header];
-      for (const entry of rows) {
-        for (const player of entry.players) {
-          const line: (string | number | null)[] = [
-            entry.entryId,
-            entry.categoryLabel,
-            entry.teamName,
-            player.position,
-            player.name,
-            player.kana,
-            SEX_LABEL[player.sex],
-            player.age,
-            player.membership,
-            entry.needsAdminCheck ? "要確認" : "",
-            entry.note,
-            formatDateTimeTokyo(entry.submittedAt),
-            formatDateTimeTokyo(entry.updatedAt),
-          ];
-          if (options.includeBirthDate) line.push(player.birthDate);
-          lines.push(line);
-        }
-      }
-
-      const rowCount = lines.length - 1;
       await insertExportLog(tx, associationId, {
         userId: principal.userId,
         scope: "tournament",
@@ -229,7 +239,7 @@ export async function exportEntriesCsv(
       return {
         // 氏名は入れない。大会 ID と日付だけ（§12）
         filename: `entries-${tournamentId}-${formatFileDate(now)}.csv`,
-        body: toCsv(lines),
+        body,
         rowCount,
       };
     },

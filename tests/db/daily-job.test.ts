@@ -18,6 +18,7 @@ import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
 import { withTenantOn } from "@/db/tenant";
 import { ANONYMOUS, type Principal } from "@/lib/authz";
 import { runDailyJob } from "@/lib/jobs/daily";
+import type { StorageAdapter } from "@/lib/storage/types";
 import { normalizeName } from "@/lib/normalize";
 import { invitePlayer } from "@/lib/teams/invitations";
 import { addPlayer } from "@/lib/teams/roster";
@@ -35,6 +36,20 @@ const tag = `日次${random()}`;
 const NOW = new Date("2020-01-15T00:00:00Z");
 const at = (iso: string) => new Date(iso);
 const as = (userId: string): Principal & { userId: string } => ({ ...ANONYMOUS, userId, sessionState: "active" });
+
+// 日次ジョブ ②（申込一覧のバックアップ）は保存先を差し替えて、.local-storage/ を触らせない
+const storage: StorageAdapter = {
+  driver: "local",
+  async put() {},
+  async get() {
+    return null;
+  },
+  async remove() {},
+  async list() {
+    return [];
+  },
+  publicUrl: (key) => key,
+};
 
 const ids = { admin: "", player: "", deleted: "" };
 const emails: Record<keyof typeof ids, string> = { admin: "", player: "", deleted: "" };
@@ -145,7 +160,7 @@ async function adminInvitationStatus(id: string): Promise<string | undefined> {
 
 describe("日次ジョブ", () => {
   it("期限を過ぎたものだけを処理する（確認番号・セッション・レート制限・招待・保存期間）", async () => {
-    const result = await runDailyJob(job, { now: NOW });
+    const result = await runDailyJob(job, { now: NOW, storage });
 
     // ③ 期限切れの物理削除
     expect(result.loginCodes).toBeGreaterThanOrEqual(1);
@@ -191,7 +206,7 @@ describe("日次ジョブ", () => {
   });
 
   it("もう一度流しても二重に処理しない", async () => {
-    const again = await runDailyJob(job, { now: NOW });
+    const again = await runDailyJob(job, { now: NOW, storage });
     expect(again.expiredTeamInvitations).toBe(0);
     expect(again.expiredAdminInvitations).toBe(0);
     const queued = await owner.select().from(mailLogs).where(and(eq(mailLogs.toEmail, emails.admin), eq(mailLogs.mailType, "team_invitation_expired")));

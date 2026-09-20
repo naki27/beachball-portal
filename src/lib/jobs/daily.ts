@@ -13,9 +13,12 @@ import {
 import { type Tx, withTenantOn } from "@/db/tenant";
 import { enqueueMail } from "@/lib/mail/outbox";
 import { listAllAssociations } from "@/lib/repo/associations";
+import { getStorage } from "@/lib/storage";
+import type { StorageAdapter } from "@/lib/storage/types";
+import { backupClosedTournamentEntries } from "./entry-backup";
 
-// 日次ジョブ（設計書 §6.5.1 の定期ジョブの表 ③④⑤ のうち 1a の表の分）。app_job（JOB_DATABASE_URL）で動かす
-// ① DB バックアップ・② 申込一覧 CSV・⑥ R2 の後始末・⑦ 最小インスタンス数は後のタスク
+// 日次ジョブ（設計書 §6.5.1 の定期ジョブの表 ②③④⑤）。app_job（JOB_DATABASE_URL）で動かす
+// ① DB バックアップ（pg_dump）・⑥ R2 の後始末・⑦ 最小インスタンス数は後のタスク
 // 協会に属する表はかならず withTenantOn で協会ごとに処理する（§5.14）。ログには件数だけを出す（氏名・メールアドレスは出さない）
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -33,6 +36,8 @@ export const RETENTION_DAYS = {
 } as const;
 
 export type DailyJobResult = {
+  // 締切後の申込一覧 CSV のバックアップ（②・§5.5(f)）
+  backedUpTournaments: number;
   // 期限切れの物理削除（③）
   loginCodes: number;
   sessions: number;
@@ -47,7 +52,11 @@ export type DailyJobResult = {
   purgedAdminAccessLogs: number;
 };
 
-export type DailyJobOptions = { now?: Date };
+export type DailyJobOptions = {
+  now?: Date;
+  // 保存先を差し替えられるようにする（テスト・ローカル）。既定は STORAGE_DRIVER に従う
+  storage?: StorageAdapter;
+};
 
 function daysAgo(now: Date, days: number): Date {
   return new Date(now.getTime() - days * DAY_MS);
@@ -145,6 +154,7 @@ export async function runDailyJob(db: Db, options: DailyJobOptions = {}): Promis
   const now = options.now ?? new Date();
   const result: DailyJobResult = {
     ...(await purgeExpiredAuth(db, now)),
+    backedUpTournaments: 0,
     expiredTeamInvitations: 0,
     expiredAdminInvitations: 0,
     purgedTeamInvitations: 0,
@@ -171,6 +181,10 @@ export async function runDailyJob(db: Db, options: DailyJobOptions = {}): Promis
     .where(lt(adminAccessLogs.createdAt, daysAgo(now, RETENTION_DAYS.adminAccessLogs)));
   result.purgedAdminAccessLogs = deletedCount(logs);
 
+  // ② 締切後の申込一覧 CSV のバックアップ（暗号化してバックアップ用の保存先へ・§5.5(f)）
+  const backup = await backupClosedTournamentEntries(db, options.storage ?? getStorage(), now);
+  result.backedUpTournaments = backup.tournaments;
+
   return result;
 }
 
@@ -182,5 +196,6 @@ export function formatDailyJobResult(result: DailyJobResult): string {
     `レート制限 ${result.rateLimits} 件`,
     `期限切れの招待 チーム ${result.expiredTeamInvitations} 件 / 協会の管理者 ${result.expiredAdminInvitations} 件`,
     `保存期間切れ 招待 ${result.purgedTeamInvitations + result.purgedAdminInvitations} 件 / 送信記録 ${result.purgedMailLogs} 件 / 操作記録 ${result.purgedAdminAccessLogs} 件`,
+    `申込一覧のバックアップ ${result.backedUpTournaments} 大会`,
   ].join("、");
 }
