@@ -51,6 +51,7 @@ const PATHS = [
   "/invitations",
   "/mypage",
   "/mypage/email",
+  "/mypage/delete",
   "/sawara/teams/new",
   "/sawara/teams/new?kind=individual",
   // チームのページ（動的な URL）。ない ID なので 404 になるだけ

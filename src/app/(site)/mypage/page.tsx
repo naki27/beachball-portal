@@ -138,6 +138,11 @@ export default async function MyPage() {
         <div>
           <LogoutButton />
         </div>
+        <p>
+          <Link href="/mypage/delete" className="text-sm underline underline-offset-2">
+            アカウントを削除する
+          </Link>
+        </p>
       </section>
     </main>
   );

@@ -64,6 +64,13 @@
       "when": 1789866651043,
       "tag": "0008_contact-messages",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789874944624,
+      "tag": "0009_delete-account",
+      "breakpoints": true
     }
   ]
 }

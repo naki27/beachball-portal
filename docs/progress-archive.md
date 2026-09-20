@@ -206,3 +206,21 @@
   - 個人登録の連絡先の編集は P0 ではできない（ADR 0012）。`teams.name` は作成時の氏名のまま
   - `/` とマイページの役割の表示は、個人登録だけの人にも「チームの代表者」と出る（`getMembership` はチームの種類を持たない）。気になれば後で直す
 - 使った枠（/usage の変化）: 未計測
+
+### A-20（2026-09-18）
+- やったこと: `/[slug]/teams/[id]/admins`（いまの代表者（表示名・メール）・外す／代表者を降りる（最後の 1 人は不可）・返事待ちの代表者の招待（もう一度送る・取り消す）・追加（選手一覧の紐づいた人から選ぶ／メールアドレス。承諾で代表者））。`src/lib/teams/admins.ts`（`inviteAdmin`・`revokeTeamAdmin`・`getTeamAdmins`）、`setTeamStatus`（無効化・有効に戻す。代表者は締切前の申込が残っていれば 409 → `src/lib/repo/entries.ts` の `countOpenEntries` は B-01 まで常に 0。無効化で返事待ちの招待をすべて取り消す。個人登録は不可）。チームのページに「代表者」リンクと「チームの状態」（確認つき）。API: `POST …/invitations { kind: "admin", email | memberId }`、`DELETE …/teams/[id]/admins/[userId]`、`PATCH …/teams/[id] { status }`。ADR 0014
+- 動作確認: lint / typecheck / test（TZ 2 回・255 本。最後の代表者は降りられない・無効化で招待が取り消される・無効なチームでは招待できない）、E2E 52 本（代表者を招待 → 別ブラウザで承諾 → 元の代表者が降りる → 残った代表者は降りられない → 無効にする → 有効に戻す）
+- 次への申し送り・既知の課題:
+  - チームの削除（論理）はテナント管理者だけ（A-21）。`countOpenEntries` を B-01 で本物にする（`setTeamStatus` と削除の両方が使う）
+  - 代表者のメールアドレスは代表者どうしにだけ見える（ADR 0014）
+- 使った枠（/usage の変化）: 未計測
+
+### A-19（2026-09-18）
+- やったこと: 選手の招待（3 日・同じチームからは同じ行を再送・別のチームからの返事待ちがあれば 409・紐づいた人は 409・無効なチームは 409）、再送、取り消し。`0007`: `my_pending_invitations()` に `team_id`・`member_name`。`/invitations` で選手・代表者の招待に「参加する／心当たりがない」（`respondToInvitation` が種別で振り分け）。承諾の再検査（期限・アドレス・人物・チーム・1 アカウント 1 人物 → 招待の人物を要確認にして 409、招待は返事待ちのまま）。承諾・拒否・期限切れの知らせは招待した代表者（いなければ有効な代表者全員）。雛形 `team_invitation`・`_accepted`・`_rejected`・`_expired`。紐づけの解除（本人・テナント管理者。個人登録がある間は本人からは不可）とマイページの「選手として所属するチーム」「アカウントとの結びつきを解除する」。選手一覧に「招待する（メール入力）／招待中（期限）＋もう一度送る・取り消す／本人がログインできます」。ADR 0013
+- 動作確認: lint / typecheck / test（TZ 2 回・249 本。§5.15: 承諾で `members.user_id`・別のアドレスでは 404・期限切れ 409・別の人物に紐づいたアカウントは要確認・解除は本人と管理者だけ）、E2E 50 本（招待 → job:mail → Mailpit の本文 → 別ブラウザで本人がログイン → 参加 → 自分の生年月日は見え、ほかの人のは見えない）
+- 次への申し送り・既知の課題:
+  - 代表者としての招待（`kind = admin`）の承諾は `team-respond.ts` に実装済み（`team_admins` に `granted_by` 付き）。A-20 は招待を作る側と解除・無効化
+  - 期限切れの検出（`expired` にして `team_invitation_expired` を送る）は日次ジョブ（A-27）
+  - API: `POST/DELETE …/teams/[id]/invitations[/[invId]]`、`POST …/invitations/[invId]/resend`、`DELETE /api/[slug]/members/[memberId]/link`
+  - bash のヒアドキュメントに長い Python を渡すと解釈に失敗することがある。長い編集はスクラッチパッドにスクリプトを書いて実行する
+- 使った枠（/usage の変化）: 未計測
