@@ -157,7 +157,7 @@ export function PresetManager({ slug, presets }: { slug: string; presets: Preset
           id={`${idPrefix}-gender`}
           value={draft.gender}
           onChange={(e) => setDraft({ ...draft, gender: e.target.value })}
-          className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+          className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
         >
           {PRESET_GENDERS.map((g) => (
             <option key={g} value={g}>
@@ -175,7 +175,7 @@ export function PresetManager({ slug, presets }: { slug: string; presets: Preset
           id={`${idPrefix}-rule`}
           value={draft.ruleType}
           onChange={(e) => setDraft({ ...draft, ruleType: e.target.value, ruleValue: e.target.value === "free" ? "" : draft.ruleValue })}
-          className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+          className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
         >
           {PRESET_RULE_TYPES.map((r) => (
             <option key={r} value={r}>

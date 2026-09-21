@@ -210,7 +210,7 @@ export function AdminManagement({
                   id="admin-candidate"
                   value={candidate}
                   onChange={(e) => setCandidate(e.target.value)}
-                  className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+                  className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
                 >
                   <option value="">選ばない（メールアドレスで招待する）</option>
                   {candidates.map((c) => (

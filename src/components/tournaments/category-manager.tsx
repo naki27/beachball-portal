@@ -256,7 +256,7 @@ export function CategoryManager({
               value={notation}
               onChange={(e) => setNotation(e.target.value as MixedNotation)}
               aria-describedby="mixed-notation-hint"
-              className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+              className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
             >
               {MIXED_NOTATIONS.map((value) => (
                 <option key={value} value={value}>

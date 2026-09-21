@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { Metadata } from "next";
 import { ContactForm } from "@/components/contact/contact-form";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { users } from "@/db/schema";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -27,7 +28,7 @@ export default async function ContactPage() {
   const user = profile[0];
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <h1 className="text-2xl font-bold">お問い合わせ</h1>
       <p className="leading-relaxed">ログインできないときも、こちらから送れます。</p>
       <ContactForm
@@ -35,6 +36,6 @@ export default async function ContactPage() {
         initialEmail={user?.email ?? ""}
         associations={associationOptions.map((a) => ({ id: a.id, name: a.name }))}
       />
-    </main>
+    </PageMain>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TournamentCard } from "@/components/tournaments/tournament-card";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { requireAssociation } from "@/lib/page/require-association";
 import { listTournamentsForPublic, type PublicTournament } from "@/lib/public/tournaments";
@@ -17,7 +18,7 @@ export default async function TournamentsPage({ params }: Props) {
   const list = await listTournamentsForPublic(getDb(), association.id, now);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
+    <PageMain gap="lg">
       <p>
         <Link href={`/${association.slug}`} className="underline underline-offset-2">
           ← {association.name}
@@ -27,7 +28,7 @@ export default async function TournamentsPage({ params }: Props) {
       <Group slug={association.slug} title="受付中の大会" rows={list.open} now={now} empty="いま申し込みを受け付けている大会はありません。" />
       <Group slug={association.slug} title="今後の大会" rows={list.upcoming} now={now} empty="予定されている大会はありません。" />
       <Group slug={association.slug} title="終わった大会" rows={list.past} now={now} empty="終わった大会はまだありません。" />
-    </main>
+    </PageMain>
   );
 }
 

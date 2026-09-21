@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PlayerForm } from "@/components/teams/player-form";
 import { SelfConfirm } from "@/components/teams/self-confirm";
 import { TeamForm } from "@/components/teams/team-form";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { withTenant } from "@/db/tenant";
@@ -35,7 +36,7 @@ export default async function NewTeamPage({ params, searchParams }: Props) {
     }`;
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <h1 className="text-2xl font-bold">{individual ? "個人で登録" : "チームで登録"}</h1>
       <nav aria-label="登録の種類" className="grid grid-cols-2 gap-2">
         <Link href={`/${association.slug}/teams/new`} aria-current={individual ? undefined : "page"} className={tabClass(!individual)}>
@@ -46,7 +47,7 @@ export default async function NewTeamPage({ params, searchParams }: Props) {
         </Link>
       </nav>
       {individual ? <IndividualSection slug={association.slug} associationId={association.id} userId={userId} /> : <TeamSection slug={association.slug} />}
-    </main>
+    </PageMain>
   );
 }
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DocumentList } from "@/components/tournaments/document-list";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { formatDateWithWeekday } from "@/lib/date";
@@ -28,7 +29,7 @@ export default async function TournamentPage({ params }: Props) {
   const mixedDeadlines = tournament.categories.some((c) => c.overridesDeadline);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/tournaments`} className="underline underline-offset-2">
           ← 大会一覧
@@ -102,7 +103,7 @@ export default async function TournamentPage({ params }: Props) {
           参加チーム一覧（{tournament.teams} チーム）
         </Link>
       </p>
-    </main>
+    </PageMain>
   );
 }
 

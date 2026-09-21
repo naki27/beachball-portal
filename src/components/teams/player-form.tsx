@@ -118,7 +118,7 @@ export function PlayerForm({ submit, initial }: { submit: PlayerFormSubmit; init
           {SEX_CHOICES.map((choice) => (
             <label
               key={choice.id}
-              className="bb-pressable flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-border bg-background font-semibold has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-on-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--color-focus)]"
+              className="bb-pressable flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-border-strong bg-background font-semibold has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-on-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--color-focus)]"
             >
               <input
                 id={`player-sex-${choice.id}`}

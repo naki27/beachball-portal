@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageMain } from "@/components/ui/layout";
 import { getMembership, getPrincipal } from "@/lib/auth/principal";
 import { checkAccess, resolveRole } from "@/lib/authz";
 import { assertAccessOrDeny } from "@/lib/page/forbidden";
@@ -21,7 +22,7 @@ export default async function AdminHome({ params }: Props) {
 
   const itemClass = "flex min-h-14 items-center rounded-md border border-border px-4 font-semibold no-underline hover:bg-surface";
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <h1 className="text-2xl font-bold">{association.name}の管理</h1>
       <nav aria-label="管理の項目" className="flex flex-col gap-3">
         <Link href={`/${association.slug}/admin/tournaments`} className={itemClass}>
@@ -46,6 +47,6 @@ export default async function AdminHome({ params }: Props) {
           協会の設定（よく使う部）
         </Link>
       </nav>
-    </main>
+    </PageMain>
   );
 }

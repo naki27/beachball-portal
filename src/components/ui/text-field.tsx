@@ -31,7 +31,7 @@ export function TextField({
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className={`min-h-12 w-full rounded-md border bg-background px-3 text-base ${
-          error ? "bb-shake border-2 border-danger" : "border-border"
+          error ? "bb-shake border-2 border-danger" : "border-border-strong"
         }`}
         {...rest}
       />

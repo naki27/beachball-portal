@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageMain } from "@/components/ui/layout";
 import { getPrincipal } from "@/lib/auth/principal";
 import { denyPage } from "@/lib/page/forbidden";
 import { loadMyAssociations } from "@/lib/page/my-associations";
@@ -12,7 +13,7 @@ export default async function Home() {
   const associations = await loadMyAssociations(principal);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <h1 className="text-2xl font-bold">{SITE_NAME}</h1>
       {associations.length === 0 ? (
         <p className="leading-relaxed">
@@ -51,6 +52,6 @@ export default async function Home() {
           </>
         ) : null}
       </p>
-    </main>
+    </PageMain>
   );
 }

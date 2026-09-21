@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TeamForm } from "@/components/teams/team-form";
+import { PageMain } from "@/components/ui/layout";
 import { requireAssociation } from "@/lib/page/require-association";
 import { requireTeam } from "@/lib/page/require-team";
 
@@ -15,7 +16,7 @@ export default async function EditTeamPage({ params }: Props) {
   const { team } = await requireTeam(association, teamId, "editTeam");
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/teams/${team.id}`} className="underline underline-offset-2">
           ← {team.name}
@@ -34,6 +35,6 @@ export default async function EditTeamPage({ params }: Props) {
           membershipRenewalTarget: team.membershipRenewalTarget,
         }}
       />
-    </main>
+    </PageMain>
   );
 }

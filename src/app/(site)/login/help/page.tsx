@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { HelpForm } from "./help-form";
+import { PageMain } from "@/components/ui/layout";
 
 export const metadata: Metadata = { title: "メールが届かないとき" };
 
@@ -7,9 +8,9 @@ export const metadata: Metadata = { title: "メールが届かないとき" };
 export default function LoginHelpPage() {
   const senderDomain = (process.env.MAIL_FROM ?? "noreply@localhost").split("@")[1] ?? "";
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <h1 className="text-2xl font-bold">メールが届かないとき</h1>
       <HelpForm senderDomain={senderDomain} />
-    </main>
+    </PageMain>
   );
 }

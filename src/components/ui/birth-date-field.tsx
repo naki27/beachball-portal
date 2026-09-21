@@ -82,7 +82,7 @@ export function BirthDateField({
           aria-invalid={invalid || undefined}
           aria-describedby={[message ? messageId : null, date ? describeId : null].filter(Boolean).join(" ") || undefined}
           className={`min-h-12 ${width} rounded-md border bg-background px-3 text-center text-lg ${
-            invalid ? "bb-shake border-2 border-danger" : "border-border"
+            invalid ? "bb-shake border-2 border-danger" : "border-border-strong"
           }`}
         />
         <label htmlFor={`${id}-${field}`} className="font-semibold">
@@ -100,7 +100,7 @@ export function BirthDateField({
         {ERA_CHOICES.map((choice) => (
           <label
             key={choice.id}
-            className="bb-pressable flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-border bg-background text-base font-semibold has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-on-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--color-focus)]"
+            className="bb-pressable flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-border-strong bg-background text-base font-semibold has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-on-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--color-focus)]"
           >
             <input
               type="radio"

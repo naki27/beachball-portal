@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PresetManager, type PresetRow } from "@/components/tournaments/preset-manager";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { type AdminPresetRow, listPresetsForAdmin } from "@/lib/admin/category-presets";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -22,7 +23,7 @@ export default async function AdminAssociationPage({ params }: Props) {
   const presets = await listPresetsForAdmin(getDb(), { ...principal, userId: principal.userId }, association.id).catch(pageErrorFrom);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/admin`} className="underline underline-offset-2">
           ← 管理
@@ -30,7 +31,7 @@ export default async function AdminAssociationPage({ params }: Props) {
       </p>
       <h1 className="text-2xl font-bold">協会の設定</h1>
       <PresetManager slug={association.slug} presets={presets.map(toPresetRow)} />
-    </main>
+    </PageMain>
   );
 }
 

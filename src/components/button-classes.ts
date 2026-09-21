@@ -1,7 +1,7 @@
-// ボタンの見た目（仮。共通部品は A-06 で作る）。サーバー・クライアントの両方の部品から使うので、ここにはサーバー専用の import を置かない
-// 色は CSS 変数（協会ごとに差し替える・§5.17）。高さ 48px は指で押しやすい大きさ（§4.3）
+// ボタンの見た目のうち、サーバー・クライアントのどちらからも使う分。サーバー専用の import を置かない
+// 中身は src/components/ui/button.tsx の buttonClass と同じ形にそろえる（色は CSS 変数・§5.17）
 export const primaryButtonClass =
-  "inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--color-primary)] px-4 text-center font-semibold text-[var(--color-on-primary)]";
+  "bb-pressable inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-primary px-5 text-center text-base font-semibold text-on-primary no-underline shadow-sm hover:bg-primary-strong hover:shadow-md active:bg-primary-strong";
 
 export const secondaryButtonClass =
-  "inline-flex min-h-12 items-center justify-center rounded-md border border-[var(--color-border)] px-4 text-center font-semibold";
+  "bb-pressable inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-border-strong bg-background px-5 text-center text-base font-semibold no-underline hover:border-primary hover:bg-primary-soft active:bg-surface";

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContactList } from "@/components/contact/contact-list";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getMembership, getPrincipal } from "@/lib/auth/principal";
 import { checkAccess, resolveRole } from "@/lib/authz";
@@ -26,7 +27,7 @@ export default async function AssociationContactsPage({ params, searchParams }: 
   const rows = await listAssociationContacts(getDb(), association.id, onlyNew ? { status: "new" } : {});
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/admin`} className="underline underline-offset-2">
           ← 管理
@@ -55,6 +56,6 @@ export default async function AssociationContactsPage({ params, searchParams }: 
         endpoint={`/api/${association.slug}/admin/contacts`}
         deleteEndpoint={`/api/${association.slug}/admin/contacts`}
       />
-    </main>
+    </PageMain>
   );
 }

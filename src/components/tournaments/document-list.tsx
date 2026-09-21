@@ -24,7 +24,7 @@ export function DocumentList({ documents }: { documents: DocumentLink[] }) {
               href={document.href}
               // 同じタブで開く（転送先は PDF。スマホの「戻る」で大会ページに戻れる）
               onClick={() => setOpening(document.id)}
-              className="bb-pressable flex min-h-12 flex-col justify-center gap-0.5 rounded-md border border-border px-4 py-2 no-underline"
+              className="bb-pressable flex min-h-12 flex-col justify-center gap-0.5 rounded-md border border-border-strong px-4 py-2 no-underline"
             >
               <span className="font-semibold break-words underline underline-offset-2">{document.title}</span>
               <span className="text-sm text-muted">

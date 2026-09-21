@@ -1,31 +1,88 @@
 /*
-  色と動きのデザイントークン（設計書 §4.3・§4.5・§5.17）。
+  色・かたち・動きのデザイントークン（設計書 §4.3・§4.5・§5.17）。
   色は協会ごとに差し替える（P1。associations.theme_colors）。画面の部品はここの変数だけを使い、色を直書きしない。
+
+  配色（2026-09-21 の決定・ADR 0027）
+  - ベース #ffffff / メイン #42B036（緑）/ アクセント ティール（海）
+  - --brand-500 が指定のメインカラーそのもの。面・帯・進み具合・図に使う
+  - 文字と塗りつぶしのボタンには --brand-700 以上を使う（白文字で 5.37:1。#42B036 は白文字だと 2.8:1 で足りない）
 */
 :root {
-  /* 色 */
+  /* --- 緑（メイン）。500 が #42B036 --- */
+  --brand-50: #f3faef;
+  --brand-100: #e3f5db;
+  --brand-200: #c4eab5;
+  --brand-300: #9bdb85;
+  --brand-400: #6ac753;
+  --brand-500: #42b036;
+  --brand-600: #35931f;
+  --brand-700: #2c7a22;
+  --brand-800: #24601c;
+  --brand-900: #1b4715;
+
+  /* --- ティール（アクセント・海） --- */
+  --accent-50: #eef9f9;
+  --accent-100: #d3f0ef;
+  --accent-200: #a6e2e0;
+  --accent-300: #6fccc9;
+  --accent-400: #38b0ad;
+  --accent-500: #159490;
+  --accent-600: #0f7d7a;
+  --accent-700: #0b6664;
+  --accent-800: #0a514f;
+  --accent-900: #073c3b;
+
+  /* --- 役割ごとの色 --- */
   --color-background: #ffffff;
   --color-foreground: #171717;
-  --color-surface: #f5f5f4; /* 骨組み・帯の下地 */
-  --color-primary: #1d4ed8;
-  --color-primary-strong: #1e40af; /* 押した瞬間 */
+  --color-surface: #f6f8f4; /* 骨組み・帯の下地 */
+  --color-surface-2: #eef2ea; /* 面の上にもう一段重ねるとき */
+  --color-primary: var(--brand-700); /* 主要操作。白文字で 5.37:1 */
+  --color-primary-strong: var(--brand-800); /* 押した瞬間 */
+  --color-primary-soft: var(--brand-50); /* 薄い面・ホバー */
+  --color-brand: var(--brand-500); /* 指定のメインカラー。面・帯・図・進み具合 */
   --color-on-primary: #ffffff;
-  --color-muted: #6b7280;
-  --color-border: #d1d5db;
+  --color-accent: var(--accent-700); /* 二次の操作・リンク。白文字で 6.78:1 */
+  --color-accent-strong: var(--accent-800);
+  --color-accent-soft: var(--accent-50);
+  --color-muted: #5c6660; /* 補足の文字。白の上で 5.96:1 */
+  --color-border: #dde3da; /* 飾りの区切り線 */
+  --color-border-strong: #8b958c; /* 入力欄・押せるものの枠（3.1:1） */
   --color-danger: #b91c1c;
   --color-danger-surface: #fef2f2;
-  --color-success: #15803d;
-  --color-success-surface: #f0fdf4;
+  --color-success: var(--brand-800); /* 保存・完了。薄い緑の面に濃い緑のチェック */
+  --color-success-surface: var(--brand-50);
   --color-warning: #c2410c; /* 締切が近い（橙） */
-  --color-info-surface: #eff6ff;
+  --color-warning-surface: #fff4ed;
+  --color-info-surface: var(--accent-50);
   --color-highlight: #fef9c3; /* 内容が変わった箇所（薄い黄色） */
-  --color-focus: #1d4ed8;
+  --color-focus: var(--brand-700);
+
+  /* 見出し・ヒーローのグラデーション（緑 → 海）。白文字で 5.37:1 以上 */
+  --gradient-hero: linear-gradient(135deg, var(--brand-700) 0%, var(--brand-600) 45%, var(--accent-700) 100%);
+  --gradient-brand: linear-gradient(90deg, var(--brand-500) 0%, var(--accent-500) 100%);
+
+  /* --- 角丸 --- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* --- 影。濃い灰ではなく緑みの影にして、白い面から浮かせる --- */
+  --shadow-sm: 0 1px 2px rgb(23 43 20 / 0.06);
+  --shadow-md: 0 2px 4px rgb(23 43 20 / 0.06), 0 6px 16px rgb(23 43 20 / 0.08);
+  --shadow-lg: 0 4px 8px rgb(23 43 20 / 0.06), 0 16px 32px rgb(23 43 20 / 0.10);
+  --shadow-ring: 0 0 0 3px var(--brand-100);
 
   /* 動きの長さ（§4.5「実装」）。揺れ・スライド・チェックの描画はこれを使う */
   --motion-fast: 120ms;
   --motion-base: 200ms;
   --motion-slow: 300ms;
   --motion-spin: 800ms;
+  --motion-celebrate: 900ms; /* 節目（申込・申告の完了）だけの演出・ADR 0027 */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 /* OS の「視差効果を減らす」: 揺れ・スライドをなくし、色と文字の変化だけにする（§4.5 原則 5） */
@@ -35,6 +92,7 @@
     --motion-base: 0ms;
     --motion-slow: 0ms;
     --motion-spin: 0ms;
+    --motion-celebrate: 0ms;
   }
 }
 
@@ -74,6 +132,18 @@
   }
 }
 
+/* カード・行が下から入る（一覧の並び。遅らせて順に出す） */
+@keyframes bb-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* 緑のチェックが描かれる */
 @keyframes bb-draw {
   to {
@@ -95,5 +165,43 @@
   }
   to {
     background-color: transparent;
+  }
+}
+
+/* 節目（申込・申告の完了）だけの演出（ADR 0027）。1 回だけ弾んで止まる */
+@keyframes bb-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 節目の紙吹雪。1 回だけ落ちて消える（ADR 0027） */
+@keyframes bb-confetti {
+  from {
+    opacity: 1;
+    transform: translateY(-12px) rotate(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(120px) rotate(320deg);
+  }
+}
+
+/* 進み具合のバーが伸びる */
+@keyframes bb-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
   }
 }

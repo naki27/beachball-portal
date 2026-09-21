@@ -145,7 +145,7 @@ export function EntryEditForm({
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
           aria-describedby="entry-edit-condition"
-          className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+          className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
         >
           <option value="">選んでください</option>
           {categories.map((category) => (
@@ -237,7 +237,7 @@ export function EntryEditForm({
           onChange={(e) => setNote(e.target.value)}
           rows={4}
           maxLength={ENTRY_NOTE_MAX}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-base"
+          className="w-full rounded-md border border-border-strong bg-background px-3 py-2 text-base"
         />
         {errors.note ? <p className="text-sm font-semibold text-danger">{errors.note}</p> : null}
       </section>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ConflictScreen } from "@/components/conflict-screen";
 import { EntryEditForm } from "@/components/entries/entry-edit-form";
 import type { EntryFormCategoryView } from "@/components/entries/entry-form";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -33,18 +34,18 @@ export default async function EntryEditPage({ params }: Props) {
   } catch (error) {
     if (error instanceof TeamError && error.status === 409) {
       return (
-        <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+        <PageMain>
           <ConflictScreen title={error.message} contactHref={`/${association.slug}/contact`}>
             <p>締切を過ぎてからの変更や取り消しは、問い合わせフォームからご連絡ください。</p>
           </ConflictScreen>
-        </main>
+        </PageMain>
       );
     }
     pageErrorFrom(error);
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/entries/${data.entryId}`} className="underline underline-offset-2">
           ← 申し込みの内容へ
@@ -71,7 +72,7 @@ export default async function EntryEditPage({ params }: Props) {
         year={data.year}
         showMembersOnly={data.showMembersOnly}
       />
-    </main>
+    </PageMain>
   );
 }
 

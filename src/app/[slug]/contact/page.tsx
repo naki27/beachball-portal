@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ContactForm } from "@/components/contact/contact-form";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { users } from "@/db/schema";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -22,7 +23,7 @@ export default async function AssociationContactPage({ params, searchParams }: P
     : undefined;
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <h1 className="text-2xl font-bold">{association.name}へのお問い合わせ</h1>
       <p className="leading-relaxed">ログインできないときも、こちらから送れます。お電話の窓口はありません。</p>
       <ContactForm
@@ -31,6 +32,6 @@ export default async function AssociationContactPage({ params, searchParams }: P
         associationId={association.id}
         entryId={entryId ?? null}
       />
-    </main>
+    </PageMain>
   );
 }

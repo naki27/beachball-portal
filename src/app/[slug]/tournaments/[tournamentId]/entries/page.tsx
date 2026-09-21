@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { requireAssociation } from "@/lib/page/require-association";
 import { pageErrorFrom } from "@/lib/page/team-errors";
@@ -17,7 +18,7 @@ export default async function EntriesPage({ params }: Props) {
   const { tournament, groups } = await getEntryTeamsForPublic(getDb(), association.id, tournamentId).catch(pageErrorFrom);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/tournaments/${tournament.id}`} className="underline underline-offset-2">
           ← {tournament.name}
@@ -47,6 +48,6 @@ export default async function EntriesPage({ params }: Props) {
           </section>
         ))
       )}
-    </main>
+    </PageMain>
   );
 }

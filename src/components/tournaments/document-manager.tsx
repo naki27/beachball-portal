@@ -212,7 +212,7 @@ export function DocumentManager({
                       ref={(element) => {
                         replaceRefs.current[row.id] = element;
                       }}
-                      className="min-h-12 w-full rounded-md border border-border bg-background px-3 py-2 text-base"
+                      className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 py-2 text-base"
                     />
                   </label>
                   <Button
@@ -270,7 +270,7 @@ export function DocumentManager({
               type="file"
               accept="application/pdf,.pdf"
               aria-invalid={errors.file ? true : undefined}
-              className={`min-h-12 w-full rounded-md border bg-background px-3 py-2 text-base ${errors.file ? "border-2 border-danger" : "border-border"}`}
+              className={`min-h-12 w-full rounded-md border bg-background px-3 py-2 text-base ${errors.file ? "border-2 border-danger" : "border-border-strong"}`}
             />
             <p className="text-sm text-muted">PDF だけ・{DOC_MAX_BYTES / 1024 / 1024} MB まで</p>
             {errors.file ? <p className="text-sm font-semibold text-danger">{errors.file}</p> : null}
@@ -306,7 +306,7 @@ function DraftFields({
           id={`${idPrefix}-doc-type`}
           value={draft.docType}
           onChange={(event) => setDraft({ ...draft, docType: event.target.value })}
-          className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+          className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
         >
           {DOC_TYPES.map((type) => (
             <option key={type} value={type}>

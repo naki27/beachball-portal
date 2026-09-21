@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MyEntryList } from "@/components/entries/my-entry-list";
 import { LogoutButton } from "@/components/layout/logout-button";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { listMyEntries } from "@/lib/entries/my-entries";
@@ -35,7 +36,7 @@ export default async function MyPage() {
   const now = new Date();
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
+    <PageMain gap="lg">
       <h1 className="text-2xl font-bold">マイページ</h1>
 
       {invitations.length > 0 ? (
@@ -150,6 +151,6 @@ export default async function MyPage() {
           </Link>
         </p>
       </section>
-    </main>
+    </PageMain>
   );
 }

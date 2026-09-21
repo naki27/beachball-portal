@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PlayerForm } from "@/components/teams/player-form";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getMemberForAdmin } from "@/lib/admin/members";
@@ -27,7 +28,7 @@ export default async function AdminMemberPage({ params, searchParams }: Props) {
   const { member, linkedEmail, teams } = await getMemberForAdmin(getDb(), { ...principal, userId: principal.userId }, association.id, memberId).catch(pageErrorFrom);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
+    <PageMain gap="lg">
       <p>
         <Link href={`/${association.slug}/admin/members`} className="underline underline-offset-2">
           ← メンバー管理
@@ -75,6 +76,6 @@ export default async function AdminMemberPage({ params, searchParams }: Props) {
           initial={{ name: member.name, kana: member.kana ?? "", birthDate: member.birthDate, sex: member.sex }}
         />
       </section>
-    </main>
+    </PageMain>
   );
 }

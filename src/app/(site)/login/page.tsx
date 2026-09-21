@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageMain } from "@/components/ui/layout";
 import { resolveAssociation } from "@/lib/resolve-association";
 import { slugFromUrl } from "@/lib/slug";
 import { LoginForm } from "./login-form";
@@ -17,13 +18,13 @@ export default async function LoginPage({ searchParams }: Props) {
   const associationName = resolution && resolution.kind !== "not_found" ? resolution.association.name : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <h1 className="text-2xl font-bold">ログイン</h1>
       {associationName ? <p className="leading-relaxed">ログインすると、{associationName}のページに戻ります。</p> : null}
       <p className="leading-relaxed">
         メールアドレスを入力してください。確認番号（6 けたの数字）をメールで送ります。はじめての方も同じです。
       </p>
       <LoginForm next={nextPath} />
-    </main>
+    </PageMain>
   );
 }

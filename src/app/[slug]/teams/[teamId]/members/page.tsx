@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -26,7 +27,7 @@ export default async function RosterPage({ params, searchParams }: Props) {
   const roster = await getRoster(getDb(), { ...principal, userId: principal.userId }, association.id, teamId).catch(pageErrorFrom);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/teams/${roster.team.id}`} className="underline underline-offset-2">
           ← {roster.team.name}
@@ -46,6 +47,6 @@ export default async function RosterPage({ params, searchParams }: Props) {
         </p>
       ) : null}
       <RosterList slug={association.slug} roster={roster} viewerCanManage={roster.canManage} />
-    </main>
+    </PageMain>
   );
 }

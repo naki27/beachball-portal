@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ApprovalList } from "@/components/memberships/approval-list";
 import { PeriodManager, type PeriodRow } from "@/components/memberships/period-manager";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { type AdminMembershipsView, getMembershipsForAdmin, getRenewalStatusForAdmin } from "@/lib/admin/memberships";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -29,7 +30,7 @@ export default async function AdminMembershipsPage({ params }: Props) {
   const status = await getRenewalStatusForAdmin(getDb(), actor, association.id, view.currentYear, now).catch(pageErrorFrom);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/admin`} className="underline underline-offset-2">
           ← {association.name}の管理
@@ -52,7 +53,7 @@ export default async function AdminMembershipsPage({ params }: Props) {
           approvedCount={status.approvedCount}
         />
       )}
-    </main>
+    </PageMain>
   );
 }
 

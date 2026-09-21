@@ -7,6 +7,7 @@ import {
   type PresetRowView,
 } from "@/components/tournaments/category-manager";
 import { TournamentForm, type TournamentFormValues } from "@/components/tournaments/tournament-form";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { type AdminCategoriesView, getCategoriesForAdmin } from "@/lib/admin/categories";
@@ -34,7 +35,7 @@ export default async function EditTournamentPage({ params, searchParams }: Props
   const { tournament } = view;
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/admin/tournaments`} className="underline underline-offset-2">
           ← 大会の管理
@@ -80,7 +81,7 @@ export default async function EditTournamentPage({ params, searchParams }: Props
         </Link>{" "}
         で増やせます。
       </p>
-    </main>
+    </PageMain>
   );
 }
 

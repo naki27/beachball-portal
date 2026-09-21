@@ -3,6 +3,7 @@
 import { type ReactNode, useState } from "react";
 import { type BirthDateValue, BirthDateField } from "@/components/ui/birth-date-field";
 import { Button } from "@/components/ui/button";
+import { ActionBar, Badge, Card, EmptyState, PageHeader, Toolbar } from "@/components/ui/layout";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { DelayedSkeleton } from "@/components/ui/loading";
 import { Message } from "@/components/ui/message";
@@ -22,6 +23,20 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
     </section>
   );
 }
+
+const SCALE = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
+const ROLES = [
+  "primary",
+  "primary-strong",
+  "brand",
+  "accent",
+  "surface",
+  "muted",
+  "border-strong",
+  "success",
+  "warning",
+  "danger",
+] as const;
 
 const DEMO_DRAFT_KEY = draftKey({ associationId: "dev", screen: "ui-gallery" });
 
@@ -47,6 +62,68 @@ export function UiGallery() {
 
   return (
     <div className="flex flex-col gap-10" data-hydrated={hydrated || undefined}>
+      <Section title="色（tokens.css）">
+        <p className="text-sm text-muted">
+          ベース #ffffff・メイン #42B036（--brand-500）・アクセントはティール。文字と塗りつぶしのボタンには 700 以上を使う。
+        </p>
+        <div className="grid grid-cols-5 gap-1 sm:grid-cols-10">
+          {SCALE.map((step) => (
+            <div key={`brand-${step}`} className="flex flex-col items-center gap-1">
+              <span className="h-10 w-full rounded-sm border border-border" style={{ background: `var(--brand-${step})` }} />
+              <span className="text-xs text-muted">{step}</span>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-5 gap-1 sm:grid-cols-10">
+          {SCALE.map((step) => (
+            <div key={`accent-${step}`} className="flex flex-col items-center gap-1">
+              <span className="h-10 w-full rounded-sm border border-border" style={{ background: `var(--accent-${step})` }} />
+              <span className="text-xs text-muted">{step}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {ROLES.map((name) => (
+            <span key={name} className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-sm">
+              <span className="size-4 rounded-full border border-border" style={{ background: `var(--color-${name})` }} />
+              {name}
+            </span>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="ページの器（PageHeader・Card・Badge）">
+        <PageHeader
+          headingLevel={3}
+          tone="hero"
+          eyebrow="早良区ビーチボール協会"
+          title="第 12 回 区民大会"
+          lead="9月30日（水）まで　あと5日"
+          actions={<Button variant="secondary">この大会を見る</Button>}
+        />
+        <Toolbar>
+          <span className="text-sm font-semibold">絞り込み</span>
+          <Badge tone="brand">受付中 3</Badge>
+          <Badge tone="warning">まもなく締切 1</Badge>
+          <Badge tone="neutral">終了 8</Badge>
+        </Toolbar>
+        <div className="bb-stagger grid gap-3 sm:grid-cols-2">
+          <Card interactive>
+            <p className="font-bold">混合の部</p>
+            <p className="text-sm text-muted">男子 1 人・女子 3 人</p>
+          </Card>
+          <Card interactive tone="soft">
+            <p className="font-bold">女子の部</p>
+            <p className="text-sm text-muted">4 人〜7 人</p>
+          </Card>
+        </div>
+        <EmptyState
+          title="まだ申し込みはありません"
+          description="受付が始まると、ここに表示されます。"
+          action={<Button variant="secondary">大会を見る</Button>}
+        />
+      </Section>
+
       <Section title="ボタン">
         <div className="flex flex-col gap-3">
           <Button
@@ -59,9 +136,20 @@ export function UiGallery() {
             申し込む（押すと 2 秒だけ送信中になる）
           </Button>
           <Button variant="secondary">戻る</Button>
+          <Button variant="accent">資料を見る</Button>
           <Button variant="danger">申し込みを取り消す</Button>
+          <Button variant="ghost">あとで</Button>
           <Button disabled>押せないボタン</Button>
+          <Button size="sm" variant="secondary">
+            小さいボタン（一覧の中で使う）
+          </Button>
         </div>
+        <ActionBar sticky={false}>
+          <Button fullWidth>確認へ</Button>
+          <Button variant="secondary" fullWidth>
+            下書きを保存
+          </Button>
+        </ActionBar>
       </Section>
 
       <Section title="入力欄と誤りの表示">
@@ -146,7 +234,7 @@ export function UiGallery() {
         </label>
         <textarea
           id="demo-memo"
-          className="min-h-24 w-full rounded-md border border-border px-3 py-2 text-base"
+          className="min-h-24 w-full rounded-md border border-border-strong px-3 py-2 text-base"
           value={memo}
           onChange={(e) => {
             setMemo(e.target.value);

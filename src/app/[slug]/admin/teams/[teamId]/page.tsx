@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TeamForm } from "@/components/teams/team-form";
 import { TeamStatusControls } from "@/components/teams/team-status-controls";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getTeamForAdmin } from "@/lib/admin/teams";
@@ -26,7 +27,7 @@ export default async function AdminTeamPage({ params, searchParams }: Props) {
   const individual = team.kind === "individual";
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
+    <PageMain gap="lg">
       <p>
         <Link href={`/${association.slug}/admin/teams`} className="underline underline-offset-2">
           ← チーム管理
@@ -72,6 +73,6 @@ export default async function AdminTeamPage({ params, searchParams }: Props) {
           />
         </section>
       ) : null}
-    </main>
+    </PageMain>
   );
 }

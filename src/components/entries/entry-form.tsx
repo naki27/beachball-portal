@@ -274,7 +274,7 @@ export function EntryForm({
               id="entry-team-select"
               value={values.teamId}
               onChange={(e) => set("teamId", e.target.value)}
-              className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+              className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
             >
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>
@@ -310,7 +310,7 @@ export function EntryForm({
             value={values.categoryId}
             onChange={(e) => set("categoryId", e.target.value)}
             aria-describedby="entry-category-condition"
-            className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+            className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
           >
             <option value="">選んでください</option>
             {categories.map((category) => (
@@ -415,7 +415,7 @@ export function EntryForm({
           rows={4}
           maxLength={ENTRY_NOTE_MAX}
           aria-describedby="entry-note-hint"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-base"
+          className="w-full rounded-md border border-border-strong bg-background px-3 py-2 text-base"
         />
         <p id="entry-note-hint" className="text-sm text-muted">
           駐車場の利用など、伝えることがあれば書いてください。

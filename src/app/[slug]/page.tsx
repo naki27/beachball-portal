@@ -2,6 +2,7 @@ import Link from "next/link";
 import { OpenTournaments } from "@/components/top/open-tournaments";
 import { RecentDocuments } from "@/components/top/recent-documents";
 import { type TodoItem, YourTodos } from "@/components/top/your-todos";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { entryTodos, listMyEntries } from "@/lib/entries/my-entries";
@@ -50,7 +51,7 @@ export default async function AssociationTop({ params }: Props) {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
+    <PageMain gap="lg">
       <h1 className="text-2xl font-bold">{association.name}</h1>
       {principal.userId ? <YourTodos items={todos} /> : null}
       <OpenTournaments slug={association.slug} open={tournaments.open} upcoming={tournaments.upcoming} now={now} />
@@ -66,6 +67,6 @@ export default async function AssociationTop({ params }: Props) {
           </Link>
         </p>
       ) : null}
-    </main>
+    </PageMain>
   );
 }

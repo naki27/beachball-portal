@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { associations } from "@/db/schema";
 import { requirePlatformAdminPage } from "@/lib/page/platform";
@@ -16,7 +17,7 @@ export default async function PlatformHome() {
   const stats = new Map((await listAssociationStats(db, principal.userId)).map((s) => [s.associationId, s]));
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
+    <PageMain gap="lg">
       <h1 className="text-2xl font-bold">運営管理</h1>
       <p>
         <Link href="/platform/contacts" className="font-semibold underline underline-offset-2">
@@ -60,6 +61,6 @@ export default async function PlatformHome() {
         <h2 className="text-lg font-bold">協会を作る</h2>
         <CreateAssociationForm />
       </section>
-    </main>
+    </PageMain>
   );
 }

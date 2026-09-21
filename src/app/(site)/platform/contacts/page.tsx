@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContactList } from "@/components/contact/contact-list";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { listPlatformContacts } from "@/lib/contact-admin";
 import { requirePlatformAdminPage } from "@/lib/page/platform";
@@ -17,7 +18,7 @@ export default async function PlatformContactsPage({ searchParams }: Props) {
   const rows = await listPlatformContacts(getDb(), onlyNew ? { status: "new" } : {});
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href="/platform" className="underline underline-offset-2">
           ← 運営管理
@@ -34,6 +35,6 @@ export default async function PlatformContactsPage({ searchParams }: Props) {
       </nav>
       <p className="text-sm text-muted">{rows.length} 件</p>
       <ContactList rows={rows} endpoint="/api/platform/contacts" />
-    </main>
+    </PageMain>
   );
 }

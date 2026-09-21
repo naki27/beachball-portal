@@ -226,7 +226,7 @@ export function PlayerSlotField({
                 <label
                   key={choice.id}
                   className={`flex min-h-12 flex-1 items-center justify-center gap-2 rounded-md border px-3 ${
-                    slot.sex === choice.id ? "border-primary bg-primary-surface font-semibold" : "border-border"
+                    slot.sex === choice.id ? "border-primary bg-primary-soft font-semibold" : "border-border-strong"
                   }`}
                 >
                   <input
@@ -263,7 +263,7 @@ export function PlayerSlotField({
             id={id("select")}
             value=""
             onChange={(e) => (e.target.value === MANUAL ? toManual() : pick(e.target.value))}
-            className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+            className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
           >
             <option value="">選んでください</option>
             {choices.map((p) => (

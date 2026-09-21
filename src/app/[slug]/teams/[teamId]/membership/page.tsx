@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DeclarationForm, type DeclarationPlayerView } from "@/components/memberships/declaration-form";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getMembership, getPrincipal } from "@/lib/auth/principal";
 import { resolveRole, roleIncludes } from "@/lib/authz";
@@ -31,7 +32,7 @@ export default async function TeamMembershipPage({ params }: Props) {
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/teams/${form.teamId}`} className="underline underline-offset-2">
           ← {form.teamName}
@@ -53,7 +54,7 @@ export default async function TeamMembershipPage({ params }: Props) {
         mode={form.mode}
         asAdmin={asAdmin}
       />
-    </main>
+    </PageMain>
   );
 }
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { listTournamentsForAdmin } from "@/lib/admin/tournaments";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -24,7 +25,7 @@ export default async function AdminTournamentsPage({ params }: Props) {
   const now = new Date();
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/admin`} className="underline underline-offset-2">
           ← 管理
@@ -70,6 +71,6 @@ export default async function AdminTournamentsPage({ params }: Props) {
           })}
         </ul>
       )}
-    </main>
+    </PageMain>
   );
 }

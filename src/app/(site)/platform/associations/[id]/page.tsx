@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { associations } from "@/db/schema";
 import { requirePlatformAdminPage } from "@/lib/page/platform";
@@ -30,7 +31,7 @@ export default async function PlatformAssociationPage({ params }: Props) {
   const entered = principal.enteredAssociationId === id;
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
+    <PageMain gap="lg">
       <p>
         <Link href="/platform" className="underline underline-offset-2">
           ← 運営管理
@@ -81,6 +82,6 @@ export default async function PlatformAssociationPage({ params }: Props) {
           initial={{ name: association.name, slug: association.slug, contactEmail: association.contactEmail ?? "" }}
         />
       </section>
-    </main>
+    </PageMain>
   );
 }

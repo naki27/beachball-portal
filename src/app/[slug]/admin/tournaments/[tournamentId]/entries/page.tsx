@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { primaryButtonClass, secondaryButtonClass } from "@/components/button-classes";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { type AdminEntriesView, getAdminEntries } from "@/lib/admin/entries";
@@ -35,7 +36,7 @@ export default async function AdminEntriesPage({ params }: Props) {
   const needsCheck = view.entries.filter((entry) => entry.needsAdminCheck).length;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain width="wide">
       <p>
         <Link href={`/${association.slug}/admin/tournaments/${tournament.id}`} className="underline underline-offset-2">
           ← {tournament.name}
@@ -122,6 +123,6 @@ export default async function AdminEntriesPage({ params }: Props) {
           ))}
         </ul>
       )}
-    </main>
+    </PageMain>
   );
 }

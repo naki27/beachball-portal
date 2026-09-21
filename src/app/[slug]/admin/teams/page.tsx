@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { listTeamsForAdmin } from "@/lib/admin/teams";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -21,7 +22,7 @@ export default async function AdminTeamsPage({ params, searchParams }: Props) {
   const rows = await listTeamsForAdmin(getDb(), { ...principal, userId: principal.userId }, association.id, q).catch(pageErrorFrom);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
         <Link href={`/${association.slug}/admin`} className="underline underline-offset-2">
           ← 管理
@@ -38,7 +39,7 @@ export default async function AdminTeamsPage({ params, searchParams }: Props) {
           type="search"
           defaultValue={q}
           placeholder="チーム名で探す"
-          className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+          className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
         />
         <button type="submit" className="bb-pressable min-h-12 shrink-0 rounded-md bg-primary px-4 font-semibold text-on-primary">
           探す
@@ -68,6 +69,6 @@ export default async function AdminTeamsPage({ params, searchParams }: Props) {
           ))}
         </ul>
       )}
-    </main>
+    </PageMain>
   );
 }

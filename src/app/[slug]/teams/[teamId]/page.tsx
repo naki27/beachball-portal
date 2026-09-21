@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TeamStatusControls } from "@/components/teams/team-status-controls";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { withTenant } from "@/db/tenant";
@@ -46,7 +47,7 @@ export default async function TeamPage({ params, searchParams }: Props) {
     const me = roster.items[0];
     const birth = me?.personal ? parsePlainDate(me.personal.birthDate) : null;
     return (
-      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+      <PageMain>
         {created === "1" ? <Message kind="success" title="個人で登録しました" /> : null}
         {updated === "1" ? <Message kind="success" title="登録情報を保存しました" /> : null}
         <h1 className="text-2xl font-bold">あなたの登録情報</h1>
@@ -69,12 +70,12 @@ export default async function TeamPage({ params, searchParams }: Props) {
           </div>
         ) : null}
         <p className="text-sm text-muted">協会員の登録（毎年の更新）の対象です。大会に出るときは、チームを作るか、ほかのチームの申し込みに選手として入れてもらってください。</p>
-      </main>
+      </PageMain>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       {created === "1" ? <Message kind="success" title="チームを登録しました。あなたがこのチームの代表者です" /> : null}
       {updated === "1" ? <Message kind="success" title="チーム情報を保存しました" /> : null}
       {team.status === "inactive" ? (
@@ -132,6 +133,6 @@ export default async function TeamPage({ params, searchParams }: Props) {
         ) : null}
       </section>
       {canEdit ? <TeamStatusControls slug={association.slug} teamId={team.id} status={team.status} /> : null}
-    </main>
+    </PageMain>
   );
 }

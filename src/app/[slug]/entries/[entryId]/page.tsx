@@ -3,6 +3,7 @@ import Link from "next/link";
 import { secondaryButtonClass } from "@/components/button-classes";
 import { EntryCancel } from "@/components/entries/entry-cancel";
 import { EntrySteps } from "@/components/entries/entry-steps";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -41,7 +42,7 @@ export default async function EntryPage({ params, searchParams }: Props) {
   const deadline = formatDateWithWeekday(todayInTokyo(entry.deadline));
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       {justDone ? <EntrySteps current="done" /> : null}
       <h1 className="text-2xl font-bold break-words">
         {justDone ? `${entry.tournamentName}のお申し込みを受け付けました` : "申し込みの内容"}
@@ -149,6 +150,6 @@ export default async function EntryPage({ params, searchParams }: Props) {
           ← 大会のページへ
         </Link>
       </p>
-    </main>
+    </PageMain>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ConflictScreen } from "@/components/conflict-screen";
 import { EntryConfirm } from "@/components/entries/entry-confirm";
 import { EntrySteps } from "@/components/entries/entry-steps";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { type EntryFormData, getEntryFormData } from "@/lib/entries/entry-form";
@@ -28,18 +29,18 @@ export default async function EntryConfirmPage({ params }: Props) {
   } catch (error) {
     if (error instanceof TeamError && error.status === 409) {
       return (
-        <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+        <PageMain>
           <ConflictScreen title={error.message} contactHref={`/${association.slug}/contact?tournament=${tournamentId}`}>
             <p>締切を過ぎてからの変更や申し込みは、問い合わせフォームからご連絡ください。</p>
           </ConflictScreen>
-        </main>
+        </PageMain>
       );
     }
     pageErrorFrom(error);
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <EntrySteps current="confirm" />
       <h1 className="text-2xl font-bold break-words">この内容で申し込みます</h1>
       <EntryConfirm
@@ -53,6 +54,6 @@ export default async function EntryConfirmPage({ params }: Props) {
           referenceDate: category.ageReferenceDate,
         }))}
       />
-    </main>
+    </PageMain>
   );
 }
