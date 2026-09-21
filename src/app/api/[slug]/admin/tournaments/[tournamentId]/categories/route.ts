@@ -6,7 +6,7 @@ import { requireTenantUser, teamErrorResponse } from "@/lib/api/tenant";
 
 type Props = { params: Promise<{ slug: string; tournamentId: string }> };
 
-// POST /api/[slug]/admin/tournaments/[tournamentId]/categories — 「よく使う部」からまとめて追加（設計書 §5.4）
+// POST /api/[slug]/admin/tournaments/[tournamentId]/categories — 「よく使う部門」からまとめて追加（設計書 §5.4）
 // すでに同じ部がある大会では飛ばす。コートに出る人数が参加人数の下限を超える部は 409
 export async function POST(request: Request, { params }: Props): Promise<Response> {
   const { slug, tournamentId } = await params;

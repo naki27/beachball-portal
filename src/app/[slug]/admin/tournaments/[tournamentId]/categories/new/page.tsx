@@ -37,7 +37,7 @@ export default async function NewTournamentCategoryPage({ params }: Props) {
           ← {tournament.name}
         </Link>
       </p>
-      <PageHeader eyebrow={tournament.name} title="部を追加する" lead="「よく使う部」から、この大会に出す部を選びます。" />
+      <PageHeader eyebrow={tournament.name} title="部を追加する" lead="「よく使う部門」から、この大会に出す部を選びます。" />
       <CategoryAddForm
         slug={association.slug}
         tournamentId={tournament.id}

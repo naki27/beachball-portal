@@ -8,7 +8,7 @@ import { Message } from "@/components/ui/message";
 import { type PresetField, parsePresetInput } from "@/lib/presets/preset-input";
 import { EMPTY_PRESET_DRAFT, type PresetApiBody, type PresetDraft, PresetFields } from "./preset-fields";
 
-// 「よく使う部」を足すページ（設計書 §5.4・§4.3「一覧と登録はページを分ける」）
+// 「よく使う部門」を足すページ（設計書 §5.4・§4.3「一覧と登録はページを分ける」）
 export function PresetNewForm({ slug }: { slug: string }) {
   const router = useRouter();
   const listUrl = `/${slug}/admin/association`;

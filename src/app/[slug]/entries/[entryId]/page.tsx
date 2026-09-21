@@ -4,7 +4,7 @@ import { secondaryButtonClass } from "@/components/button-classes";
 import { EntryCancel } from "@/components/entries/entry-cancel";
 import { EntrySteps } from "@/components/entries/entry-steps";
 import { Celebrate } from "@/components/ui/celebrate";
-import { Card, PageHeader, PageMain } from "@/components/ui/layout";
+import { DescriptionList, DescriptionRow, PageHeader, PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -66,57 +66,41 @@ export default async function EntryPage({ params, searchParams }: Props) {
         </Message>
       ))}
 
-      <Card>
-        <dl className="flex flex-col gap-3">
-        <div>
-          <dt className="font-semibold">申込番号</dt>
-          <dd className="break-all font-mono text-sm">{entry.entryId}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold">大会</dt>
-          <dd>
-            <Link href={`/${association.slug}/tournaments/${entry.tournamentId}`} className="bb-link">
-              {entry.tournamentName}
-            </Link>
-          </dd>
-        </div>
-        <div>
-          <dt className="font-semibold">部</dt>
-          <dd>{entry.categoryLabel}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold">チーム名</dt>
-          <dd className="break-words">{entry.teamName}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold">出場する選手</dt>
-          <dd>
-            <ol className="flex flex-col gap-1">
-              {entry.players.map((player) => (
-                <li key={player.position}>
-                  {player.position}. {player.name}
-                  {player.personal ? (
-                    <span className="ml-2 text-sm text-muted">
-                      {[player.personal.age !== null ? `${player.personal.age}歳` : "", SEX_LABEL[player.personal.sex]]
-                        .filter(Boolean)
-                        .join("・")}
-                    </span>
-                  ) : null}
-                  {/* 申込のあとで脱退・削除された人の印。申込の内容はそのまま残る（§5.5「申込はスナップショット」） */}
-                  {player.missingFromRoster ? <span className="ml-2 text-sm font-semibold text-danger">選手一覧にいません</span> : null}
-                </li>
-              ))}
-            </ol>
-          </dd>
-        </div>
+      <DescriptionList>
+        <DescriptionRow label="申込番号">
+          <span className="break-all font-mono text-sm">{entry.entryId}</span>
+        </DescriptionRow>
+        <DescriptionRow label="大会">
+          <Link href={`/${association.slug}/tournaments/${entry.tournamentId}`} className="bb-link">
+            {entry.tournamentName}
+          </Link>
+        </DescriptionRow>
+        <DescriptionRow label="部">{entry.categoryLabel}</DescriptionRow>
+        <DescriptionRow label="チーム名">{entry.teamName}</DescriptionRow>
+        <DescriptionRow label="出場する選手">
+          <ol className="flex flex-col gap-1">
+            {entry.players.map((player) => (
+              <li key={player.position}>
+                {player.position}. {player.name}
+                {player.personal ? (
+                  <span className="ml-2 text-sm text-muted">
+                    {[player.personal.age !== null ? `${player.personal.age}歳` : "", SEX_LABEL[player.personal.sex]]
+                      .filter(Boolean)
+                      .join("・")}
+                  </span>
+                ) : null}
+                {/* 申込のあとで脱退・削除された人の印。申込の内容はそのまま残る（§5.5「申込はスナップショット」） */}
+                {player.missingFromRoster ? <span className="ml-2 text-sm font-semibold text-danger">選手一覧にいません</span> : null}
+              </li>
+            ))}
+          </ol>
+        </DescriptionRow>
         {entry.note ? (
-          <div>
-            <dt className="font-semibold">備考</dt>
-            <dd className="whitespace-pre-wrap break-words">{entry.note}</dd>
-          </div>
+          <DescriptionRow label="備考">
+            <span className="whitespace-pre-wrap">{entry.note}</span>
+          </DescriptionRow>
         ) : null}
-        </dl>
-      </Card>
+      </DescriptionList>
 
       {/* 変更方法の文言は §4.4 の定型文（§5.5(d)） */}
       {entry.canEdit ? (

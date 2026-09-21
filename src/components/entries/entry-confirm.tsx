@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ActionBar, Card } from "@/components/ui/layout";
+import { ActionBar, DescriptionList, DescriptionRow } from "@/components/ui/layout";
 import { Skeleton } from "@/components/ui/loading";
 import { Message } from "@/components/ui/message";
 import { useDraft } from "@/hooks/use-draft";
@@ -133,46 +133,31 @@ export function EntryConfirm({
         入力に戻って直す
       </Button>
 
-      <Card>
-        <dl className="flex flex-col gap-3">
-        <div>
-          <dt className="font-semibold">大会</dt>
-          <dd>{tournamentName}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold">チーム名（公開されます）</dt>
-          <dd>{values.teamName}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold">部</dt>
-          <dd>{category?.label ?? ""}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold">出場する選手</dt>
-          <dd>
-            <ol className="flex flex-col gap-1">
-              {values.slots
-                .filter((slot) => slot.name.trim())
-                .map((slot, index) => (
-                  // 枠の並びは入力ページのまま
-                  <li key={`${slot.memberId ?? "manual"}-${index}`}>
-                    {index + 1}. {slot.name}
-                    <span className="ml-2 text-sm text-muted">
-                      {[ageText(slot.birthDate), slot.sex ? SEX_LABEL[slot.sex] : ""].filter(Boolean).join("・")}
-                    </span>
-                  </li>
-                ))}
-            </ol>
-          </dd>
-        </div>
+      <DescriptionList>
+        <DescriptionRow label="大会">{tournamentName}</DescriptionRow>
+        <DescriptionRow label="チーム名（公開されます）">{values.teamName}</DescriptionRow>
+        <DescriptionRow label="部">{category?.label ?? ""}</DescriptionRow>
+        <DescriptionRow label="出場する選手">
+          <ol className="flex flex-col gap-1">
+            {values.slots
+              .filter((slot) => slot.name.trim())
+              .map((slot, index) => (
+                // 枠の並びは入力ページのまま
+                <li key={`${slot.memberId ?? "manual"}-${index}`}>
+                  {index + 1}. {slot.name}
+                  <span className="ml-2 text-sm text-muted">
+                    {[ageText(slot.birthDate), slot.sex ? SEX_LABEL[slot.sex] : ""].filter(Boolean).join("・")}
+                  </span>
+                </li>
+              ))}
+          </ol>
+        </DescriptionRow>
         {values.note ? (
-          <div>
-            <dt className="font-semibold">備考</dt>
-            <dd className="whitespace-pre-wrap break-words">{values.note}</dd>
-          </div>
+          <DescriptionRow label="備考">
+            <span className="whitespace-pre-wrap">{values.note}</span>
+          </DescriptionRow>
         ) : null}
-        </dl>
-      </Card>
+      </DescriptionList>
 
       {!players.ok ? (
         <Message kind="error" title="入力に足りないところがあります">

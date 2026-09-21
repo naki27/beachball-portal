@@ -449,7 +449,7 @@ export function EntryForm({
           className="w-full rounded-md border border-border-strong bg-background px-3 py-2 text-base"
         />
         <p id="entry-note-hint" className="text-sm text-muted">
-          駐車場の利用など、伝えることがあれば書いてください。
+          ビブスの貸し出しや審判についてなど、お気軽にお問い合わせください。
         </p>
         {errors.note ? <p className="text-sm font-semibold text-danger">{errors.note}</p> : null}
       </section>

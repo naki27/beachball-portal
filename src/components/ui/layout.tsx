@@ -116,6 +116,34 @@ export function Card({
   );
 }
 
+// 「見出し＋値」の一覧（§4.3）。行のあいだに線を引き、文字の大きさと空白だけで区切らない（K-02）
+// 中身は DescriptionRow。Card の中には入れない（枠が二重になる）
+export function DescriptionList({ className = "", children }: { className?: string; children: ReactNode }) {
+  return (
+    <dl className={`divide-y divide-border overflow-hidden rounded-lg border border-border bg-background shadow-sm ${className}`}>
+      {children}
+    </dl>
+  );
+}
+
+// 1 行。PC では見出しと値が横に並び、スマホでは縦に積む
+export function DescriptionRow({
+  label,
+  className = "",
+  children,
+}: {
+  label: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`grid gap-x-4 gap-y-0.5 px-4 py-3 sm:grid-cols-[minmax(7rem,11rem)_1fr] sm:px-5 ${className}`}>
+      <dt className="text-sm font-semibold text-muted">{label}</dt>
+      <dd className="min-w-0 break-words">{children}</dd>
+    </div>
+  );
+}
+
 // 見出しの付いたまとまり。見出しは h2。id を付けると、ほかの画面から飛んで来られる
 export function Section({
   title,

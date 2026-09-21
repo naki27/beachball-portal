@@ -20,7 +20,7 @@ export function CategoryAddForm({
 }: {
   slug: string;
   tournamentId: string;
-  // まだこの大会に入っていない「よく使う部」だけ
+  // まだこの大会に入っていない「よく使う部門」だけ
   presets: PresetRowView[];
   presetSettingsUrl: string;
 }) {
@@ -62,7 +62,7 @@ export function CategoryAddForm({
         description="この大会には、候補の部がすべて入っています。"
         action={
           <Button variant="secondary" onClick={() => router.push(presetSettingsUrl)}>
-            よく使う部の設定を開く
+            よく使う部門の設定を開く
           </Button>
         }
       />

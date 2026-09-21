@@ -134,6 +134,13 @@
       "when": 1789979311593,
       "tag": "0018_referee-qualification",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789999478883,
+      "tag": "0019_individual-registration-switch",
+      "breakpoints": true
     }
   ]
 }

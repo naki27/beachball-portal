@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { IndividualRegistrationSwitch } from "@/components/associations/individual-registration-switch";
 import { PresetManager, type PresetRow } from "@/components/tournaments/preset-manager";
 import { PageHeader, PageMain, Section } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
@@ -14,7 +15,7 @@ type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ added?
 export const metadata: Metadata = { title: "協会の設定" };
 
 // 協会の設定（設計書 §5.4「プリセットはテナント設定画面から管理者が編集できる」）。テナント管理者だけ
-// いまは「よく使う部」だけ。色・連絡先などの設定は後のタスク
+// いまは「よく使う部門」と「個人で登録する」の受け付け（K-02）だけ。色・連絡先などの設定は後のタスク
 export default async function AdminAssociationPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const { added } = await searchParams;
@@ -31,7 +32,10 @@ export default async function AdminAssociationPage({ params, searchParams }: Pro
         </Link>
       </p>
       <PageHeader title="協会の設定" />
-      <Section id="presets" title="よく使う部">
+      <Section id="individual-registration" title="個人での登録" description="1 人で大会に申し込む人のための登録です。使わない協会は止められます。">
+        <IndividualRegistrationSwitch slug={association.slug} enabled={association.individualRegistrationEnabled} />
+      </Section>
+      <Section id="presets" title="よく使う部門">
         <PresetManager slug={association.slug} presets={presets.map(toPresetRow)} addedId={added ?? null} />
       </Section>
     </PageMain>

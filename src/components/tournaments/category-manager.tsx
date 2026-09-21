@@ -165,7 +165,7 @@ export function CategoryManager({
       {categories.length === 0 ? (
         <EmptyState
           title="まだ部がありません"
-          description="「よく使う部」から選んで、この大会に足してください。"
+          description="「よく使う部門」から選んで、この大会に足してください。"
           action={
             <Link href={newUrl} className={buttonClass()}>
               部を追加する

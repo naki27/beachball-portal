@@ -72,7 +72,7 @@ export default async function EditTournamentPage({ params, searchParams }: Props
       <Section
         id="categories"
         title="出場する部"
-        description="候補に出す部は「協会の設定」の「よく使う部」で増やせます。"
+        description="候補に出す部は「協会の設定」の「よく使う部門」で増やせます。"
       >
         <CategoryManager
           slug={association.slug}

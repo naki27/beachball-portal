@@ -6,7 +6,7 @@ import { requireTenantUser, teamErrorResponse } from "@/lib/api/tenant";
 
 type Props = { params: Promise<{ slug: string }> };
 
-// POST /api/[slug]/admin/category-presets — 「よく使う部」を足す（設計書 §5.4）。テナント管理者だけ
+// POST /api/[slug]/admin/category-presets — 「よく使う部門」を足す（設計書 §5.4）。テナント管理者だけ
 export async function POST(request: Request, { params }: Props): Promise<Response> {
   const { slug } = await params;
   const gate = await requireTenantUser(request, slug);

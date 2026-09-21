@@ -9,7 +9,7 @@ import { Message } from "@/components/ui/message";
 import { PRESET_GENDER_LABEL, PRESET_RULE_TYPE_LABEL, type PresetField, parsePresetInput } from "@/lib/presets/preset-input";
 import { EMPTY_PRESET_DRAFT, type PresetApiBody, type PresetDraft, PresetFields } from "./preset-fields";
 
-// 「よく使う部」（部門プリセット）の一覧（設計書 §5.4）。大会に部を足すときの候補になる
+// 「よく使う部門」（部門プリセット）の一覧（設計書 §5.4）。大会に部を足すときの候補になる
 // 足すのは別のページ（…/association/presets/new・§4.3「一覧と登録はページを分ける」）
 // 記号（code）は前回コピー・年度比較の突合に使うので、作ったあとは変えられない
 
@@ -134,7 +134,7 @@ export function PresetManager({
       {presets.length === 0 ? (
         <EmptyState
           title="まだ部はありません"
-          description="よく使う部を足しておくと、大会を作るときに選ぶだけで済みます。"
+          description="よく使う部門を足しておくと、大会を作るときに選ぶだけで済みます。"
           action={
             <Link href={newUrl} className={buttonClass()}>
               新しい部を足す

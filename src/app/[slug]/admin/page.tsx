@@ -62,8 +62,8 @@ export default async function AdminHome({ params }: Props) {
         </Link>
         <Link href={`/${association.slug}/admin/association`} className="block h-full no-underline">
           <Card interactive className="flex h-full flex-col gap-1">
-            <span className="text-lg font-bold">協会の設定（よく使う部）</span>
-            <span className="text-sm text-muted">大会に足す部のひな形</span>
+            <span className="text-lg font-bold">協会の設定（よく使う部門・個人での登録）</span>
+            <span className="text-sm text-muted">大会に足す部のひな形・個人での登録の受け付け</span>
           </Card>
         </Link>
       </nav>

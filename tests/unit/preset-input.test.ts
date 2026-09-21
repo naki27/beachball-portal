@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parsePresetInput } from "@/lib/presets/preset-input";
 
-// 「よく使う部」（部門プリセット）の入力（設計書 §5.4「部門（カテゴリ）の設計」）
+// 「よく使う部門」（部門プリセット）の入力（設計書 §5.4「部門（カテゴリ）の設計」）
 const input = (over: Record<string, unknown> = {}) => ({
   code: "m_40",
   labelDefault: "男子40歳以上の部",

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { citext } from "./columns";
 
 // 協会ごとの色（P1・§5.17）。NULL は既定の色
@@ -14,6 +14,8 @@ export const associations = pgTable(
     slug: text().notNull().unique(), // sawara
     contactEmail: citext(), // 問い合わせの転送先・メールの Reply-To（§5.10・§11）
     fiscalYearStartMonth: integer().notNull().default(4),
+    // 「個人で登録する」を受け付けるか（K-02・ADR 0032）。使わない協会は false にして入口をなくす
+    individualRegistrationEnabled: boolean().notNull().default(true),
     themeColors: jsonb().$type<ThemeColors>(),
     logoStorageKey: text(), // ロゴ（R2 のキー）
     billingPlan: text().$type<"monthly" | "annual">(), // 利用料のプラン（§5.20・P1）

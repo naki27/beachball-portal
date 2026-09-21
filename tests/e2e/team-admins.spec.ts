@@ -61,7 +61,7 @@ test("代表者を 1 人追加 → 元の代表者が降りられる → 残っ�
     const teamId = pageA.url().match(/\/teams\/([0-9a-f-]+)/)![1];
 
     // 代表者の画面: 1 人だけなので降りられない。メールアドレスで招待
-    await pageA.getByRole("link", { name: "代表者" }).click();
+    await pageA.getByRole("link", { name: "代表者を追加・変更する" }).click();
     await expect(pageA).toHaveURL(new RegExp(`/teams/${teamId}/admins$`), { timeout: 15_000 });
     await expect(pageA.getByText("代表者が 1 人だけのときは外せません")).toBeVisible();
     await expect(pageA.getByRole("button", { name: "代表者を降りる" })).toHaveCount(0);

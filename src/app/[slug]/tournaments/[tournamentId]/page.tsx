@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DocumentList } from "@/components/tournaments/document-list";
 import { buttonClass } from "@/components/ui/button";
-import { Badge, Card, EmptyState, PageHeader, PageMain, Section } from "@/components/ui/layout";
+import { Badge, Card, DescriptionList, DescriptionRow, EmptyState, PageHeader, PageMain, Section } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -86,18 +86,16 @@ export default async function TournamentPage({ params }: Props) {
         </aside>
 
         <div className="flex flex-col gap-6 lg:order-1 lg:col-span-2">
-          <Card>
-            <dl className="grid gap-3 sm:grid-cols-2">
-              <Row label="開催日">
-                {tournament.eventDate ? `${tournament.eventDate.year}年${formatDateWithWeekday(tournament.eventDate)}` : "未定"}
-              </Row>
-              {tournament.venue ? <Row label="会場">{tournament.venue}</Row> : null}
-              <Row label="1 チームの人数">
-                {tournament.teamSizeMin} 人以上 {tournament.teamSizeMax} 人以内
-              </Row>
-              <Row label="年齢の判定">{ageReferenceText(tournament.ageReferenceDate)}の年齢で判定します</Row>
-            </dl>
-          </Card>
+          <DescriptionList>
+            <DescriptionRow label="開催日">
+              {tournament.eventDate ? `${tournament.eventDate.year}年${formatDateWithWeekday(tournament.eventDate)}` : "未定"}
+            </DescriptionRow>
+            {tournament.venue ? <DescriptionRow label="会場">{tournament.venue}</DescriptionRow> : null}
+            <DescriptionRow label="1 チームの人数">
+              {tournament.teamSizeMin} 人以上 {tournament.teamSizeMax} 人以内
+            </DescriptionRow>
+            <DescriptionRow label="年齢の判定">{ageReferenceText(tournament.ageReferenceDate)}の年齢で判定します</DescriptionRow>
+          </DescriptionList>
 
           {tournament.description ? <p className="leading-relaxed whitespace-pre-wrap">{tournament.description}</p> : null}
 
@@ -129,15 +127,6 @@ export default async function TournamentPage({ params }: Props) {
         </div>
       </div>
     </PageMain>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-sm font-semibold text-muted">{label}</dt>
-      <dd>{children}</dd>
-    </div>
   );
 }
 

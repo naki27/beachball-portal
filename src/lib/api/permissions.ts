@@ -92,6 +92,8 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/admin/memberships/[year]/approvals", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
   // 運営の代理の申告・修正（締切後も可・§5.12）
   { path: "[slug]/admin/memberships/[year]/declarations", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
+  // 協会の設定（K-02）。いまは「個人で登録する」を受け付けるかだけ
+  { path: "[slug]/admin/association", methods: ["PATCH"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets/[presetId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/contacts", methods: ["PATCH"], guard: { kind: "tenant", action: "manageContacts" } },

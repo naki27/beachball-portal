@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TeamStatusControls } from "@/components/teams/team-status-controls";
 import { buttonClass } from "@/components/ui/button";
-import { Card, PageHeader, PageMain, Section } from "@/components/ui/layout";
+import { Card, DescriptionList, DescriptionRow, PageHeader, PageMain, Section } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { withTenant } from "@/db/tenant";
@@ -106,27 +106,24 @@ export default async function TeamPage({ params, searchParams }: Props) {
       ) : null}
 
       <Section id="team-info" title="チーム情報">
-        <Card>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 sm:grid-cols-[auto_1fr_auto_1fr]">
-          <dt className="text-muted">協会員の登録</dt>
-          <dd>{team.membershipRenewalTarget ? "するチーム" : "しないチーム"}</dd>
+        <DescriptionList>
+          <DescriptionRow label="協会員の登録">{team.membershipRenewalTarget ? "するチーム" : "しないチーム"}</DescriptionRow>
           {can(role, "viewTeamContact") ? (
             <>
-              <dt className="text-muted">メール</dt>
-              <dd className="break-all">{team.contactEmail ?? "未登録"}</dd>
-              <dt className="text-muted">電話</dt>
-              <dd>{team.contactPhone ?? "未登録"}</dd>
+              <DescriptionRow label="メール">
+                <span className="break-all">{team.contactEmail ?? "未登録"}</span>
+              </DescriptionRow>
+              <DescriptionRow label="電話">{team.contactPhone ?? "未登録"}</DescriptionRow>
             </>
           ) : null}
-          </dl>
-        </Card>
+        </DescriptionList>
         {canEdit ? (
           <p className="flex flex-wrap gap-2">
             <Link href={`/${association.slug}/teams/${team.id}/edit`} className={buttonClass("secondary", false, "sm")}>
               チーム情報を変える
             </Link>
             <Link href={`/${association.slug}/teams/${team.id}/admins`} className={buttonClass("secondary", false, "sm")}>
-              代表者
+              代表者を追加・変更する
             </Link>
           </p>
         ) : null}

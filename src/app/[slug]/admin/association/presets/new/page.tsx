@@ -13,7 +13,7 @@ type Props = { params: Promise<{ slug: string }> };
 
 export const metadata: Metadata = { title: "新しい部を足す" };
 
-// 「よく使う部」を足すページ（設計書 §5.4・§4.3「一覧と登録はページを分ける」）。テナント管理者だけ
+// 「よく使う部門」を足すページ（設計書 §5.4・§4.3「一覧と登録はページを分ける」）。テナント管理者だけ
 // 一覧と同じ読み込みを通すので、権限がないときはここでも 403 になる
 export default async function NewPresetPage({ params }: Props) {
   const { slug } = await params;

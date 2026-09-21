@@ -64,18 +64,18 @@ export async function editPreset(
   presetId: string,
   raw: Record<string, unknown>,
 ): Promise<CategoryPreset> {
-  if (!isUuid(presetId)) throw new TeamError(404, "「よく使う部」が見つかりません");
+  if (!isUuid(presetId)) throw new TeamError(404, "「よく使う部門」が見つかりません");
   return withTenantOn(
     db,
     associationId,
     async (tx) => {
       await authorizeAssociationAdmin(tx, principal, associationId);
       const current = await findCategoryPreset(tx, associationId, presetId);
-      if (!current) throw new TeamError(404, "「よく使う部」が見つかりません");
+      if (!current) throw new TeamError(404, "「よく使う部門」が見つかりません");
       const parsed = parsePresetInput({ ...raw, code: current.code });
       if (!parsed.ok) throw new TeamError(400, parsed.message, { field: parsed.field });
       const updated = await updateCategoryPreset(tx, associationId, presetId, parsed.value);
-      if (!updated) throw new TeamError(404, "「よく使う部」が見つかりません");
+      if (!updated) throw new TeamError(404, "「よく使う部門」が見つかりません");
       return updated;
     },
     { userId: principal.userId },
@@ -84,21 +84,21 @@ export async function editPreset(
 
 // 使われているプリセットは消さない（過去の大会の部が指しているため・§5.4）。当面使わないだけなら「候補に出さない」にする
 export async function removePreset(db: Db, principal: Principal & { userId: string }, associationId: string, presetId: string): Promise<void> {
-  if (!isUuid(presetId)) throw new TeamError(404, "「よく使う部」が見つかりません");
+  if (!isUuid(presetId)) throw new TeamError(404, "「よく使う部門」が見つかりません");
   await withTenantOn(
     db,
     associationId,
     async (tx) => {
       await authorizeAssociationAdmin(tx, principal, associationId);
       const current = await findCategoryPreset(tx, associationId, presetId);
-      if (!current) throw new TeamError(404, "「よく使う部」が見つかりません");
+      if (!current) throw new TeamError(404, "「よく使う部門」が見つかりません");
       const usage = await countPresetUsage(tx, associationId, [presetId]);
       const used = usage.get(presetId) ?? 0;
       if (used > 0) {
-        throw new TeamError(409, `この「よく使う部」は ${used} つの大会で使われています。削除せずに「新しい大会の候補に出さない」にしてください`);
+        throw new TeamError(409, `この「よく使う部門」は ${used} つの大会で使われています。削除せずに「新しい大会の候補に出さない」にしてください`);
       }
       const ok = await softDeleteCategoryPreset(tx, associationId, presetId, principal.userId);
-      if (!ok) throw new TeamError(404, "「よく使う部」が見つかりません");
+      if (!ok) throw new TeamError(404, "「よく使う部門」が見つかりません");
     },
     { userId: principal.userId },
   );

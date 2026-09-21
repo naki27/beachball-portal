@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Celebrate } from "@/components/ui/celebrate";
 import { EnvelopeIcon } from "@/components/ui/envelope-icon";
 import { RefereeBadge } from "@/components/teams/referee-badge";
-import { ActionBar, Badge, Card, EmptyState, PageHeader, Toolbar } from "@/components/ui/layout";
+import { ActionBar, Badge, Card, DescriptionList, DescriptionRow, EmptyState, PageHeader, Toolbar } from "@/components/ui/layout";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { DelayedSkeleton } from "@/components/ui/loading";
 import { Message } from "@/components/ui/message";
@@ -129,6 +129,18 @@ export function UiGallery() {
           description="受付が始まると、ここに表示されます。"
           action={<Button variant="secondary">大会を見る</Button>}
         />
+      </Section>
+
+      <Section title="見出しと値の一覧（DescriptionList・K-02）">
+        <p className="text-sm text-muted">文字の大きさと空白だけで区切らず、行のあいだに線を引く。スマホでは縦に積む</p>
+        <DescriptionList>
+          <DescriptionRow label="開催日">2026年9月30日（水）</DescriptionRow>
+          <DescriptionRow label="会場">早良市民センター</DescriptionRow>
+          <DescriptionRow label="1 チームの人数">4 人以上 7 人以内</DescriptionRow>
+          <DescriptionRow label="備考">
+            <span className="whitespace-pre-wrap">ビブスの貸し出しを希望します</span>
+          </DescriptionRow>
+        </DescriptionList>
       </Section>
 
       <Section title="マウスを乗せたとき・選んだとき（U-07）">

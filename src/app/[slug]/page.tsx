@@ -63,9 +63,11 @@ export default async function AssociationTop({ params }: Props) {
               <Link href={`/${association.slug}/teams/new`} className={buttonClass("secondary")}>
                 チームを登録する
               </Link>
-              <Link href={`/${association.slug}/teams/new?kind=individual`} className={buttonClass("secondary")}>
-                個人で登録する
-              </Link>
+              {association.individualRegistrationEnabled ? (
+                <Link href={`/${association.slug}/teams/new?kind=individual`} className={buttonClass("secondary")}>
+                  個人で登録する
+                </Link>
+              ) : null}
             </>
           ) : null
         }

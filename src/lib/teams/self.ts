@@ -7,6 +7,7 @@ import { isUuid } from "@/lib/ids";
 import { readAssociationRoles } from "@/lib/repo/roles";
 import { parsePlainDate, todayInTokyo } from "@/lib/date";
 import { resolveMember } from "@/lib/matching";
+import { findAssociationById } from "@/lib/repo/associations";
 import { findMember, findMemberByUserId, setMemberUser, updateMemberReferee } from "@/lib/repo/members";
 import { addTeamMember, findActiveTeamMember } from "@/lib/repo/team-members";
 import { addTeamAdmin, createTeam, findIndividualTeamOf, type Team } from "@/lib/repo/teams";
@@ -99,6 +100,9 @@ export async function registerIndividual(
     db,
     associationId,
     async (tx) => {
+      // 「個人で登録する」を受け付けない協会では、入口そのものがない（K-02・ADR 0032）
+      const association = await findAssociationById(tx, associationId);
+      if (!association?.individualRegistrationEnabled) throw new TeamError(404, "この協会では個人での登録を受け付けていません");
       const existing = await findIndividualTeamOf(tx, associationId, principal.userId);
       if (existing) throw new TeamError(409, "個人の登録はすでにあります", { teamId: existing.id });
       const self = await resolveSelf(tx, associationId, principal.userId, raw, now);
