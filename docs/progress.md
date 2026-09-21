@@ -3,8 +3,8 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: 利用者の操作ログ（設計書外の追加。**Phase 1a・1b・1c・1d は完了**。残りは X-01〜X-05 のデプロイ）
-- 次のタスク: X-01 本番用の設定（Phase 0 の人の作業（GCP・Neon・Cloudflare・Brevo）が終わってから）
+- 最後に終わったタスク: U-04 一覧と登録の分離（**Phase 1a・1b・1c・1d は完了**。残りは U-02・U-03・U-05・U-06 の UI 刷新と、X-01〜X-05 のデプロイ）
+- 次のタスク: U-02 レスポンシブ（選手側）。X-01 本番用の設定は、Phase 0 の人の作業（GCP・Neon・Cloudflare・Brevo）が終わってから
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
