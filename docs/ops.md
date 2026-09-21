@@ -5,6 +5,199 @@
 
 関係する設計書: `docs/design/05-4.md`（大会）、`05-5.md`（申込）、`05-8.md`（要確認の解消）、`05-14.md`（テナント）、`05-16.md`（削除）、`05-19.md`（アカウント）、`06-5.md`（ホスティングとジョブ）、`12-0.md`（保存期間）。
 
+## 0. 全体像（サイトマップと運用の流れ）
+
+この章は全体を見渡すための図だけ。**具体的な手順は 1 章以降**にある。
+図の中の `（スラッグ）` は協会ごとの英数字（早良区協会なら `sawara`）。`（大会 ID）` などは実際の ID に置き換わる。
+子の画面は親の URL のあとを `…` で省いて書いている。
+
+### 0-1. 登場人物と入口
+
+```mermaid
+flowchart LR
+  P["選手・保護者・一般<br/>（ログインなしで見られる）"] --> TOP
+  R["チームの代表者"] --> LI
+  A["協会の管理者（役員）<br/>1 協会 5 名まで"] --> LI
+  O["サイト運営者（ones）"] --> LI
+
+  LI["ログイン<br/>/login"] -->|"6 桁の確認番号をメールで受け取る"| CODE["確認番号の入力<br/>/login/code"]
+  CODE -.->|"届かないとき"| HELP["メールが届かないとき<br/>/login/help"]
+  CODE --> HOME["自分が関わる協会の一覧<br/>/"]
+
+  HOME --> TOP["協会のトップ<br/>/（スラッグ）"]
+  HOME --> MY["マイページ<br/>/mypage"]
+  HOME --> PF["運営管理<br/>/platform<br/>（運営管理者だけ）"]
+
+  MY --> EM["メールアドレスの変更<br/>/mypage/email"]
+  MY --> DEL["アカウントの削除<br/>/mypage/delete"]
+  MY --> INV["招待（参加する・断る）<br/>/invitations"]
+
+  FOOT["どの画面のフッタからも<br/>サイトへの問い合わせ /contact<br/>プライバシーポリシー /privacy<br/>利用規約 /terms"]
+```
+
+### 0-2. サイトマップ（選手・代表者が使う画面）
+
+```mermaid
+flowchart TD
+  TOP["協会のトップ<br/>/（スラッグ）"]
+
+  subgraph pub["ログインなしで見られる"]
+    TL["大会一覧<br/>/（スラッグ）/tournaments"]
+    TDET["大会の詳細<br/>…/tournaments/（大会 ID）"]
+    PL["参加チーム一覧<br/>…/（大会 ID）/entries"]
+    DOC["大会の資料 PDF<br/>…/（大会 ID）/documents/（資料 ID）"]
+    CT["協会への問い合わせ<br/>/（スラッグ）/contact"]
+  end
+
+  subgraph rep["代表者（ログインが要る）"]
+    TN["チームの登録<br/>/（スラッグ）/teams/new"]
+    TP["チームのページ<br/>/（スラッグ）/teams/（チーム ID）"]
+    TE["チーム情報の変更<br/>…/edit"]
+    ML["選手一覧<br/>…/members"]
+    MN["選手の追加<br/>…/members/new"]
+    ME["選手の情報の修正<br/>…/members/（選手 ID）/edit"]
+    AM["代表者の追加・交代<br/>…/admins"]
+    MS["協会員の申告<br/>…/membership<br/>（年度更新の受付中だけ）"]
+  end
+
+  subgraph ent["申し込み"]
+    EF["大会に申し込む<br/>…/（大会 ID）/entry"]
+    EC["内容を確かめる<br/>…/entry/confirm"]
+    EV["申し込みの内容<br/>/（スラッグ）/entries/（申込 ID）"]
+    EE["内容を変える<br/>…/（申込 ID）/edit<br/>（締切前だけ）"]
+  end
+
+  TOP --> TL
+  TOP --> CT
+  TOP --> TN
+  TOP --> TP
+  TL --> TDET
+  TDET --> PL
+  TDET --> DOC
+  TDET -->|"受付中・ログイン済み・代表者"| EF
+  EF --> EC -->|"送信"| EV
+  EV --> EE --> EV
+  TP --> TE
+  TP --> ML
+  TP --> AM
+  TP --> MS
+  TP --> EV
+  ML --> MN
+  ML --> ME
+```
+
+### 0-3. サイトマップ（協会の管理者・サイト運営者）
+
+```mermaid
+flowchart TD
+  AD["協会の管理<br/>/（スラッグ）/admin"]
+
+  subgraph t["大会"]
+    TRN["大会の管理<br/>/（スラッグ）/admin/tournaments"]
+    TNW["大会を作る<br/>…/new"]
+    TED["大会の編集（部・締切・定員）<br/>…/（大会 ID）"]
+    DCS["大会の資料<br/>…/（大会 ID）/documents"]
+    ENT["申し込みの管理・要確認<br/>…/（大会 ID）/entries"]
+    CSV["CSV のダウンロード（API）<br/>/api/（スラッグ）/admin/tournaments/（大会 ID）/entries/exports"]
+  end
+
+  subgraph p["人とチーム"]
+    MEM["メンバー管理<br/>/（スラッグ）/admin/members"]
+    MD["人物のページ<br/>…/（人物 ID）"]
+    RV["登録の確認（同じ人かを見る）<br/>…/（人物 ID）/review"]
+    TMS["チーム管理<br/>/（スラッグ）/admin/teams"]
+    TMD["チームの詳細<br/>…/（チーム ID）"]
+    MSH["協会員の管理（年度更新）<br/>/（スラッグ）/admin/memberships"]
+  end
+
+  subgraph o["そのほか"]
+    CTS["問い合わせ管理<br/>/（スラッグ）/admin/contacts"]
+    ASC["協会の設定<br/>/（スラッグ）/admin/association"]
+    TRS["削除済みデータ（復元）<br/>/（スラッグ）/admin/trash"]
+  end
+
+  AD --> TRN --> TNW
+  TRN --> TED --> DCS
+  TED --> ENT --> CSV
+  AD --> MEM --> MD
+  MEM --> RV
+  AD --> TMS --> TMD
+  AD --> MSH
+  AD --> CTS
+  AD --> ASC
+  AD --> TRS
+
+  PF["運営管理<br/>/platform"] --> PA["協会の設定・管理者の招待<br/>/platform/associations/（協会 ID）"]
+  PF --> PC["サイトへの問い合わせ<br/>/platform/contacts"]
+  PA -->|"切り替えて入る（1 時間で切れる・記録が残る）"| AD
+```
+
+### 0-4. 運用の流れ（大会 1 回分）
+
+```mermaid
+flowchart TD
+  S1["① 大会を作る（できた直後は準備中）<br/>/（スラッグ）/admin/tournaments/new"]
+  S2["② 部を足す・締切・基準日・定員を決める<br/>…/admin/tournaments/（大会 ID）"]
+  S3["③ 資料（PDF）を置いて公開する<br/>…/（大会 ID）/documents<br/>個人情報が入っていないか確かめる"]
+  S4["④ 受付中にする<br/>公開ページ /（スラッグ）/tournaments に出る"]
+  S5["⑤ 代表者が申し込む<br/>/（スラッグ）/tournaments/（大会 ID）/entry"]
+  S6["⑥ 要確認を片づける・代理で直す<br/>…/（大会 ID）/entries"]
+  S7["⑦ 締切<br/>代表者は直せなくなる（管理者は可）"]
+  S8["⑧ 申し込みの管理から CSV を出す<br/>…/（大会 ID）/entries<br/>生年月日はチェックしたときだけ"]
+  S9["⑨ 組み合わせ表を資料に置く<br/>…/（大会 ID）/documents"]
+  S10["⑩ 大会当日"]
+  S11["⑪ 使い終わった CSV を消す<br/>資料を非公開に戻す"]
+
+  M1["申込の控えメール<br/>代表者へ"]
+  B1["日次ジョブ ②<br/>申込一覧を暗号化してバックアップ<br/>（締切の翌日〜開催日の翌日まで毎日）"]
+
+  S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11
+  S5 -.-> M1
+  S7 -.-> B1
+  S6 -.->|"同じ人かもしれない"| RV["登録の確認<br/>/（スラッグ）/admin/members"]
+```
+
+### 0-5. 1 年の流れ（協会員の年度更新）
+
+```mermaid
+flowchart LR
+  Y1["3 月まで<br/>受付の設定を決める<br/>年度・受付期間・承認を省くか"]
+  Y2["4/1 受付開始<br/>/（スラッグ）/admin/memberships<br/>代表者の画面に案内が出る"]
+  Y3["4〜6 月<br/>代表者が申告<br/>…/teams/（チーム ID）/membership"]
+  Y4["承認<br/>/（スラッグ）/admin/memberships<br/>まとめて承認・代理で申告"]
+  Y5["6/30 締切<br/>ここまでが通常の申告"]
+  Y6["7 月〜年度末<br/>追加の申告（増やすだけ）<br/>承認を省く年度でも承認が要る"]
+  Y7["3/31 年度の終わり"]
+
+  Y1 --> Y2 --> Y3 --> Y4 --> Y5 --> Y6 --> Y7
+  Y4 -.->|"承認のメール"| R1["代表者"]
+  T1["大会は 1 年を通して随時<br/>0-4 の流れ"] -.->|"開催日の年度で会員かを見る"| Y4
+```
+
+### 0-6. 裏で動くもの（ジョブ・メール・保存先）
+
+```mermaid
+flowchart LR
+  APP["サイト本体<br/>本番: Cloud Run / ローカル: pnpm dev"]
+
+  APP -->|"送信待ちに積む"| OB[("メールの送信待ち<br/>outbox（DB）")]
+  JM["メールの送信<br/>pnpm job:mail（数分おき）"] --> OB
+  JM --> MAIL["本番: Brevo<br/>ローカル: Mailpit http://localhost:8025"]
+
+  JD["日次の後始末<br/>pnpm job:daily（毎日 3:00）"] --> J2["② 締切後の申込一覧を暗号化してバックアップ"]
+  JD --> J3["③ 期限切れの確認番号・セッション・レート制限を消す"]
+  JD --> J4["④ 期限切れの招待を expired にして知らせる"]
+  JD --> J5["⑤ 保存期間を過ぎた記録を消す"]
+  JD --> J6["⑥ どこからも指されていない資料のファイルを消す"]
+
+  APP --> DB[("Postgres<br/>本番: Neon / ローカル: db:5432")]
+  APP --> ST["ファイル<br/>本番: R2（公開用・保管用・バックアップ用）<br/>ローカル: .local-storage/"]
+  APP --> LOG["操作ログ（1 リクエスト 1 行）<br/>本番: Cloud Logging（stdout）<br/>ローカル: logs/access.log"]
+  J2 --> ST
+  J6 --> ST
+  APP -.->|"つながっているか"| HC["/api/health"]
+```
+
 ## 1. 協会（テナント）を増やす
 
 1. 運営管理者で `/platform` を開く → 「協会を追加する」→ 協会名とスラッグ（URL に出る英数字）を入れる
