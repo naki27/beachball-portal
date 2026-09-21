@@ -3,11 +3,15 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: D-05 協会員区分の表示と 1d の仕上げ（**Phase 1a・1b・1c・1d は完了**。残りは X-01〜X-05 のデプロイ）
+- 最後に終わったタスク: 利用者の操作ログ（設計書外の追加。**Phase 1a・1b・1c・1d は完了**。残りは X-01〜X-05 のデプロイ）
 - 次のタスク: X-01 本番用の設定（Phase 0 の人の作業（GCP・Neon・Cloudflare・Brevo）が終わってから）
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### 利用者の操作ログ（2026-09-21）
+- やったこと: `src/proxy.ts` から `src/lib/access-log` を呼び、リクエストを 1 行 1 件（JSON Lines）で記録。時刻（日本時間）・メソッド・パス・クエリ（`q`・`name`・`code` などは値を `***`）・協会スラッグ・Server Action の id・セッションのハッシュ（`sessions.session_hash` と同じ）・IP・User-Agent。応答のステータスは残さない（proxy からは見えない）。`ACCESS_LOG_DRIVER`（`file` 既定 / `stdout` / `off`）で切り替え、file は月替わりか 100 MB で退避して 6 世代（半年）残す。ADR 0027・`docs/ops.md`「操作ログ」・`.env.example`
+- 動作確認: lint / typecheck / test（TZ 2 回・813 本）・`pnpm build`。dev サーバーに curl して `logs/access.log` に出ること、`q` が伏せ字になること、`/api/health` が記録されないこと、セッションのハッシュが `sha256` と一致することを確かめた
+- 次への申し送り: **X-01 で本番の環境変数に `ACCESS_LOG_DRIVER=stdout` を入れ、Cloud Logging の保存期間を 180 日にする**（Cloud Run はファイルが消えるのでファイル方式は使えない）
 ### C-01〜C-03・D-01〜D-05（2026-09-20）
 - やったこと:
   - C-01: 大会資料の表と RLS（マイグレーション 0016・0017）。アプリ経由のアップロード（10 MB 以下・Content-Type・先頭の `%PDF-` を検証。拡張子だけ `.pdf` の画像は通らない）、保管用（private）に保存、管理画面の一覧（種別・タイトル・公開／非公開・並び順・個人情報の注意書き）
