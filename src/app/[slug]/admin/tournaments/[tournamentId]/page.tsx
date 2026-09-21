@@ -1,13 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  type AgeWarningView,
-  CategoryManager,
-  type CategoryRowView,
-  type PresetRowView,
-} from "@/components/tournaments/category-manager";
+import { type AgeWarningView, CategoryManager, type CategoryRowView } from "@/components/tournaments/category-manager";
 import { TournamentForm, type TournamentFormValues } from "@/components/tournaments/tournament-form";
-import { PageMain } from "@/components/ui/layout";
+import { buttonClass } from "@/components/ui/button";
+import { PageHeader, PageMain, Section } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { type AdminCategoriesView, getCategoriesForAdmin } from "@/lib/admin/categories";
@@ -20,14 +16,17 @@ import type { Tournament } from "@/lib/repo/tournaments";
 import { categoryConditionText } from "@/lib/tournaments/category-text";
 import { DeleteTournament } from "./delete-tournament";
 
-type Props = { params: Promise<{ slug: string; tournamentId: string }>; searchParams: Promise<{ created?: string }> };
+type Props = {
+  params: Promise<{ slug: string; tournamentId: string }>;
+  searchParams: Promise<{ created?: string; added?: string; skipped?: string }>;
+};
 
 export const metadata: Metadata = { title: "大会の編集" };
 
 // 大会の編集・状態の変更と、出場する部の管理（設計書 §4.2 #13・§5.4）。テナント管理者だけ
 export default async function EditTournamentPage({ params, searchParams }: Props) {
   const { slug, tournamentId } = await params;
-  const { created } = await searchParams;
+  const { created, added, skipped } = await searchParams;
   const association = await requireAssociation(slug);
   const principal = await getPrincipal();
   if (!principal.userId) denyPage();
@@ -35,52 +34,64 @@ export default async function EditTournamentPage({ params, searchParams }: Props
   const { tournament } = view;
 
   return (
-    <PageMain>
+    <PageMain width="wide" gap="lg">
       <p>
-        <Link href={`/${association.slug}/admin/tournaments`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin/tournaments`} className="bb-link text-primary no-underline">
           ← 大会の管理
         </Link>
       </p>
-      <h1 className="text-2xl font-bold break-words">{tournament.name}</h1>
+      <PageHeader
+        title={tournament.name}
+        actions={
+          <>
+            <Link
+              href={`/${association.slug}/admin/tournaments/${tournament.id}/entries`}
+              className={buttonClass("secondary", false, "sm")}
+            >
+              申し込みの管理
+            </Link>
+            <Link
+              href={`/${association.slug}/admin/tournaments/${tournament.id}/documents`}
+              className={buttonClass("secondary", false, "sm")}
+            >
+              大会の資料
+            </Link>
+          </>
+        }
+      />
       {created ? <Message kind="success" title="大会を作りました" /> : null}
-      <p className="flex flex-col gap-2">
-        <Link href={`/${association.slug}/admin/tournaments/${tournament.id}/entries`} className="underline underline-offset-2">
-          申し込みの管理（一覧・CSV）
-        </Link>
-        <Link href={`/${association.slug}/admin/tournaments/${tournament.id}/documents`} className="underline underline-offset-2">
-          大会の資料（PDF）
-        </Link>
-      </p>
-      <TournamentForm
-        slug={association.slug}
-        mode="edit"
-        tournamentId={tournament.id}
-        initial={toFormValues(tournament)}
-        hasCategoryDeadlines={view.categories.some((c) => c.entryEndAt !== null)}
-      />
-      <hr className="border-border" />
-      <CategoryManager
-        slug={association.slug}
-        tournamentId={tournament.id}
-        categories={view.categories.map(toCategoryRow)}
-        presets={view.presets.filter((p) => !p.added).map((p) => toPresetRow(p, tournament.ageReferenceDate))}
-        ageWarnings={view.ageWarnings.map(toAgeWarning)}
-        tournamentEntryEndText={dateText(todayInTokyo(tournament.entryEndAt))}
-        tournamentAgeReferenceText={dateText(tournament.ageReferenceDate)}
-      />
-      <hr className="border-border" />
-      <DeleteTournament
-        slug={association.slug}
-        tournamentId={tournament.id}
-        entryCount={view.categories.reduce((total, c) => total + c.entries, 0)}
-      />
-      <p className="text-sm text-muted">
-        候補に出す部は{" "}
-        <Link href={`/${association.slug}/admin/association`} className="underline underline-offset-2">
-          よく使う部の設定
-        </Link>{" "}
-        で増やせます。
-      </p>
+      <Section id="tournament" title="大会の内容">
+        <TournamentForm
+          slug={association.slug}
+          mode="edit"
+          tournamentId={tournament.id}
+          initial={toFormValues(tournament)}
+          hasCategoryDeadlines={view.categories.some((c) => c.entryEndAt !== null)}
+        />
+      </Section>
+      <Section
+        id="categories"
+        title="出場する部"
+        description="候補に出す部は「協会の設定」の「よく使う部」で増やせます。"
+      >
+        <CategoryManager
+          slug={association.slug}
+          tournamentId={tournament.id}
+          categories={view.categories.map(toCategoryRow)}
+          ageWarnings={view.ageWarnings.map(toAgeWarning)}
+          tournamentEntryEndText={dateText(todayInTokyo(tournament.entryEndAt))}
+          tournamentAgeReferenceText={dateText(tournament.ageReferenceDate)}
+          addedCount={Number(added ?? 0)}
+          skippedCount={Number(skipped ?? 0)}
+        />
+      </Section>
+      <Section id="delete" title="この大会を削除する">
+        <DeleteTournament
+          slug={association.slug}
+          tournamentId={tournament.id}
+          entryCount={view.categories.reduce((total, c) => total + c.entries, 0)}
+        />
+      </Section>
     </PageMain>
   );
 }
@@ -102,10 +113,6 @@ function toCategoryRow(c: AdminCategoriesView["categories"][number]): CategoryRo
     effectiveEntryEndText: dateText(todayInTokyo(c.effectiveEntryEndAt)),
     effectiveAgeReferenceText: dateText(c.effectiveAgeReferenceDate),
   };
-}
-
-function toPresetRow(p: AdminCategoriesView["presets"][number], referenceDate: PlainDate): PresetRowView {
-  return { id: p.id, label: p.labelDefault, condition: categoryConditionText(p, referenceDate) };
 }
 
 // 年齢だけを渡す（生年月日は画面にも API にも出さない・§5.16）

@@ -1,13 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
+import { Badge, Card, EmptyState, Toolbar } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
-import { TextField } from "@/components/ui/text-field";
-import { parsePeriodInput, type PeriodField } from "@/lib/memberships/period-input";
+import { type PeriodField, parsePeriodInput } from "@/lib/memberships/period-input";
+import { type PeriodApiBody, type PeriodDraft, PeriodFields } from "./period-fields";
 
-// 年度更新の受付（設計書 §5.12「受付開始」）。テナント管理者だけ
+// 年度更新の受付の一覧（設計書 §5.12「受付開始」）。テナント管理者だけ
+// 受付を始めるのは別のページ（…/memberships/new・§4.3「一覧と登録はページを分ける」）
 // 画面には「来年度」「次年度」と書かず、年度の数字で書く（§4.4）
 
 export type PeriodRow = {
@@ -24,34 +27,50 @@ export type PeriodRow = {
   declaredTeams: number;
 };
 
-type Draft = { year: string; opensDate: string; closesDate: string; autoApprove: boolean };
+const STATE_TONE: Record<string, "brand" | "neutral"> = { 受付中: "brand" };
 
-type ApiBody = { error?: { message?: string; field?: PeriodField } };
-
-export function PeriodManager({ slug, periods, nextYear }: { slug: string; periods: PeriodRow[]; nextYear: number }) {
+export function PeriodManager({
+  slug,
+  periods,
+  openedYear = null,
+}: {
+  slug: string;
+  periods: PeriodRow[];
+  // 受付を始めたばかりの年度。1 秒だけ強調する（§4.5「内容が変わった」）
+  openedYear?: number | null;
+}) {
   const router = useRouter();
   const base = `/api/${slug}/admin/memberships`;
-  const empty: Draft = { year: String(nextYear), opensDate: "", closesDate: "", autoApprove: false };
-  const [draft, setDraft] = useState<Draft>(empty);
+  const [draft, setDraft] = useState<PeriodDraft>({ year: "", opensDate: "", closesDate: "", autoApprove: false });
   const [editingYear, setEditingYear] = useState<number | null>(null);
   const [errors, setErrors] = useState<Partial<Record<PeriodField, string>>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
 
-  async function send(key: string, url: string, method: string, body: unknown, message: string): Promise<void> {
+  const opened = openedYear ? periods.find((row) => row.year === openedYear) : undefined;
+
+  async function save(year: number): Promise<void> {
     if (pending) return;
     setErrors({});
     setNotice(null);
     setDone(null);
-    setPending(key);
+    const parsed = parsePeriodInput({ ...draft, year: String(year) });
+    if (!parsed.ok) {
+      setErrors({ [parsed.field]: parsed.message });
+      return;
+    }
+    setPending(`edit:${year}`);
     try {
-      const response = await fetch(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-      const parsedBody = (await response.json().catch(() => null)) as ApiBody | null;
+      const response = await fetch(`${base}/${year}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      const parsedBody = (await response.json().catch(() => null)) as PeriodApiBody | null;
       if (response.ok) {
-        setDone(message);
+        setDone(`${year}年度の受付を保存しました`);
         setEditingYear(null);
-        setDraft(empty);
         router.refresh();
         return;
       }
@@ -64,16 +83,6 @@ export function PeriodManager({ slug, periods, nextYear }: { slug: string; perio
     }
   }
 
-  function submit(kind: "open" | "edit", year?: number): void {
-    const parsed = parsePeriodInput(kind === "open" ? draft : { ...draft, year: String(year) });
-    if (!parsed.ok) {
-      setErrors({ [parsed.field]: parsed.message });
-      return;
-    }
-    if (kind === "open") void send("open", base, "POST", draft, `${draft.year}年度の受付を始めました`);
-    else void send(`edit:${year}`, `${base}/${year}`, "PATCH", draft, `${year}年度の受付を保存しました`);
-  }
-
   function startEdit(row: PeriodRow): void {
     setErrors({});
     setNotice(null);
@@ -83,117 +92,71 @@ export function PeriodManager({ slug, periods, nextYear }: { slug: string; perio
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
+      {opened ? <Message kind="success" title={`${opened.yearText}の受付を始めました`} /> : null}
       {notice ? <Message kind="error" title={notice} /> : null}
       {done ? <Message kind="success" title={done} /> : null}
 
-      <ul className="flex flex-col gap-3">
-        {periods.map((row) => (
-          <li key={row.year} className="flex flex-col gap-2 rounded-md border border-border p-3">
-            {editingYear === row.year ? (
-              <>
-                <p className="font-bold">{row.yearText}の受付</p>
-                <PeriodFields draft={draft} setDraft={setDraft} errors={errors} idPrefix={`edit-${row.year}`} showYear={false} />
-                <div className="flex flex-wrap gap-2">
-                  <Button pending={pending === `edit:${row.year}`} pendingLabel="保存しています…" onClick={() => submit("edit", row.year)}>
-                    保存する
-                  </Button>
-                  <Button variant="secondary" onClick={() => setEditingYear(null)}>
-                    やめる
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-lg font-bold">{row.yearText}</span>
-                  <span className="text-sm font-semibold">{row.stateText}</span>
-                </div>
-                <p className="text-sm">{row.periodText}</p>
-                <p className="text-sm text-muted">
-                  協会員の登録をするチーム {row.targetTeams} 組のうち、申告が届いているのは {row.declaredTeams} 組
-                  {row.autoApprove ? "・承認を省く設定です" : ""}
-                </p>
-                <div>
-                  <Button variant="secondary" onClick={() => startEdit(row)}>
-                    受付の期間を直す
-                  </Button>
-                </div>
-              </>
-            )}
-          </li>
-        ))}
-        {periods.length === 0 ? <li className="text-muted">まだ受付を始めた年度はありません。</li> : null}
-      </ul>
-
-      {editingYear === null ? (
-        <div className="flex flex-col gap-3 rounded-md border border-border p-3">
-          <h2 className="font-bold">受付を始める</h2>
-          <PeriodFields draft={draft} setDraft={setDraft} errors={errors} idPrefix="new" showYear />
-          <Button pending={pending === "open"} pendingLabel="始めています…" onClick={() => submit("open")} fullWidth>
+      {periods.length > 0 ? (
+        <Toolbar>
+          <span className="text-sm font-semibold">受付を始めた年度 {periods.length} 件</span>
+          <Link href={`/${slug}/admin/memberships/new`} className={`${buttonClass("primary", false, "sm")} ml-auto`}>
             受付を始める
-          </Button>
-          <p className="text-sm text-muted">
-            受付を始めると、協会員の登録をするチームの代表者に案内が出ます（メールの一斉送信は、いまは行いません）。
-          </p>
-        </div>
+          </Link>
+        </Toolbar>
       ) : null}
-    </section>
-  );
-}
 
-function PeriodFields({
-  draft,
-  setDraft,
-  errors,
-  idPrefix,
-  showYear,
-}: {
-  draft: Draft;
-  setDraft: (next: Draft) => void;
-  errors: Partial<Record<PeriodField, string>>;
-  idPrefix: string;
-  showYear: boolean;
-}) {
-  return (
-    <>
-      {showYear ? (
-        <TextField
-          id={`${idPrefix}-year`}
-          label="年度"
-          inputMode="numeric"
-          value={draft.year}
-          error={errors.year}
-          hint="4 月から始まる年度の、始まる年の数（2027年度なら 2027）"
-          onChange={(event) => setDraft({ ...draft, year: event.target.value })}
+      {periods.length === 0 ? (
+        <EmptyState
+          title="まだ受付を始めた年度はありません"
+          description="受付を始めると、協会員の登録をするチームの代表者に案内が出ます。"
+          action={
+            <Link href={`/${slug}/admin/memberships/new`} className={buttonClass()}>
+              受付を始める
+            </Link>
+          }
         />
-      ) : null}
-      <TextField
-        id={`${idPrefix}-opens`}
-        label="受付の開始日"
-        type="date"
-        value={draft.opensDate}
-        error={errors.opensDate}
-        onChange={(event) => setDraft({ ...draft, opensDate: event.target.value })}
-      />
-      <TextField
-        id={`${idPrefix}-closes`}
-        label="受付の締切日"
-        type="date"
-        value={draft.closesDate}
-        error={errors.closesDate}
-        hint="締切日の 23 時 59 分まで受け付けます"
-        onChange={(event) => setDraft({ ...draft, closesDate: event.target.value })}
-      />
-      <label className="flex min-h-12 items-center gap-2">
-        <input
-          type="checkbox"
-          checked={draft.autoApprove}
-          onChange={(event) => setDraft({ ...draft, autoApprove: event.target.checked })}
-          className="size-6"
-        />
-        <span className="font-semibold">承認を省く（申告がそのまま協会員になる）</span>
-      </label>
-    </>
+      ) : (
+        <ul className="bb-stagger grid gap-3 md:grid-cols-2">
+          {periods.map((row) => (
+            <li key={row.year}>
+              <Card className={`flex h-full flex-col gap-2 ${row.year === openedYear ? "bb-highlight" : ""}`}>
+                {editingYear === row.year ? (
+                  <>
+                    <p className="font-bold">{row.yearText}の受付</p>
+                    <PeriodFields draft={draft} setDraft={setDraft} errors={errors} idPrefix={`edit-${row.year}`} showYear={false} />
+                    <div className="flex flex-wrap gap-2">
+                      <Button pending={pending === `edit:${row.year}`} pendingLabel="保存しています…" onClick={() => void save(row.year)}>
+                        保存する
+                      </Button>
+                      <Button variant="secondary" onClick={() => setEditingYear(null)}>
+                        やめる
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="text-lg font-bold">{row.yearText}</span>
+                      <Badge tone={STATE_TONE[row.stateText] ?? "neutral"}>{row.stateText}</Badge>
+                    </div>
+                    <p className="text-sm">{row.periodText}</p>
+                    <p className="text-sm text-muted">
+                      協会員の登録をするチーム {row.targetTeams} 組のうち、申告が届いているのは {row.declaredTeams} 組
+                      {row.autoApprove ? "・承認を省く設定です" : ""}
+                    </p>
+                    <div className="mt-auto pt-2">
+                      <Button variant="secondary" size="sm" onClick={() => startEdit(row)}>
+                        受付の期間を直す
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

@@ -43,6 +43,20 @@ test("/sawara/admin は 403。ログインボタンと、協会のトップへ�
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
+// 登録のページ（U-04 で一覧から分けたもの）も、一覧と同じく未ログインは 403（リダイレクトしない・§3.1）
+test("登録のページは未ログインなら 403", async ({ page }) => {
+  const id = "00000000-0000-4000-8000-000000000000";
+  for (const path of [
+    "/sawara/admin/memberships/new",
+    "/sawara/admin/association/presets/new",
+    `/sawara/admin/tournaments/${id}/documents/new`,
+    `/sawara/admin/tournaments/${id}/categories/new`,
+  ]) {
+    const response = await page.goto(path);
+    expect(response?.status(), path).toBe(403);
+  }
+});
+
 test("robots.txt は全部 Disallow", async ({ request }) => {
   const response = await request.get("/robots.txt");
   expect(response.status()).toBe(200);

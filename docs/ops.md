@@ -9,62 +9,90 @@
 
 この章は全体を見渡すための図だけ。**具体的な手順は 1 章以降**にある。
 図の中の `（スラッグ）` は協会ごとの英数字（早良区協会なら `sawara`）。`（大会 ID）` などは実際の ID に置き換わる。
-子の画面は親の URL のあとを `…` で省いて書いている。
+子の画面は親の URL のあとを `…` で省いて書いている。色は下の凡例で全図共通。
+
+```mermaid
+flowchart LR
+  L1["登場人物"]:::actor
+  L2["公開ページ<br/>（ログイン不要）"]:::public
+  L3["ログイン・アカウント"]:::auth
+  L4["代表者・チームの操作"]:::rep
+  L5["申し込み"]:::entry
+  L6["協会の管理者の操作"]:::admin
+  L7["運営管理者（ones）の操作"]:::platform
+  L8["バックエンド（ジョブ・状態）"]:::job
+  L9["データの保管先"]:::store
+
+  classDef actor fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+  classDef public fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef auth fill:#e0e7ff,stroke:#4f46e5,color:#312e81
+  classDef rep fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef entry fill:#ccfbf1,stroke:#0d9488,color:#134e4a
+  classDef admin fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef platform fill:#ffe4e6,stroke:#e11d48,color:#881337
+  classDef job fill:#e2e8f0,stroke:#475569,color:#1e293b
+  classDef store fill:#cffafe,stroke:#0891b2,color:#164e63
+```
 
 ### 0-1. 登場人物と入口
 
 ```mermaid
 flowchart LR
-  P["選手・保護者・一般<br/>（ログインなしで見られる）"] --> TOP
-  R["チームの代表者"] --> LI
-  A["協会の管理者（役員）<br/>1 協会 5 名まで"] --> LI
-  O["サイト運営者（ones）"] --> LI
+  P["選手・保護者・一般<br/>（ログインなしで見られる）"]:::actor --> TOP
+  R["チームの代表者"]:::actor --> LI
+  A["協会の管理者（役員）<br/>1 協会 5 名まで"]:::actor --> LI
+  O["サイト運営者（ones）"]:::actor --> LI
 
-  LI["ログイン<br/>/login"] -->|"6 桁の確認番号をメールで受け取る"| CODE["確認番号の入力<br/>/login/code"]
-  CODE -.->|"届かないとき"| HELP["メールが届かないとき<br/>/login/help"]
-  CODE --> HOME["自分が関わる協会の一覧<br/>/"]
+  LI["ログイン<br/>/login"]:::auth -->|"6 桁の確認番号をメールで受け取る"| CODE["確認番号の入力<br/>/login/code"]:::auth
+  CODE -.->|"届かないとき"| HELP["メールが届かないとき<br/>/login/help"]:::auth
+  CODE --> HOME["自分が関わる協会の一覧<br/>/"]:::auth
 
-  HOME --> TOP["協会のトップ<br/>/（スラッグ）"]
-  HOME --> MY["マイページ<br/>/mypage"]
-  HOME --> PF["運営管理<br/>/platform<br/>（運営管理者だけ）"]
+  HOME --> TOP["協会のトップ<br/>/（スラッグ）"]:::public
+  HOME --> MY["マイページ<br/>/mypage"]:::auth
+  HOME --> PF["運営管理<br/>/platform<br/>（運営管理者だけ）"]:::platform
 
-  MY --> EM["メールアドレスの変更<br/>/mypage/email"]
-  MY --> DEL["アカウントの削除<br/>/mypage/delete"]
-  MY --> INV["招待（参加する・断る）<br/>/invitations"]
+  MY --> EM["メールアドレスの変更<br/>/mypage/email"]:::auth
+  MY --> DEL["アカウントの削除<br/>/mypage/delete"]:::auth
+  MY --> INV["招待（参加する・断る）<br/>/invitations"]:::auth
 
-  FOOT["どの画面のフッタからも<br/>サイトへの問い合わせ /contact<br/>プライバシーポリシー /privacy<br/>利用規約 /terms"]
+  FOOT["どの画面のフッタからも<br/>サイトへの問い合わせ /contact<br/>プライバシーポリシー /privacy<br/>利用規約 /terms"]:::public
+
+  classDef actor fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+  classDef public fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef auth fill:#e0e7ff,stroke:#4f46e5,color:#312e81
+  classDef platform fill:#ffe4e6,stroke:#e11d48,color:#881337
 ```
 
 ### 0-2. サイトマップ（選手・代表者が使う画面）
 
 ```mermaid
 flowchart TD
-  TOP["協会のトップ<br/>/（スラッグ）"]
+  TOP["協会のトップ<br/>/（スラッグ）"]:::public
 
   subgraph pub["ログインなしで見られる"]
-    TL["大会一覧<br/>/（スラッグ）/tournaments"]
-    TDET["大会の詳細<br/>…/tournaments/（大会 ID）"]
-    PL["参加チーム一覧<br/>…/（大会 ID）/entries"]
-    DOC["大会の資料 PDF<br/>…/（大会 ID）/documents/（資料 ID）"]
-    CT["協会への問い合わせ<br/>/（スラッグ）/contact"]
+    TL["大会一覧<br/>/（スラッグ）/tournaments"]:::public
+    TDET["大会の詳細<br/>…/tournaments/（大会 ID）"]:::public
+    PL["参加チーム一覧<br/>…/（大会 ID）/entries"]:::public
+    DOC["大会の資料 PDF<br/>…/（大会 ID）/documents/（資料 ID）"]:::public
+    CT["協会への問い合わせ<br/>/（スラッグ）/contact"]:::public
   end
 
   subgraph rep["代表者（ログインが要る）"]
-    TN["チームの登録<br/>/（スラッグ）/teams/new"]
-    TP["チームのページ<br/>/（スラッグ）/teams/（チーム ID）"]
-    TE["チーム情報の変更<br/>…/edit"]
-    ML["選手一覧<br/>…/members"]
-    MN["選手の追加<br/>…/members/new"]
-    ME["選手の情報の修正<br/>…/members/（選手 ID）/edit"]
-    AM["代表者の追加・交代<br/>…/admins"]
-    MS["協会員の申告<br/>…/membership<br/>（年度更新の受付中だけ）"]
+    TN["チームの登録<br/>/（スラッグ）/teams/new"]:::rep
+    TP["チームのページ<br/>/（スラッグ）/teams/（チーム ID）"]:::rep
+    TE["チーム情報の変更<br/>…/edit"]:::rep
+    ML["選手一覧<br/>…/members"]:::rep
+    MN["選手の追加<br/>…/members/new"]:::rep
+    ME["選手の情報の修正<br/>…/members/（選手 ID）/edit"]:::rep
+    AM["代表者の追加・交代<br/>…/admins"]:::rep
+    MS["協会員の申告<br/>…/membership<br/>（年度更新の受付中だけ）"]:::rep
   end
 
   subgraph ent["申し込み"]
-    EF["大会に申し込む<br/>…/（大会 ID）/entry"]
-    EC["内容を確かめる<br/>…/entry/confirm"]
-    EV["申し込みの内容<br/>/（スラッグ）/entries/（申込 ID）"]
-    EE["内容を変える<br/>…/（申込 ID）/edit<br/>（締切前だけ）"]
+    EF["大会に申し込む<br/>…/（大会 ID）/entry"]:::entry
+    EC["内容を確かめる<br/>…/entry/confirm"]:::entry
+    EV["申し込みの内容<br/>/（スラッグ）/entries/（申込 ID）"]:::entry
+    EE["内容を変える<br/>…/（申込 ID）/edit<br/>（締切前だけ）"]:::entry
   end
 
   TOP --> TL
@@ -84,6 +112,10 @@ flowchart TD
   TP --> EV
   ML --> MN
   ML --> ME
+
+  classDef public fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef rep fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef entry fill:#ccfbf1,stroke:#0d9488,color:#134e4a
 ```
 
 ### 0-3. サイトマップ（協会の管理者・サイト運営者）

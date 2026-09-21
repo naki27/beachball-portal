@@ -67,9 +67,13 @@ test("管理者が大会冊子を上げ、未ログインで開ける。非公�
     const tournamentId = new URL(page.url()).pathname.split("/").pop() ?? "";
 
     // 資料の画面へ。注意書きが出ている
-    await page.getByRole("link", { name: "大会の資料（PDF）" }).click();
+    await page.getByRole("link", { name: "大会の資料" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("大会の資料", { timeout: 20_000 });
     await expect(page.getByText("個人情報が含まれていないか確認してください")).toBeVisible();
+
+    // 追加は別のページ（U-04・§4.3「一覧と登録はページを分ける」）
+    await page.getByRole("link", { name: "資料を追加する" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("資料を追加する", { timeout: 20_000 });
 
     // 拡張子だけ .pdf にした画像は拒まれる
     await page.getByLabel("PDF のファイル").setInputFiles({ name: "偽物.pdf", mimeType: "application/pdf", buffer: pngBytes() });
@@ -80,6 +84,8 @@ test("管理者が大会冊子を上げ、未ログインで開ける。非公�
     // ちゃんとした PDF は上がる
     await page.getByLabel("PDF のファイル").setInputFiles({ name: "冊子.pdf", mimeType: "application/pdf", buffer: pdfBytes(title) });
     await page.getByRole("button", { name: "追加する" }).click();
+    // 追加できたら一覧へ戻り、足した行が強調される
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("大会の資料", { timeout: 20_000 });
     await expect(page.getByText(`${title}を追加しました`)).toBeVisible({ timeout: 20_000 });
     const row = page.getByRole("listitem").filter({ hasText: title });
     await expect(row).toContainText("公開中");

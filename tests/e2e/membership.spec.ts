@@ -84,11 +84,16 @@ test("受付を開いて、代表者が申告し、運営が承認する", async
     // 1. 運営が受付を開く（今日を含む期間）
     await login(page, request, adminEmail, "/sawara/admin/memberships");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("協会員の管理", { timeout: 20_000 });
+    // 受付を始めるのは別のページ（U-04・§4.3「一覧と登録はページを分ける」）
+    await page.getByRole("link", { name: "受付を始める" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("受付を始める", { timeout: 20_000 });
     await page.locator("input#new-year").waitFor();
     await page.getByLabel("年度").fill(String(year));
     await page.getByLabel("受付の開始日").fill(`${year}-04-01`);
     await page.getByLabel("受付の締切日").fill(`${year + 1}-03-31`);
     await page.getByRole("button", { name: "受付を始める" }).click();
+    // 始めたら一覧へ戻る
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("協会員の管理", { timeout: 20_000 });
     await expect(page.getByText(`${year}年度の受付を始めました`)).toBeVisible({ timeout: 20_000 });
 
     // 2. 代表者がチームと選手を作る（協会員の登録をするチーム）

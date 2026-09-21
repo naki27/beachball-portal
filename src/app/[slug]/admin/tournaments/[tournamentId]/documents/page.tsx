@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DocumentManager, type DocumentRow } from "@/components/tournaments/document-manager";
-import { PageMain } from "@/components/ui/layout";
+import { PageHeader, PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { type AdminDocumentsView, getDocumentsForAdmin } from "@/lib/admin/documents";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -11,13 +11,17 @@ import { requireAssociation } from "@/lib/page/require-association";
 import { pageErrorFrom } from "@/lib/page/team-errors";
 import { getStorage } from "@/lib/storage";
 
-type Props = { params: Promise<{ slug: string; tournamentId: string }> };
+type Props = {
+  params: Promise<{ slug: string; tournamentId: string }>;
+  searchParams: Promise<{ added?: string }>;
+};
 
 export const metadata: Metadata = { title: "大会の資料" };
 
-// 大会資料の管理（設計書 §4.2 #13・§5.9）。テナント管理者だけ
-export default async function TournamentDocumentsPage({ params }: Props) {
+// 大会資料の一覧（設計書 §4.2 #13・§5.9）。テナント管理者だけ。追加は …/documents/new
+export default async function TournamentDocumentsPage({ params, searchParams }: Props) {
   const { slug, tournamentId } = await params;
+  const { added } = await searchParams;
   const association = await requireAssociation(slug);
   const principal = await getPrincipal();
   if (!principal.userId) denyPage();
@@ -27,18 +31,19 @@ export default async function TournamentDocumentsPage({ params }: Props) {
   const storage = getStorage();
 
   return (
-    <PageMain>
+    <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/admin/tournaments/${view.tournament.id}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin/tournaments/${view.tournament.id}`} className="bb-link text-primary no-underline">
           ← {view.tournament.name}
         </Link>
       </p>
-      <h1 className="text-2xl font-bold break-words">大会の資料</h1>
+      <PageHeader eyebrow={view.tournament.name} title="大会の資料" />
       <DocumentManager
         slug={association.slug}
         tournamentId={view.tournament.id}
         documents={view.documents.map((row) => toRow(row, storage.publicUrl.bind(storage)))}
         isDraftTournament={view.tournament.status === "draft"}
+        addedId={added ?? null}
       />
     </PageMain>
   );

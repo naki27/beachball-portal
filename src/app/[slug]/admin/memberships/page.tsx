@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ApprovalList } from "@/components/memberships/approval-list";
 import { PeriodManager, type PeriodRow } from "@/components/memberships/period-manager";
-import { PageMain } from "@/components/ui/layout";
+import { PageHeader, PageMain, Section } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { type AdminMembershipsView, getMembershipsForAdmin, getRenewalStatusForAdmin } from "@/lib/admin/memberships";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -13,13 +13,14 @@ import { requireAssociation } from "@/lib/page/require-association";
 import { pageErrorFrom } from "@/lib/page/team-errors";
 import { deadlineText } from "@/lib/tournaments/deadline-text";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ opened?: string }> };
 
 export const metadata: Metadata = { title: "協会員の管理" };
 
 // 年度更新の受付（設計書 §4.2 #17・§5.12「受付開始」）。テナント管理者だけ
-export default async function AdminMembershipsPage({ params }: Props) {
+export default async function AdminMembershipsPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const { opened } = await searchParams;
   const association = await requireAssociation(slug);
   const principal = await getPrincipal();
   if (!principal.userId) denyPage();
@@ -30,29 +31,37 @@ export default async function AdminMembershipsPage({ params }: Props) {
   const status = await getRenewalStatusForAdmin(getDb(), actor, association.id, view.currentYear, now).catch(pageErrorFrom);
 
   return (
-    <PageMain>
+    <PageMain width="wide" gap="lg">
       <p>
-        <Link href={`/${association.slug}/admin`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin`} className="bb-link text-primary no-underline">
           ← {association.name}の管理
         </Link>
       </p>
-      <h1 className="text-2xl font-bold">協会員の管理</h1>
-      <p className="text-sm text-muted">いまは{periodYearText(view.currentYear)}です（{view.fiscalYearStartMonth}月に始まる年度）。</p>
-      <PeriodManager slug={association.slug} periods={view.periods.map((row) => toRow(row, now))} nextYear={view.currentYear} />
-      <hr className="border-border" />
-      <h2 className="text-xl font-bold">{view.currentYear}年度の申告</h2>
-      {status.state === null ? (
-        <p className="text-muted">{view.currentYear}年度の受付はまだ始めていません。</p>
-      ) : (
-        <ApprovalList
+      <PageHeader
+        title="協会員の管理"
+        lead={`いまは${periodYearText(view.currentYear)}です（${view.fiscalYearStartMonth}月に始まる年度）。`}
+      />
+      <Section id="periods" title="年度更新の受付">
+        <PeriodManager
           slug={association.slug}
-          year={status.year}
-          pending={status.pending}
-          additional={status.additional}
-          undeclared={status.undeclared}
-          approvedCount={status.approvedCount}
+          periods={view.periods.map((row) => toRow(row, now))}
+          openedYear={opened ? Number(opened) : null}
         />
-      )}
+      </Section>
+      <Section id="declarations" title={`${view.currentYear}年度の申告`}>
+        {status.state === null ? (
+          <p className="text-muted">{view.currentYear}年度の受付はまだ始めていません。</p>
+        ) : (
+          <ApprovalList
+            slug={association.slug}
+            year={status.year}
+            pending={status.pending}
+            additional={status.additional}
+            undeclared={status.undeclared}
+            approvedCount={status.approvedCount}
+          />
+        )}
+      </Section>
     </PageMain>
   );
 }

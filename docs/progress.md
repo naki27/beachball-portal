@@ -8,6 +8,17 @@
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
+### U-01・U-04（2026-09-21）
+- 背景: 利用者から「PC で使いにくい・一覧と登録が同じページ・見た目が素っ気ない」の指摘。**ADR 0028** と設計書 **v0.9.6**（§4.3・§4.5）で方針を変えた。タスク U-01〜U-06 を `docs/p0-tasks.md` §7 に登録
+- U-01: 配色を白・`#42B036`（`--brand-500`）・ティールに刷新。`#42B036` は白文字だと 2.8:1 なので、**文字と塗りつぶしのボタンは `--brand-700`（5.37:1）**。角丸・影・イージングのトークンを足し、`@theme inline` から Tailwind のクラスで使えるようにした。器の共通部品（`PageMain` / `PageHeader` / `Card` / `Section` / `Toolbar` / `ActionBar` / `Badge` / `EmptyState`）を作り、`max-w-xl` の直書き 53 か所を置き換え。入力欄の枠を 3.1:1 に、補足の文字を 5.96:1 に濃くした。ヘッダは上に貼り付き＋印、フッタと合わせて PC 幅（`max-w-7xl`）
+- U-04: 「一覧＋追加フォーム」の 4 か所を分けた。`…/tournaments/[id]/documents/new`、`…/tournaments/[id]/categories/new`、`…/admin/association/presets/new`、`…/admin/memberships/new`。入力欄は `*-fields.tsx` に出して一覧の「直す」と共用。追加のあとは一覧へ戻り、成功のメッセージと足した行の強調（`?added=…`）
+- 動作確認: lint / typecheck / test（TZ 2 回・813 本）、E2E は documents・admin-tournaments・membership・association・ui を WebKit 375×667 で流した（ファイルを分けて）
+- 次への申し送り:
+  - **大会の部の追加だけ、足した行の強調がない**。`addCategoriesFromPresets` が件数しか返さないため（成功のメッセージは出る）。ID を返す形にするなら U-05 か別タスクで
+  - `/dev/ui` に色と器のカタログを足した。U-02・U-03 はここを見ながら進める
+  - `tests/e2e/membership.spec.ts` の `logout()` は `router.refresh()` と競合してまれに落ちる（再実行で通る。U-01 以前からの挙動）
+  - **選手側・管理画面の各ページはまだ 1 カラムのまま**（U-02・U-03 でブレークポイントを入れる）
+
 ### 運用フロー図（2026-09-21）
 - やったこと: `docs/ops.md` の先頭に「0. 全体像」を追加。mermaid の図 6 枚（登場人物と入口 / サイトマップ 利用者 / サイトマップ 管理者・運営 / 大会 1 回分の流れ / 1 年の流れ・年度更新 / ジョブ・メール・保存先）。URL は `src/app` の実際のルートから起こした。**画面を増やしたらここも直す**
 ### 利用者の操作ログ（2026-09-21）
