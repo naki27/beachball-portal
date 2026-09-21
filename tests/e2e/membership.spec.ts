@@ -34,7 +34,11 @@ async function latestCode(request: Req, email: string): Promise<string> {
 }
 
 async function logout(page: Page) {
-  await page.goto("/mypage");
+  // 直前の操作の router.refresh() がまだ走っていると goto が「別の遷移に割り込まれた」で落ちる。
+  // 落ちたらもう一度だけ開く（承認のあとにログアウトする流れで起きる）
+  await page.goto("/mypage").catch(async () => {
+    await page.goto("/mypage");
+  });
   await page.getByRole("button", { name: "ログアウト" }).click();
   await expect(page).toHaveURL(/\/$|\/login/, { timeout: 20_000 });
 }

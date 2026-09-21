@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageMain } from "@/components/ui/layout";
+import { Card, PageHeader, PageMain } from "@/components/ui/layout";
 import { getMembership, getPrincipal } from "@/lib/auth/principal";
 import { checkAccess, resolveRole } from "@/lib/authz";
 import { assertAccessOrDeny } from "@/lib/page/forbidden";
@@ -20,31 +20,51 @@ export default async function AdminHome({ params }: Props) {
   const role = resolveRole(principal, membership, { associationId: association.id });
   assertAccessOrDeny(checkAccess(role, "manageTournaments", principal));
 
-  const itemClass = "flex min-h-14 items-center rounded-md border border-border px-4 font-semibold no-underline hover:bg-surface";
   return (
-    <PageMain>
-      <h1 className="text-2xl font-bold">{association.name}の管理</h1>
-      <nav aria-label="管理の項目" className="flex flex-col gap-3">
-        <Link href={`/${association.slug}/admin/tournaments`} className={itemClass}>
-          大会の管理
+    <PageMain width="full">
+      <PageHeader title={`${association.name}の管理`} lead="大会・チーム・協会員の登録をまとめて行えます。" />
+      <nav aria-label="管理の入口" className="bb-stagger grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Link href={`/${association.slug}/admin/tournaments`} className="block h-full no-underline">
+          <Card interactive className="flex h-full flex-col gap-1">
+            <span className="text-lg font-bold">大会の管理</span>
+            <span className="text-sm text-muted">大会を作る・直す。部・締切・定員・資料</span>
+          </Card>
         </Link>
-        <Link href={`/${association.slug}/admin/teams`} className={itemClass}>
-          チーム管理
+        <Link href={`/${association.slug}/admin/teams`} className="block h-full no-underline">
+          <Card interactive className="flex h-full flex-col gap-1">
+            <span className="text-lg font-bold">チーム管理</span>
+            <span className="text-sm text-muted">チームの一覧、代表者の付け替え、無効化</span>
+          </Card>
         </Link>
-        <Link href={`/${association.slug}/admin/members`} className={itemClass}>
-          メンバー管理
+        <Link href={`/${association.slug}/admin/members`} className="block h-full no-underline">
+          <Card interactive className="flex h-full flex-col gap-1">
+            <span className="text-lg font-bold">メンバー管理</span>
+            <span className="text-sm text-muted">人物の検索・修正、要確認の解消</span>
+          </Card>
         </Link>
-        <Link href={`/${association.slug}/admin/memberships`} className={itemClass}>
-          協会員の管理（年度更新）
+        <Link href={`/${association.slug}/admin/memberships`} className="block h-full no-underline">
+          <Card interactive className="flex h-full flex-col gap-1">
+            <span className="text-lg font-bold">協会員の管理（年度更新）</span>
+            <span className="text-sm text-muted">受付の開始、申告の承認</span>
+          </Card>
         </Link>
-        <Link href={`/${association.slug}/admin/contacts`} className={itemClass}>
-          問い合わせ管理
+        <Link href={`/${association.slug}/admin/contacts`} className="block h-full no-underline">
+          <Card interactive className="flex h-full flex-col gap-1">
+            <span className="text-lg font-bold">問い合わせ管理</span>
+            <span className="text-sm text-muted">届いた問い合わせの確認</span>
+          </Card>
         </Link>
-        <Link href={`/${association.slug}/admin/trash`} className={itemClass}>
-          削除済みデータ
+        <Link href={`/${association.slug}/admin/trash`} className="block h-full no-underline">
+          <Card interactive className="flex h-full flex-col gap-1">
+            <span className="text-lg font-bold">削除済みデータ</span>
+            <span className="text-sm text-muted">消したものの復元・完全な削除</span>
+          </Card>
         </Link>
-        <Link href={`/${association.slug}/admin/association`} className={itemClass}>
-          協会の設定（よく使う部）
+        <Link href={`/${association.slug}/admin/association`} className="block h-full no-underline">
+          <Card interactive className="flex h-full flex-col gap-1">
+            <span className="text-lg font-bold">協会の設定（よく使う部）</span>
+            <span className="text-sm text-muted">大会に足す部のひな形</span>
+          </Card>
         </Link>
       </nav>
     </PageMain>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContactList } from "@/components/contact/contact-list";
-import { PageMain } from "@/components/ui/layout";
+import { PageHeader, PageMain, Toolbar } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getMembership, getPrincipal } from "@/lib/auth/principal";
 import { checkAccess, resolveRole } from "@/lib/authz";
@@ -27,30 +27,28 @@ export default async function AssociationContactsPage({ params, searchParams }: 
   const rows = await listAssociationContacts(getDb(), association.id, onlyNew ? { status: "new" } : {});
 
   return (
-    <PageMain>
+    <PageMain width="full">
       <p>
-        <Link href={`/${association.slug}/admin`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin`} className="bb-link text-primary no-underline">
           ← 管理
         </Link>
       </p>
-      <h1 className="text-2xl font-bold">問い合わせ管理</h1>
-      <nav aria-label="絞り込み" className="flex gap-4 text-sm">
-        <Link
-          href={`/${association.slug}/admin/contacts`}
-          aria-current={onlyNew ? "page" : undefined}
-          className={onlyNew ? "font-semibold" : "underline underline-offset-2"}
-        >
-          未対応
-        </Link>
-        <Link
-          href={`/${association.slug}/admin/contacts?status=all`}
-          aria-current={onlyNew ? undefined : "page"}
-          className={onlyNew ? "underline underline-offset-2" : "font-semibold"}
-        >
-          すべて
-        </Link>
-      </nav>
-      <p className="text-sm text-muted">{rows.length} 件</p>
+      <PageHeader title="問い合わせ管理" />
+      <Toolbar>
+        <nav aria-label="絞り込み" className="flex flex-wrap gap-2">
+          <Link href={`/${association.slug}/admin/contacts`} aria-current={onlyNew ? "page" : undefined} className={filterClass(onlyNew)}>
+            未対応
+          </Link>
+          <Link
+            href={`/${association.slug}/admin/contacts?status=all`}
+            aria-current={onlyNew ? undefined : "page"}
+            className={filterClass(!onlyNew)}
+          >
+            すべて
+          </Link>
+        </nav>
+        <span className="text-sm font-semibold sm:ml-auto">{rows.length} 件</span>
+      </Toolbar>
       <ContactList
         rows={rows}
         endpoint={`/api/${association.slug}/admin/contacts`}
@@ -58,4 +56,11 @@ export default async function AssociationContactsPage({ params, searchParams }: 
       />
     </PageMain>
   );
+}
+
+// 絞り込みの選択肢。いま選んでいるものは塗りつぶし（色だけに頼らず aria-current も付ける）
+function filterClass(current: boolean): string {
+  return `bb-pressable inline-flex min-h-11 items-center rounded-md px-3 text-sm font-semibold no-underline ${
+    current ? "bg-primary text-on-primary" : "border border-border-strong bg-background hover:border-primary hover:bg-primary-soft"
+  }`;
 }
