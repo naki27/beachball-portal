@@ -33,7 +33,7 @@ export default async function EditPlayerPage({ params }: Props) {
   return (
     <PageMain>
       <p>
-        <Link href={backPath} className="underline underline-offset-2">
+        <Link href={backPath} className="bb-link">
           ← {individual ? "あなたの登録情報" : "選手一覧"}
         </Link>
       </p>

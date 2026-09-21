@@ -93,7 +93,7 @@ export function TrashList({ slug, table, label, items }: Props) {
           </div>
 
           {confirmId === item.id ? (
-            <div className="flex flex-col gap-3 rounded-md border border-danger bg-danger-surface px-4 py-3">
+            <div className="bb-slide-in flex flex-col gap-3 rounded-md border border-danger bg-danger-surface px-4 py-3">
               <p className="font-semibold text-danger">本当に完全に削除しますか？</p>
               <p className="leading-relaxed">{item.cascade}</p>
               <p className="leading-relaxed">元に戻せません。</p>

@@ -41,7 +41,7 @@ export function DeleteTournament({ slug, tournamentId, entryCount }: { slug: str
       </h2>
       {failure ? <Message kind="error" title={failure} /> : null}
       {confirming ? (
-        <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
+        <div className="bb-slide-in flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
           <p className="text-sm">
             削除すると、この大会と{entryCount > 0 ? `${entryCount} 件の申し込みが` : "部が"}公開ページ・一覧から見えなくなります。
             「削除済みデータ」から元に戻せます。

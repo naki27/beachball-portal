@@ -38,7 +38,7 @@ export function UnlinkButton({ slug, memberId, personName }: { slug: string; mem
     <div className="flex flex-col gap-2" data-hydrated={hydrated || undefined}>
       {error ? <Message kind="error" title={error} /> : null}
       {confirming ? (
-        <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
+        <div className="bb-slide-in flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
           <p className="text-sm">
             {personName}さんの登録とこのアカウントの結びつきを解除します。解除すると、チームの選手一覧や申し込みを見られなくなります（名簿の登録は残ります）。
           </p>
@@ -52,7 +52,7 @@ export function UnlinkButton({ slug, memberId, personName }: { slug: string; mem
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setConfirming(true)} className="self-start text-sm underline underline-offset-2">
+        <button type="button" onClick={() => setConfirming(true)} className="self-start text-sm bb-link">
           アカウントとの結びつきを解除する
         </button>
       )}

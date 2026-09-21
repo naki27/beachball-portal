@@ -71,7 +71,7 @@ async function IndividualSection({ slug, associationId, userId }: { slug: string
   if (existing) {
     return (
       <Message kind="info" title="個人の登録はすでにあります">
-        <Link href={`/${slug}/teams/${existing.id}`} className="font-semibold underline underline-offset-2">
+        <Link href={`/${slug}/teams/${existing.id}`} className="font-semibold bb-link">
           あなたの登録情報を見る
         </Link>
       </Message>

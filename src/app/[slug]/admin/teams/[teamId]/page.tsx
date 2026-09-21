@@ -29,7 +29,7 @@ export default async function AdminTeamPage({ params, searchParams }: Props) {
   return (
     <PageMain gap="lg">
       <p>
-        <Link href={`/${association.slug}/admin/teams`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin/teams`} className="bb-link">
           ← チーム管理
         </Link>
       </p>
@@ -39,7 +39,7 @@ export default async function AdminTeamPage({ params, searchParams }: Props) {
         <p className="text-sm text-muted">
           {individual ? "個人登録・" : ""}
           {team.status === "inactive" ? "無効・" : ""}選手 {players} 人・
-          <Link href={`/${association.slug}/teams/${team.id}/members`} className="underline underline-offset-2">
+          <Link href={`/${association.slug}/teams/${team.id}/members`} className="bb-link">
             選手一覧を見る
           </Link>
         </p>

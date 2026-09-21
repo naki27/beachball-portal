@@ -17,7 +17,7 @@ export function ErrorSummary({ errors, className = "" }: { errors: FieldError[];
           <li key={e.id}>
             <a
               href={`#${e.id}`}
-              className="inline-flex min-h-11 items-center underline underline-offset-2"
+              className="inline-flex min-h-11 items-center bb-link"
               onClick={(event) => {
                 const target = document.getElementById(e.id);
                 if (!target) return;

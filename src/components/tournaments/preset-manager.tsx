@@ -145,7 +145,7 @@ export function PresetManager({
         <ul className="bb-stagger grid gap-3 md:grid-cols-2">
           {presets.map((row) => (
             <li key={row.id}>
-              <Card className={`flex h-full flex-col gap-1 ${row.id === addedId ? "bb-highlight" : ""}`}>
+              <Card hoverable className={`flex h-full flex-col gap-1 ${row.id === addedId ? "bb-highlight" : ""}`}>
                 <p className="flex flex-wrap items-center gap-2 font-semibold break-words">
                   {row.labelDefault}
                   {row.isActive ? null : <Badge tone="neutral">候補に出さない</Badge>}

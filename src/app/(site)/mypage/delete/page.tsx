@@ -24,7 +24,7 @@ export default async function DeleteAccountPage() {
   return (
     <PageMain>
       <p>
-        <Link href="/mypage" className="underline underline-offset-2">
+        <Link href="/mypage" className="bb-link">
           ← マイページ
         </Link>
       </p>
@@ -39,7 +39,7 @@ export default async function DeleteAccountPage() {
             </p>
           ) : (
             <p className="leading-relaxed">
-              <Link href="/contact" className="font-semibold underline underline-offset-2">
+              <Link href="/contact" className="font-semibold bb-link">
                 お問い合わせフォーム
               </Link>
               からご連絡ください。

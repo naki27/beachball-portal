@@ -131,7 +131,7 @@ export function CodeForm({ next }: { next: string | null }) {
         <p className="leading-relaxed">メールアドレスの入力からやり直してください。</p>
         <Link
           href={nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : "/login"}
-          className="inline-flex min-h-11 items-center underline underline-offset-2"
+          className="inline-flex min-h-11 items-center bb-link"
         >
           ログインの画面へ
         </Link>
@@ -182,7 +182,7 @@ export function CodeForm({ next }: { next: string | null }) {
               もう一度送る
             </Button>
           )}
-          <Link href="/login/help" className="inline-flex min-h-11 items-center underline underline-offset-2">
+          <Link href="/login/help" className="inline-flex min-h-11 items-center bb-link">
             メールが届かないとき
           </Link>
         </div>

@@ -65,7 +65,7 @@ export default async function TeamPage({ params, searchParams }: Props) {
               <p className="pt-2">
                 <Link
                   href={`/${association.slug}/teams/${team.id}/members/${me.teamMemberId}/edit`}
-                  className="bb-link font-semibold text-primary no-underline"
+                  className="bb-link font-semibold text-primary"
                 >
                   登録情報を修正する
                 </Link>
@@ -99,7 +99,7 @@ export default async function TeamPage({ params, searchParams }: Props) {
 
       {notice ? (
         <Message kind={notice.declared ? "success" : "info"} title={renewalNoticeText(notice, now)}>
-          <Link href={`/${association.slug}/teams/${team.id}/membership`} className="bb-link font-semibold text-primary no-underline">
+          <Link href={`/${association.slug}/teams/${team.id}/membership`} className="bb-link font-semibold text-primary">
             {notice.declared ? `${notice.year}年度の申告を見直す` : `${notice.year}年度も登録する人を選ぶ`}
           </Link>
         </Message>

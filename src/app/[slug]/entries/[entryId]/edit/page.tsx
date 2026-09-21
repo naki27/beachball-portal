@@ -47,7 +47,7 @@ export default async function EntryEditPage({ params }: Props) {
   return (
     <PageMain>
       <p>
-        <Link href={`/${association.slug}/entries/${data.entryId}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/entries/${data.entryId}`} className="bb-link">
           ← 申し込みの内容へ
         </Link>
       </p>

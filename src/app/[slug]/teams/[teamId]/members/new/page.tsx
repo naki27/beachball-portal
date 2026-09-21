@@ -35,7 +35,7 @@ export default async function NewPlayerPage({ params, searchParams }: Props) {
     return (
       <PageMain>
         <p>
-          <Link href={membersPath} className="underline underline-offset-2">
+          <Link href={membersPath} className="bb-link">
             ← 選手一覧
           </Link>
         </p>
@@ -73,14 +73,14 @@ export default async function NewPlayerPage({ params, searchParams }: Props) {
   return (
     <PageMain>
       <p>
-        <Link href={membersPath} className="underline underline-offset-2">
+        <Link href={membersPath} className="bb-link">
           ← 選手一覧
         </Link>
       </p>
       <h1 className="text-2xl font-bold">選手の追加</h1>
       {!alreadyIn ? (
         <p>
-          <Link href={`${membersPath}/new?self=1`} className="font-semibold underline underline-offset-2">
+          <Link href={`${membersPath}/new?self=1`} className="font-semibold bb-link">
             自分を選手として登録する
           </Link>
         </p>

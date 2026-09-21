@@ -18,7 +18,7 @@ export default async function EditTeamPage({ params }: Props) {
   return (
     <PageMain>
       <p>
-        <Link href={`/${association.slug}/teams/${team.id}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/teams/${team.id}`} className="bb-link">
           ← {team.name}
         </Link>
       </p>

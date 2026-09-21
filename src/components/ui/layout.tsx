@@ -95,24 +95,24 @@ const CARD_TONE = {
 } as const;
 export type CardTone = keyof typeof CARD_TONE;
 
-// 面（カード）。一覧の 1 件・まとまった情報に使う。interactive はリンクになっているカード（マウスで浮く）
+// 面（カード）。一覧の 1 件・まとまった情報に使う
+// interactive: カードそのものがリンク（マウスで浮く）／hoverable: 中にリンクやボタンがある一覧の行（枠がはっきりする。浮かない）
 export function Card({
   tone = "plain",
   interactive = false,
+  hoverable = false,
   className = "",
   children,
 }: {
   tone?: CardTone;
   interactive?: boolean;
+  hoverable?: boolean;
   className?: string;
   children: ReactNode;
 }) {
+  const motion = interactive ? "bb-liftable" : hoverable ? "bb-hoverable" : "";
   return (
-    <div
-      className={`rounded-lg border p-4 shadow-sm sm:p-5 ${CARD_TONE[tone]} ${interactive ? "bb-liftable" : ""} ${className}`}
-    >
-      {children}
-    </div>
+    <div className={`rounded-lg border p-4 shadow-sm sm:p-5 ${CARD_TONE[tone]} ${motion} ${className}`}>{children}</div>
   );
 }
 

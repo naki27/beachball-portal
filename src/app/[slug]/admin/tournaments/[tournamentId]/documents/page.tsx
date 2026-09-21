@@ -33,7 +33,7 @@ export default async function TournamentDocumentsPage({ params, searchParams }: 
   return (
     <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/admin/tournaments/${view.tournament.id}`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/admin/tournaments/${view.tournament.id}`} className="bb-link text-primary">
           ← {view.tournament.name}
         </Link>
       </p>

@@ -31,7 +31,7 @@ export default async function AdminMemberPage({ params, searchParams }: Props) {
   return (
     <PageMain gap="lg">
       <p>
-        <Link href={`/${association.slug}/admin/members`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin/members`} className="bb-link">
           ← メンバー管理
         </Link>
       </p>
@@ -52,13 +52,13 @@ export default async function AdminMemberPage({ params, searchParams }: Props) {
         {member.status === "needs_review" ? (
           <p className="text-sm">
             <span className="rounded bg-highlight px-1">確認が必要</span>
-            <Link href={`/${association.slug}/admin/members/${member.id}/review`} className="ml-2 underline underline-offset-2">
+            <Link href={`/${association.slug}/admin/members/${member.id}/review`} className="ml-2 bb-link">
               別の人か、同じ人かを確かめる
             </Link>
           </p>
         ) : (
           <p className="text-sm">
-            <Link href={`/${association.slug}/admin/members/${member.id}/review`} className="underline underline-offset-2">
+            <Link href={`/${association.slug}/admin/members/${member.id}/review`} className="bb-link">
               似ている登録とまとめる
             </Link>
           </p>

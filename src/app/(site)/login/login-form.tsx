@@ -55,7 +55,7 @@ export function LoginForm({ next }: { next: string | null }) {
           {notice.body ? <p>{notice.body}</p> : null}
           {notice.kind === "info" ? (
             <p>
-              <Link href="/login/help" className="underline underline-offset-2">
+              <Link href="/login/help" className="bb-link">
                 メールが届かないとき
               </Link>
             </p>
@@ -76,11 +76,11 @@ export function LoginForm({ next }: { next: string | null }) {
         hint={
           <>
             ログインすると、
-            <Link href="/terms" className="underline underline-offset-2">
+            <Link href="/terms" className="bb-link">
               利用規約
             </Link>
             と
-            <Link href="/privacy" className="underline underline-offset-2">
+            <Link href="/privacy" className="bb-link">
               プライバシーポリシー
             </Link>
             に同意したものとします。

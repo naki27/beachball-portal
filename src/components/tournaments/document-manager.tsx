@@ -181,7 +181,7 @@ export function DocumentManager({
         <ul className="bb-stagger flex flex-col gap-3">
           {documents.map((row) => (
             <li key={row.id}>
-              <Card className={`flex flex-col gap-2 ${row.id === addedId ? "bb-highlight" : ""}`}>
+              <Card hoverable className={`flex flex-col gap-2 ${row.id === addedId ? "bb-highlight" : ""}`}>
                 {editingId === row.id ? (
                   <div className="flex flex-col gap-3">
                     <DocumentDraftFields draft={draft} setDraft={setDraft} errors={errors} idPrefix={`edit-${row.id}`} />
@@ -236,7 +236,7 @@ export function DocumentManager({
                           href={row.publicUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="bb-link inline-flex min-h-12 items-center text-primary no-underline"
+                          className="bb-link inline-flex min-h-12 items-center text-primary"
                         >
                           開いて確かめる
                         </a>

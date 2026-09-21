@@ -104,6 +104,20 @@ async function overflowing(page: Page): Promise<{ over: number; elements: { tag:
   });
 }
 
+// ページの入れ替え（View Transitions・ADR 0031）が終わるまで待つ。半透明の途中の状態を撮らないため
+async function settled(page: Page): Promise<void> {
+  await page
+    .waitForFunction(
+      () =>
+        !document
+          .getAnimations()
+          .some((a) => a.effect instanceof KeyframeEffect && (a.effect.pseudoElement ?? "").startsWith("::view-transition")),
+      undefined,
+      { timeout: 5_000 },
+    )
+    .catch(() => {});
+}
+
 // 1 画面を 3 つの幅 × 3 つの文字サイズで開いて確かめ、スクリーンショットを残す
 async function checkScreen(page: Page, testInfo: TestInfo, label: string, path: string): Promise<void> {
   for (const width of WIDTHS) {
@@ -123,6 +137,7 @@ async function checkScreen(page: Page, testInfo: TestInfo, label: string, path: 
         expect(small, `${label}（${width}px）に ${MIN_TAP}px 未満の操作がある: ${JSON.stringify(small)}`).toEqual([]);
       }
 
+      await settled(page);
       await page.screenshot({ path: testInfo.outputPath(`${label}-${width}-${scale}.png`), fullPage: true });
     }
   }

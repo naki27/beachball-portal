@@ -176,7 +176,7 @@ export function CategoryManager({
         <ul className="bb-stagger grid gap-3 md:grid-cols-2">
           {categories.map((row) => (
             <li key={row.id}>
-              <Card className="flex h-full flex-col gap-1">
+              <Card hoverable className="flex h-full flex-col gap-1">
                 <p className="font-semibold break-words">{row.label}</p>
                 <p className="text-sm text-muted">{row.condition}</p>
                 <p className="text-sm text-muted">

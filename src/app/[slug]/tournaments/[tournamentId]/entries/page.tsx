@@ -20,7 +20,7 @@ export default async function EntriesPage({ params }: Props) {
   return (
     <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/tournaments/${tournament.id}`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/tournaments/${tournament.id}`} className="bb-link text-primary">
           ← {tournament.name}
         </Link>
       </p>
@@ -36,7 +36,7 @@ export default async function EntriesPage({ params }: Props) {
         <div className="bb-stagger grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {groups.map((group) => (
             <section key={group.categoryId} aria-labelledby={`group-${group.categoryId}`}>
-              <Card className="flex h-full flex-col gap-2">
+              <Card hoverable className="flex h-full flex-col gap-2">
                 <h2 id={`group-${group.categoryId}`} className="flex items-center gap-2 text-lg font-bold break-words">
                   <span aria-hidden="true" className="h-5 w-1 shrink-0 rounded-full bg-brand" />
                   {group.label}（{group.teams.length} チーム）

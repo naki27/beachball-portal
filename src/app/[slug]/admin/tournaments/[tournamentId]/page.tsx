@@ -36,7 +36,7 @@ export default async function EditTournamentPage({ params, searchParams }: Props
   return (
     <PageMain width="wide" gap="lg">
       <p>
-        <Link href={`/${association.slug}/admin/tournaments`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/admin/tournaments`} className="bb-link text-primary">
           ← 大会の管理
         </Link>
       </p>

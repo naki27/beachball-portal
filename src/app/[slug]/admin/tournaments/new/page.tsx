@@ -23,7 +23,7 @@ export default async function NewTournamentPage({ params }: Props) {
   return (
     <PageMain>
       <p>
-        <Link href={`/${association.slug}/admin/tournaments`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin/tournaments`} className="bb-link">
           ← 大会の管理
         </Link>
       </p>

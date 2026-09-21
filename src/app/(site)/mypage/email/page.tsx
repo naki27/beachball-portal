@@ -23,7 +23,7 @@ export default async function EmailChangePage() {
   return (
     <PageMain>
       <p>
-        <Link href="/mypage" className="underline underline-offset-2">
+        <Link href="/mypage" className="bb-link">
           ← マイページ
         </Link>
       </p>
@@ -37,7 +37,7 @@ export default async function EmailChangePage() {
       {invitations.length > 0 ? (
         <p className="rounded-md border border-border bg-info-surface px-4 py-3 leading-relaxed">
           返事待ちの招待が {invitations.length} 件あります。招待はメールアドレス宛てに届くため、
-          <Link href="/invitations" className="font-semibold underline underline-offset-2">
+          <Link href="/invitations" className="font-semibold bb-link">
             変更の前に返事をしてください
           </Link>
           。

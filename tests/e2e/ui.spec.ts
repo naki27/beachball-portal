@@ -122,3 +122,37 @@ test("生年月日（和暦）: 昭和5年と平成5年を入れ比べる。年�
   await expect(page.getByText("昭和は64年までです")).toBeVisible();
   await expect(page.getByLabel("年", { exact: true })).toHaveAttribute("aria-invalid", "true");
 });
+
+// 選ぶ行（U-07・§4.5「内容が変わった」）。チェックすると面の色が変わり、件数もその場で変わる
+test("選ぶ行: チェックすると面の色が変わり、件数がその場で変わる", async ({ page }) => {
+  await page.goto("/dev/ui");
+  const label = page.locator("label.bb-choice").first();
+  const before = await label.evaluate((el) => getComputedStyle(el).backgroundColor);
+  await label.getByRole("checkbox").check();
+  await expect(page.getByText("2人中1人を選んでいます")).toBeVisible();
+  await expect.poll(() => label.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(before);
+});
+
+// ページの入れ替え（U-07・ADR 0031）。対応しているブラウザでだけ View Transitions が走る（未対応でも操作は同じ）
+test("ページを移ると本文がクロスフェードする（対応ブラウザだけ）", async ({ page }) => {
+  await page.addInitScript(() => {
+    const counter = window as unknown as { __viewTransitions: number };
+    counter.__viewTransitions = 0;
+    const original = document.startViewTransition?.bind(document);
+    if (original) {
+      document.startViewTransition = (options?: ViewTransitionUpdateCallback | StartViewTransitionOptions) => {
+        counter.__viewTransitions += 1;
+        return original(options);
+      };
+    }
+  });
+  await page.goto("/privacy");
+  const supported = await page.evaluate(() => typeof document.startViewTransition === "function");
+  test.skip(!supported, "このブラウザは View Transitions に対応していない");
+
+  await page.getByRole("link", { name: "利用規約" }).click();
+  await expect(page).toHaveURL(/\/terms$/, { timeout: 15_000 });
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __viewTransitions: number }).__viewTransitions))
+    .toBeGreaterThan(0);
+});

@@ -33,7 +33,7 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pro
   return (
     <PageMain width="wide" gap="lg">
       <p>
-        <Link href={`/${association.slug}/admin`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/admin`} className="bb-link text-primary">
           ← {association.name}の管理
         </Link>
       </p>

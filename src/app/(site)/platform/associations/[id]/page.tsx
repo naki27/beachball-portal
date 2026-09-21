@@ -33,13 +33,13 @@ export default async function PlatformAssociationPage({ params }: Props) {
   return (
     <PageMain gap="lg">
       <p>
-        <Link href="/platform" className="underline underline-offset-2">
+        <Link href="/platform" className="bb-link">
           ← 運営管理
         </Link>
       </p>
       <h1 className="text-2xl font-bold">{association.name}</h1>
       <p className="text-sm text-muted">
-        <Link href={`/${association.slug}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}`} className="bb-link">
           /{association.slug}
         </Link>
       </p>

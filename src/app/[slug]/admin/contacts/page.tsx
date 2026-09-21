@@ -29,7 +29,7 @@ export default async function AssociationContactsPage({ params, searchParams }: 
   return (
     <PageMain width="full">
       <p>
-        <Link href={`/${association.slug}/admin`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/admin`} className="bb-link text-primary">
           ← 管理
         </Link>
       </p>

@@ -33,7 +33,7 @@ export default async function MemberReviewPage({ params }: Props) {
   return (
     <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/admin/members/${member.id}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin/members/${member.id}`} className="bb-link">
           ← {member.name}
         </Link>
       </p>

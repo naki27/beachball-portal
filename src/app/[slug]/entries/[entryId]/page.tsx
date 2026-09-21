@@ -75,7 +75,7 @@ export default async function EntryPage({ params, searchParams }: Props) {
         <div>
           <dt className="font-semibold">大会</dt>
           <dd>
-            <Link href={`/${association.slug}/tournaments/${entry.tournamentId}`} className="underline underline-offset-2">
+            <Link href={`/${association.slug}/tournaments/${entry.tournamentId}`} className="bb-link">
               {entry.tournamentName}
             </Link>
           </dd>
@@ -142,7 +142,7 @@ export default async function EntryPage({ params, searchParams }: Props) {
           )}
           <p className="mt-1">
             変更が必要なときは、
-            <Link href={`/${association.slug}/contact?tournament=${entry.tournamentId}`} className="underline underline-offset-2">
+            <Link href={`/${association.slug}/contact?tournament=${entry.tournamentId}`} className="bb-link">
               問い合わせフォーム
             </Link>
             からご連絡ください。
@@ -151,7 +151,7 @@ export default async function EntryPage({ params, searchParams }: Props) {
       )}
 
       <p>
-        <Link href={`/${association.slug}/tournaments/${entry.tournamentId}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/tournaments/${entry.tournamentId}`} className="bb-link">
           ← 大会のページへ
         </Link>
       </p>

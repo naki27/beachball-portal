@@ -179,7 +179,7 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
             const birth = item.personal ? parsePlainDate(item.personal.birthDate) : null;
             return (
               <li key={item.teamMemberId} className={leaving === item.teamMemberId ? "bb-fade-out" : undefined}>
-                <Card className="flex h-full flex-col gap-2">
+                <Card hoverable className="flex h-full flex-col gap-2">
                 <div className="flex flex-col">
                   <span className="text-lg font-semibold break-words">
                     {item.name}

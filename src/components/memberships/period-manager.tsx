@@ -120,7 +120,7 @@ export function PeriodManager({
         <ul className="bb-stagger grid gap-3 md:grid-cols-2">
           {periods.map((row) => (
             <li key={row.year}>
-              <Card className={`flex h-full flex-col gap-2 ${row.year === openedYear ? "bb-highlight" : ""}`}>
+              <Card hoverable className={`flex h-full flex-col gap-2 ${row.year === openedYear ? "bb-highlight" : ""}`}>
                 {editingYear === row.year ? (
                   <>
                     <p className="font-bold">{row.yearText}の受付</p>

@@ -20,19 +20,19 @@ export default async function PlatformHome() {
     <PageMain gap="lg">
       <h1 className="text-2xl font-bold">運営管理</h1>
       <p>
-        <Link href="/platform/contacts" className="font-semibold underline underline-offset-2">
+        <Link href="/platform/contacts" className="font-semibold bb-link">
           サイトへの問い合わせ
         </Link>
       </p>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">協会の一覧</h2>
-        <ul className="flex flex-col gap-3">
+        <ul className="bb-stagger flex flex-col gap-3">
           {rows.map((a) => {
             const s = stats.get(a.id);
             return (
               <li key={a.id} className="rounded-md border border-border px-4 py-3">
-                <Link href={`/platform/associations/${a.id}`} className="text-lg font-semibold underline underline-offset-2">
+                <Link href={`/platform/associations/${a.id}`} className="text-lg font-semibold bb-link">
                   {a.name}
                 </Link>
                 <p className="text-sm text-muted">

@@ -9,7 +9,7 @@ export function MyEntryList({ slug, title, entries, now }: { slug: string; title
   return (
     <div className="flex flex-col gap-2">
       <h3 className="font-semibold">{title}</h3>
-      <ul className="grid gap-2 md:grid-cols-2">
+      <ul className="bb-stagger grid gap-2 md:grid-cols-2">
         {entries.map((entry) => (
           <li key={entry.entryId}>
             <Link href={`/${slug}/entries/${entry.entryId}`} className="block h-full no-underline">

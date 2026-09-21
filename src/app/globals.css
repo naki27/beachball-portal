@@ -231,17 +231,34 @@ h3 {
   }
 }
 
-/* リンク: 下線が左から伸びる */
-.bb-link {
-  background-image: linear-gradient(var(--color-primary), var(--color-primary));
-  background-repeat: no-repeat;
-  background-position: 0 100%;
-  background-size: 100% 1px;
-  transition: background-size var(--motion-base) var(--ease-out);
+/* 一覧の行（中にリンクやボタンがある）: マウスを乗せると枠と影がはっきりする。位置は動かさない */
+.bb-hoverable {
+  transition:
+    box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
 }
 @media (hover: hover) {
-  .bb-link:hover {
-    background-size: 100% 2px;
+  .bb-hoverable:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--brand-300);
+  }
+}
+
+/*
+  リンク（下線の引き方はここだけ）。マウスを乗せると下線が太くなる。
+  下線は文字に付ける（背の高いリンク（44px）でも文字のすぐ下に出る）。色は文字と同じ
+*/
+.bb-link {
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-thickness var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) {
+  .bb-link:hover,
+  .bb-row:hover .bb-link {
+    text-decoration-thickness: 3px;
   }
 }
 
@@ -249,5 +266,96 @@ h3 {
   .bb-pressable:active:not(:disabled),
   .bb-liftable:hover {
     transform: none;
+  }
+}
+
+/*
+  入力の部品（§4.5「共通」）。画面ごとに <input> / <select> を直に書いているので、
+  枠・影の変わり方はここ 1 か所で全部にそろえる。色と枠の変化だけで、位置は動かさない
+*/
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  input:not([type="checkbox"]):not([type="radio"]):hover:not(:disabled):not([aria-invalid="true"]),
+  select:hover:not(:disabled),
+  textarea:hover:not(:disabled) {
+    border-color: var(--color-primary);
+  }
+}
+
+/* チェック・ラジオ: 印の色をそろえ、押せることが分かるようにする */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-primary);
+  transition: transform var(--motion-fast) var(--ease-spring);
+}
+@media (prefers-reduced-motion: no-preference) {
+  input[type="checkbox"]:checked,
+  input[type="radio"]:checked {
+    transform: scale(1.12);
+  }
+}
+
+/* 選ぶ行（チェックの付いた行）。has-[:checked]: と一緒に使い、選んだ行が薄い緑に変わるのを見せる（§4.5「内容が変わった」） */
+.bb-choice {
+  transition:
+    background-color var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
+}
+
+/*
+  ページの入れ替え（§4.5「実装」・ADR 0031）。本文だけを短くクロスフェードする。
+  View Transitions API に対応していないブラウザでは、これまでどおり瞬時に入れ替わる（操作には影響しない）
+*/
+@keyframes bb-vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes bb-vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+::view-transition-group(.bb-page) {
+  animation-duration: var(--motion-base);
+}
+::view-transition-old(.bb-page) {
+  animation: bb-vt-out var(--motion-fast) ease-in both;
+}
+::view-transition-new(.bb-page) {
+  animation: bb-vt-in var(--motion-base) var(--ease-out) both;
+}
+
+/* 「今いるところ」の印（管理の案内・申込の進み具合）は、前の位置から今の位置へ移る */
+::view-transition-group(admin-nav-current),
+::view-transition-group(entry-step-now) {
+  animation-duration: var(--motion-base);
+  animation-timing-function: var(--ease-out);
+}
+
+/* 入れ替えの最中も、下のページは押せるままにする（押したのに反応しない、を作らない） */
+::view-transition {
+  pointer-events: none;
+}
+
+/* 「視差効果を減らす」: 入れ替えの動きもなくす（内容は同じ） */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }

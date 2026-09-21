@@ -107,16 +107,16 @@ export function ApprovalList({
           未申告のチーム（{undeclared.length}組）
         </h3>
         <p className="text-sm text-muted">協会員の登録をするチームのうち、まだ申告が届いていないものです。督促のメールは、いまは送れません。</p>
-        <ul className="flex flex-col gap-2">
+        <ul className="bb-stagger flex flex-col gap-2">
           {undeclared.map((team) => (
             <li key={team.teamId} className="flex flex-col gap-1 rounded-md border border-border px-3 py-2">
               <span>
-                <Link href={`/${slug}/admin/teams/${team.teamId}`} className="font-semibold underline underline-offset-2">
+                <Link href={`/${slug}/admin/teams/${team.teamId}`} className="font-semibold bb-link">
                   {team.teamName}
                 </Link>
                 <span className="text-sm text-muted">（選手 {team.players} 人）</span>
               </span>
-              <Link href={`/${slug}/teams/${team.teamId}/membership`} className="text-sm underline underline-offset-2">
+              <Link href={`/${slug}/teams/${team.teamId}/membership`} className="text-sm bb-link">
                 代理で申告する
               </Link>
             </li>
@@ -151,12 +151,12 @@ function Group({
         {title}（{teams.reduce((total, team) => total + team.players.length, 0)}人）
       </h3>
       {note ? <p className="text-sm text-muted">{note}</p> : null}
-      <ul className="flex flex-col gap-3">
+      <ul className="bb-stagger flex flex-col gap-3">
         {teams.map((team) => (
           <li key={team.teamId ?? "none"} className="flex flex-col gap-2 rounded-md border border-border p-3">
             <p className="font-semibold break-words">
               {team.teamId ? (
-                <Link href={`/${slug}/admin/teams/${team.teamId}`} className="underline underline-offset-2">
+                <Link href={`/${slug}/admin/teams/${team.teamId}`} className="bb-link">
                   {team.teamName}
                 </Link>
               ) : (

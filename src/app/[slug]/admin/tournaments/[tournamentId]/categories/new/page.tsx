@@ -33,7 +33,7 @@ export default async function NewTournamentCategoryPage({ params }: Props) {
   return (
     <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/admin/tournaments/${tournament.id}`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/admin/tournaments/${tournament.id}`} className="bb-link text-primary">
           ← {tournament.name}
         </Link>
       </p>

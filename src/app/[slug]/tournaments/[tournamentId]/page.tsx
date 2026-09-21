@@ -42,7 +42,7 @@ export default async function TournamentPage({ params }: Props) {
   return (
     <PageMain width="wide" gap="lg">
       <p>
-        <Link href={`/${association.slug}/tournaments`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/tournaments`} className="bb-link text-primary">
           ← 大会一覧
         </Link>
       </p>
@@ -78,7 +78,7 @@ export default async function TournamentPage({ params }: Props) {
             )}
             <Link
               href={`/${association.slug}/tournaments/${tournament.id}/entries`}
-              className="bb-link flex min-h-11 items-center justify-center font-semibold text-primary no-underline"
+              className="bb-link flex min-h-11 items-center justify-center font-semibold text-primary"
             >
               参加チーム一覧（{tournament.teams} チーム）
             </Link>
@@ -108,7 +108,7 @@ export default async function TournamentPage({ params }: Props) {
               <ul className="bb-stagger grid gap-3 sm:grid-cols-2">
                 {tournament.categories.map((category) => (
                   <li key={category.id}>
-                    <Card className="flex h-full flex-col gap-1">
+                    <Card hoverable className="flex h-full flex-col gap-1">
                       <p className="font-semibold break-words">{category.label}</p>
                       <p className="text-sm text-muted">{category.condition}</p>
                       {/* 部ごとに締切が違う大会だけ、部の締切を出す */}

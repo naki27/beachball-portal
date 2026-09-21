@@ -97,7 +97,7 @@ export function CategoryAddForm({
       <ul className="bb-stagger grid gap-2 md:grid-cols-2">
         {presets.map((preset) => (
           <li key={preset.id}>
-            <label className="bb-pressable flex min-h-14 items-start gap-3 rounded-lg border border-border-strong bg-background px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary-soft">
+            <label className="bb-pressable bb-choice flex min-h-14 items-start gap-3 rounded-lg border border-border-strong bg-background px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary-soft">
               <input
                 type="checkbox"
                 checked={selected.has(preset.id)}

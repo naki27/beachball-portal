@@ -30,7 +30,7 @@ export default async function RosterPage({ params, searchParams }: Props) {
   return (
     <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/teams/${roster.team.id}`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/teams/${roster.team.id}`} className="bb-link text-primary">
           ← {roster.team.name}
         </Link>
       </p>

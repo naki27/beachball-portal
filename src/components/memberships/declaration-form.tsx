@@ -116,10 +116,10 @@ export function DeclarationForm({
         {players.length}人中{checked.size}人を{year}年度も登録します
       </p>
 
-      <ul className="flex flex-col gap-2">
+      <ul className="bb-stagger flex flex-col gap-2">
         {players.map((player) => (
           <li key={player.memberId}>
-            <label className="flex min-h-14 items-center gap-3 rounded-md border border-border px-3 py-2">
+            <label className="bb-choice flex min-h-14 items-center gap-3 rounded-md border border-border px-3 py-2 has-[:checked]:border-brand-300 has-[:checked]:bg-primary-soft">
               <input
                 type="checkbox"
                 checked={checked.has(player.memberId)}
@@ -143,7 +143,7 @@ export function DeclarationForm({
 
       <p className="text-sm text-muted">
         名簿にいない人は、先に{" "}
-        <Link href={`/${slug}/teams/${teamId}/members/new`} className="underline underline-offset-2">
+        <Link href={`/${slug}/teams/${teamId}/members/new`} className="bb-link">
           選手を追加
         </Link>{" "}
         してから選んでください。

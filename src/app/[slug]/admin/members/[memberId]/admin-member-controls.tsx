@@ -51,11 +51,11 @@ export function AdminMemberControls({ slug, memberId, linkedEmail, teams }: { sl
         <ul className="flex flex-col gap-2">
           {teams.map((t) => (
             <li key={t.teamMemberId} className="flex flex-col gap-2 rounded-md border border-border px-4 py-2">
-              <Link href={`/${slug}/teams/${t.teamId}/members`} className="font-semibold underline underline-offset-2">
+              <Link href={`/${slug}/teams/${t.teamId}/members`} className="font-semibold bb-link">
                 {t.kind === "individual" ? "個人登録" : t.teamName}
               </Link>
               {confirming === t.teamMemberId ? (
-                <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-3 py-2">
+                <div className="bb-slide-in flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-3 py-2">
                   <p className="text-sm">誤って登録された行として消します（なかったことにします）。人物の登録はほかの選手一覧に残ります。</p>
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -96,7 +96,7 @@ export function AdminMemberControls({ slug, memberId, linkedEmail, teams }: { sl
               本人がログインできます: <span className="break-all font-semibold">{linkedEmail}</span>
             </p>
             {confirming === "unlink" ? (
-              <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-3 py-2">
+              <div className="bb-slide-in flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-3 py-2">
                 <p className="text-sm">解除すると、本人はチームの選手一覧や申し込みを見られなくなります（名簿の登録は残ります）。</p>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -132,7 +132,7 @@ export function AdminMemberControls({ slug, memberId, linkedEmail, teams }: { sl
           削除すると、すべての選手一覧と候補に出なくなります。削除済みデータから元に戻せます。
         </p>
         {confirming === "member" ? (
-          <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-3 py-2">
+          <div className="bb-slide-in flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-3 py-2">
             <p className="text-sm">この方の登録を削除します。載っている選手一覧からも消えます。</p>
             <div className="flex flex-wrap gap-2">
               <Button

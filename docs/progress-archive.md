@@ -2,6 +2,19 @@
 
 `docs/progress.md` から移した古い申し送り（新しいものを上に）。タスクでは読まない。
 
+### UI 刷新 U-01〜U-05（2026-09-21）
+- 背景: 利用者から「PC で使いにくい・一覧と登録が同じページ・見た目が素っ気ない」の指摘。**ADR 0028** と設計書 **v0.9.6**（§4.3・§4.5）で方針を変えた。タスクは `docs/p0-tasks.md` §7（U-01〜U-06）
+- U-01 土台: 配色を白・`#42B036`（`--brand-500`）・ティールに刷新。**`#42B036` は白文字だと 2.8:1 なので、文字と塗りつぶしのボタンは `--brand-700`（5.37:1）**。角丸・影・イージングのトークンと、器の共通部品（`PageMain` / `PageHeader` / `Card` / `Section` / `Toolbar` / `ActionBar` / `Badge` / `EmptyState`）。`max-w-xl` の直書き 53 か所を置き換え。入力欄の枠 3.1:1・補足の文字 5.96:1。`/dev/ui` に色と器のカタログ
+- U-04 一覧と登録の分離: `…/documents/new`・`…/categories/new`・`…/admin/association/presets/new`・`…/admin/memberships/new`。入力欄は `*-fields.tsx` に出して一覧の「直す」と共用。追加のあとは一覧へ戻り、成功のメッセージと足した行の強調（`?added=…`）
+- U-02 選手側: 375 / 768 / 1280 の 3 段。大会は `TournamentCard` ＋ `TournamentGrid`（1 → 2 → 3 列）、締切は `deadlineTone`（3 日以内は橙・当日は赤）。大会詳細は PC で 2 列（申し込みは右に固定）。主要操作はスマホだけ下部固定（`ActionBar`）
+- U-03 管理画面: `[slug]/admin/layout.tsx` ＋ `AdminNav`（PC は左に貼り付き、狭い画面は上）。**管理者でない人には案内を出さない**（403 の画面に項目を出さない）。管理のトップでは案内を出さない（同じリンクを二重にしない）。一覧は Toolbar ＋カードの格子。参加チーム一覧は部ごとのカード
+- U-05 動き: 節目の演出 `Celebrate`（申込の完了・申告の完了だけ。紙吹雪は 1 回・位置と色は固定・「視差効果を減らす」で出さない）。申込の人数表示（下限で緑＋文字も変える）・枠を足したら自動スクロール＋強調・前回コピーで入った枠を強調・外した行がふわっと消える・封筒が 1 回動く。骨組みは `[slug]/admin/loading.tsx` だけ（**`loading.tsx` は 403 を 200 にする**ので管理画面だけにし、管理者かの検査を layout へ。ADR 0029）
+- 動作確認: lint / typecheck / test（TZ 2 回・815 本）・`pnpm build`。E2E は 375×667（WebKit）と **1280×800（Chromium・新しく足した）**の両方で、top・public-tournaments・roster・entry-form・entry-manage・documents・admin-tournaments・admin-teams・trash・membership・login-verify・association・ui を流した（ファイルを分けて）
+- 次への申し送り:
+  - **大会の部の追加だけ、足した行の強調がない**。`addCategoriesFromPresets` が件数しか返さないため（成功のメッセージは出る）
+  - ヘッダのように `truncate` を使うときは、親の flex 要素にも `min-w-0` が要る（375px で 10px はみ出していた）
+  - **選手側に `loading.tsx` は置けない**（403・404 が 200 になる・ADR 0029）。骨組みが要る所は `DelayedSkeleton` を部品として使う
+
 ### C-01〜C-03・D-01〜D-05（2026-09-20）
 - やったこと:
   - C-01: 大会資料の表と RLS（マイグレーション 0016・0017）。アプリ経由のアップロード（10 MB 以下・Content-Type・先頭の `%PDF-` を検証。拡張子だけ `.pdf` の画像は通らない）、保管用（private）に保存、管理画面の一覧（種別・タイトル・公開／非公開・並び順・個人情報の注意書き）

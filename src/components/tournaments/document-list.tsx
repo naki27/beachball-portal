@@ -17,16 +17,16 @@ export function DocumentList({ documents }: { documents: DocumentLink[] }) {
       <h2 id="documents" className="text-lg font-bold">
         大会の資料
       </h2>
-      <ul className="flex flex-col gap-2">
+      <ul className="bb-stagger flex flex-col gap-2">
         {documents.map((document) => (
           <li key={document.id}>
             <a
               href={document.href}
               // 同じタブで開く（転送先は PDF。スマホの「戻る」で大会ページに戻れる）
               onClick={() => setOpening(document.id)}
-              className="bb-pressable flex min-h-12 flex-col justify-center gap-0.5 rounded-md border border-border-strong px-4 py-2 no-underline"
+              className="bb-pressable bb-hoverable bb-row flex min-h-12 flex-col justify-center gap-0.5 rounded-md border border-border-strong px-4 py-2 no-underline"
             >
-              <span className="font-semibold break-words underline underline-offset-2">{document.title}</span>
+              <span className="font-semibold break-words bb-link">{document.title}</span>
               <span className="text-sm text-muted">
                 {document.docType}・PDF {formatFileSize(document.sizeBytes)}
                 {opening === document.id ? "・開いています…" : ""}

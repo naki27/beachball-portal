@@ -137,7 +137,7 @@ export function PlayerSlotField({
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-bold">{index + 1}人目</h3>
         {onRemove ? (
-          <button type="button" onClick={onRemove} className="min-h-11 px-2 text-sm underline underline-offset-2">
+          <button type="button" onClick={onRemove} className="min-h-11 px-2 text-sm bb-link">
             この枠を外す
           </button>
         ) : null}
@@ -181,7 +181,7 @@ export function PlayerSlotField({
             </Message>
           ) : null}
           {candidates && candidates.length > 0 ? (
-            <div className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3">
+            <div className="bb-slide-in flex flex-col gap-2 rounded-md border border-border bg-surface p-3">
               <p className="font-semibold">この方ですか？</p>
               {candidates.map((c) => (
                 <div key={c.member_id} className="flex items-center justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
@@ -203,7 +203,7 @@ export function PlayerSlotField({
                   setCandidates(null);
                   setManual("declinedSameName", true);
                 }}
-                className="min-h-11 self-start px-1 underline underline-offset-2"
+                className="min-h-11 self-start px-1 bb-link"
               >
                 いいえ、別の方です
               </button>
@@ -248,7 +248,7 @@ export function PlayerSlotField({
             </div>
             {errors.sex ? <p className="text-sm font-semibold text-danger">{errors.sex}</p> : null}
           </fieldset>
-          <button type="button" onClick={clear} className="min-h-11 self-start px-1 underline underline-offset-2">
+          <button type="button" onClick={clear} className="min-h-11 self-start px-1 bb-link">
             選手を選ぶに戻る
           </button>
         </div>

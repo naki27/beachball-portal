@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ViewTransition } from "react";
 
 // 管理画面の案内（設計書 §4.2 #13〜#19・§4.3 v0.9.6）
 // PC（1280px 以上）は左に貼り付く縦並び、それより狭いときは本文の上に折り返して並べる。
@@ -44,18 +45,25 @@ export function AdminNav({ slug }: { slug: string }) {
   );
 }
 
+// 今いる項目の印（緑の面）は 1 つだけ。ページが変わると、その印が前の項目から今の項目へ移る（§4.5「内容が変わった」・ADR 0031）
+// 対応していないブラウザでは、印がそのまま入れ替わる（見え方は同じ）
 function NavLink({ href, label, current }: { href: string; label: string; current: boolean }) {
   return (
     <Link
       href={href}
       aria-current={current ? "page" : undefined}
-      className={`bb-pressable flex min-h-11 items-center rounded-md px-3 text-sm font-semibold no-underline lg:min-h-12 lg:text-base ${
+      className={`bb-pressable relative flex min-h-11 items-center rounded-md px-3 text-sm font-semibold no-underline lg:min-h-12 lg:text-base ${
         current
-          ? "bg-primary text-on-primary shadow-sm"
+          ? "text-on-primary"
           : "border border-border-strong bg-background hover:border-primary hover:bg-primary-soft lg:border-0 lg:bg-transparent"
       }`}
     >
-      {label}
+      {current ? (
+        <ViewTransition name="admin-nav-current">
+          <span aria-hidden="true" className="absolute inset-0 rounded-md bg-primary shadow-sm" />
+        </ViewTransition>
+      ) : null}
+      <span className="relative">{label}</span>
     </Link>
   );
 }

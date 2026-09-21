@@ -25,7 +25,7 @@ export default async function NewPresetPage({ params }: Props) {
   return (
     <PageMain>
       <p>
-        <Link href={`/${association.slug}/admin/association`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/admin/association`} className="bb-link text-primary">
           ← 協会の設定
         </Link>
       </p>

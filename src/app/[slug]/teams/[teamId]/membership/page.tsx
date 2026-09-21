@@ -34,7 +34,7 @@ export default async function TeamMembershipPage({ params }: Props) {
   return (
     <PageMain>
       <p>
-        <Link href={`/${association.slug}/teams/${form.teamId}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/teams/${form.teamId}`} className="bb-link">
           ← {form.teamName}
         </Link>
       </p>

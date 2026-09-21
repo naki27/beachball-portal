@@ -38,7 +38,7 @@ export default async function AdminEntriesPage({ params }: Props) {
   return (
     <PageMain width="full">
       <p>
-        <Link href={`/${association.slug}/admin/tournaments/${tournament.id}`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/admin/tournaments/${tournament.id}`} className="bb-link text-primary">
           ← {tournament.name}
         </Link>
       </p>
@@ -88,7 +88,7 @@ export default async function AdminEntriesPage({ params }: Props) {
         <ul className="bb-stagger grid gap-3 xl:grid-cols-2">
           {view.entries.map((entry) => (
             <li key={entry.entryId}>
-              <Card className="flex h-full flex-col gap-2">
+              <Card hoverable className="flex h-full flex-col gap-2">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 {/* min-w-0: 長いチーム名が flex の升目を押し広げないように（U-06） */}
                 <h2 className="min-w-0 text-lg font-bold break-words">{entry.teamName}</h2>
@@ -114,10 +114,10 @@ export default async function AdminEntriesPage({ params }: Props) {
               {entry.note ? <p className="text-sm whitespace-pre-wrap break-words">備考: {entry.note}</p> : null}
               <p className="text-sm text-muted">申し込み: {formatDateTimeTokyo(entry.submittedAt)}</p>
               <div className="mt-auto flex flex-wrap items-center gap-3 pt-2">
-                <Link href={`/${association.slug}/entries/${entry.entryId}`} className="bb-link inline-flex min-h-11 items-center text-primary no-underline">
+                <Link href={`/${association.slug}/entries/${entry.entryId}`} className="bb-link inline-flex min-h-11 items-center text-primary">
                   内容を見る
                 </Link>
-                <Link href={`/${association.slug}/entries/${entry.entryId}/edit`} className="bb-link inline-flex min-h-11 items-center text-primary no-underline">
+                <Link href={`/${association.slug}/entries/${entry.entryId}/edit`} className="bb-link inline-flex min-h-11 items-center text-primary">
                   代理で直す
                 </Link>
                 {entry.needsAdminCheck ? <CheckedButton slug={association.slug} entryId={entry.entryId} /> : null}

@@ -7,7 +7,7 @@ import { SITE_NAME } from "@/lib/site";
 // 協会の画面から開いたときは、その協会宛ての問い合わせへ（§5.10）。元の URL は proxy が x-url に入れている
 export async function SiteFooter() {
   const slug = slugFromUrl((await headers()).get("x-url") ?? "/");
-  const linkClass = "bb-link inline-flex min-h-11 items-center text-muted no-underline hover:text-primary";
+  const linkClass = "bb-link inline-flex min-h-11 items-center text-muted hover:text-primary";
   return (
     <footer className="mt-auto border-t border-border bg-surface">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">

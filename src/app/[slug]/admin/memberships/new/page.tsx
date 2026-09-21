@@ -30,7 +30,7 @@ export default async function NewMembershipPeriodPage({ params }: Props) {
   return (
     <PageMain>
       <p>
-        <Link href={`/${association.slug}/admin/memberships`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/admin/memberships`} className="bb-link text-primary">
           ← 協会員の管理
         </Link>
       </p>

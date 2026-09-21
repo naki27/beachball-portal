@@ -69,7 +69,7 @@ export function ContactList({ rows, endpoint, deleteEndpoint }: Props) {
           </p>
           <p className="whitespace-pre-wrap break-words leading-relaxed">{row.body}</p>
           <p className="text-sm break-all">
-            返信先: <a href={`mailto:${row.senderEmail}`} className="underline underline-offset-2">{row.senderEmail}</a>
+            返信先: <a href={`mailto:${row.senderEmail}`} className="bb-link">{row.senderEmail}</a>
           </p>
           {confirmId === row.id ? (
             <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-3 py-2">

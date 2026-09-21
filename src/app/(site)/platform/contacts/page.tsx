@@ -20,16 +20,16 @@ export default async function PlatformContactsPage({ searchParams }: Props) {
   return (
     <PageMain>
       <p>
-        <Link href="/platform" className="underline underline-offset-2">
+        <Link href="/platform" className="bb-link">
           ← 運営管理
         </Link>
       </p>
       <h1 className="text-2xl font-bold">サイトへの問い合わせ</h1>
       <nav aria-label="絞り込み" className="flex gap-4 text-sm">
-        <Link href="/platform/contacts" aria-current={onlyNew ? "page" : undefined} className={onlyNew ? "font-semibold" : "underline underline-offset-2"}>
+        <Link href="/platform/contacts" aria-current={onlyNew ? "page" : undefined} className={onlyNew ? "font-semibold" : "bb-link"}>
           未対応
         </Link>
-        <Link href="/platform/contacts?status=all" aria-current={onlyNew ? undefined : "page"} className={onlyNew ? "underline underline-offset-2" : "font-semibold"}>
+        <Link href="/platform/contacts?status=all" aria-current={onlyNew ? undefined : "page"} className={onlyNew ? "bb-link" : "font-semibold"}>
           すべて
         </Link>
       </nav>

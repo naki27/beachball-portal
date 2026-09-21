@@ -48,7 +48,7 @@ export function TeamStatusControls({ slug, teamId, status }: { slug: string; tea
       {notice ? <Message kind={notice.kind} title={notice.title} /> : null}
       {status === "active" ? (
         confirming ? (
-          <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
+          <div className="bb-slide-in flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
             <p className="text-sm">
               無効にすると、大会に申し込めなくなり、返事待ちの招待は取り消されます。選手一覧と代表者はそのまま残り、いつでも有効に戻せます。
             </p>

@@ -32,7 +32,7 @@ export default async function NewTournamentDocumentPage({ params }: Props) {
       <p>
         <Link
           href={`/${association.slug}/admin/tournaments/${view.tournament.id}/documents`}
-          className="bb-link text-primary no-underline"
+          className="bb-link text-primary"
         >
           ← 大会の資料
         </Link>

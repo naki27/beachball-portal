@@ -28,6 +28,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 const SCALE = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
+
+const CHOICES = ["山田 太郎", "鈴木 花子"] as const;
 const ROLES = [
   "primary",
   "primary-strong",
@@ -53,6 +55,7 @@ export function UiGallery() {
   const [loading, setLoading] = useState(false);
   const [memo, setMemo] = useState("");
   const [envelopeKey, setEnvelopeKey] = useState(0);
+  const [picked, setPicked] = useState<string[]>([]);
   const draft = useDraft<string>(DEMO_DRAFT_KEY, { onRestore: setMemo });
   const [birth, setBirth] = useState<BirthDateValue>({ date: null, ready: false });
   const birthDate = birth.date ? parsePlainDate(birth.date) : null;
@@ -126,6 +129,44 @@ export function UiGallery() {
           description="受付が始まると、ここに表示されます。"
           action={<Button variant="secondary">大会を見る</Button>}
         />
+      </Section>
+
+      <Section title="マウスを乗せたとき・選んだとき（U-07）">
+        <p className="text-sm text-muted">
+          §4.5 原則 1「楽しさは動きではなく色・影・カードの浮き・マウスを乗せたときの反応で出す」。指の端末では浮かない
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Card interactive>
+            <p className="font-bold">interactive</p>
+            <p className="text-sm text-muted">カードそのものがリンク。乗せると浮く</p>
+          </Card>
+          <Card hoverable>
+            <p className="font-bold">hoverable</p>
+            <p className="text-sm text-muted">中にリンクやボタンがある一覧の行。枠と影だけ変わる</p>
+          </Card>
+        </div>
+        <ul className="flex flex-col gap-2">
+          {CHOICES.map((choice) => (
+            <li key={choice}>
+              <label className="bb-choice flex min-h-14 items-center gap-3 rounded-md border border-border px-3 py-2 has-[:checked]:border-brand-300 has-[:checked]:bg-primary-soft">
+                <input
+                  type="checkbox"
+                  className="size-5"
+                  checked={picked.includes(choice)}
+                  onChange={(e) => setPicked((prev) => (e.target.checked ? [...prev, choice] : prev.filter((v) => v !== choice)))}
+                />
+                <span className="font-semibold">{choice}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm font-semibold" aria-live="polite">
+          {CHOICES.length}人中{picked.length}人を選んでいます
+        </p>
+        <p className="text-sm text-muted">
+          ページを移るときは、本文だけが 200ms でクロスフェードする（ヘッダと管理の案内は動かず、案内の印だけが移る）。
+          対応していないブラウザでは、これまでどおり瞬時に入れ替わる
+        </p>
       </Section>
 
       <Section title="審判の資格（K-01）">

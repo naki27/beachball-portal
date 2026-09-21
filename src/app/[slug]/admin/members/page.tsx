@@ -32,7 +32,7 @@ export default async function AdminMembersPage({ params, searchParams }: Props) 
   return (
     <PageMain width="full">
       <p>
-        <Link href={`/${association.slug}/admin`} className="bb-link text-primary no-underline">
+        <Link href={`/${association.slug}/admin`} className="bb-link text-primary">
           ← 管理
         </Link>
       </p>
@@ -43,10 +43,10 @@ export default async function AdminMembersPage({ params, searchParams }: Props) 
             確認が必要（{needsReview.length} 件）
           </h2>
           <p className="text-sm text-muted">同じ人が二重に登録されている疑いがあります。開いて、別の人か・同じ人かを選んでください。</p>
-          <ul className="flex flex-col gap-1">
+          <ul className="bb-stagger flex flex-col gap-1">
             {needsReview.map((m) => (
               <li key={m.id}>
-                <Link href={`/${association.slug}/admin/members/${m.id}/review`} className="bb-link font-semibold text-primary no-underline">
+                <Link href={`/${association.slug}/admin/members/${m.id}/review`} className="bb-link font-semibold text-primary">
                   {m.name}
                 </Link>
                 <span className="ml-2 text-sm text-muted break-words">
