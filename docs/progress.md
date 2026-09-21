@@ -3,21 +3,22 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: U-04 一覧と登録の分離（**Phase 1a・1b・1c・1d は完了**。残りは U-02・U-03・U-05・U-06 の UI 刷新と、X-01〜X-05 のデプロイ）
-- 次のタスク: U-02 レスポンシブ（選手側）。X-01 本番用の設定は、Phase 0 の人の作業（GCP・Neon・Cloudflare・Brevo）が終わってから
+- 最後に終わったタスク: U-03 レスポンシブ（管理画面）（**Phase 1a・1b・1c・1d は完了**。残りは U-05・U-06 の UI 刷新と、X-01〜X-05 のデプロイ）
+- 次のタスク: U-05 マイクロインタラクション。X-01 本番用の設定は、Phase 0 の人の作業（GCP・Neon・Cloudflare・Brevo）が終わってから
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 申し送り（新しいものを上に）
-### U-01・U-04（2026-09-21）
-- 背景: 利用者から「PC で使いにくい・一覧と登録が同じページ・見た目が素っ気ない」の指摘。**ADR 0028** と設計書 **v0.9.6**（§4.3・§4.5）で方針を変えた。タスク U-01〜U-06 を `docs/p0-tasks.md` §7 に登録
-- U-01: 配色を白・`#42B036`（`--brand-500`）・ティールに刷新。`#42B036` は白文字だと 2.8:1 なので、**文字と塗りつぶしのボタンは `--brand-700`（5.37:1）**。角丸・影・イージングのトークンを足し、`@theme inline` から Tailwind のクラスで使えるようにした。器の共通部品（`PageMain` / `PageHeader` / `Card` / `Section` / `Toolbar` / `ActionBar` / `Badge` / `EmptyState`）を作り、`max-w-xl` の直書き 53 か所を置き換え。入力欄の枠を 3.1:1 に、補足の文字を 5.96:1 に濃くした。ヘッダは上に貼り付き＋印、フッタと合わせて PC 幅（`max-w-7xl`）
-- U-04: 「一覧＋追加フォーム」の 4 か所を分けた。`…/tournaments/[id]/documents/new`、`…/tournaments/[id]/categories/new`、`…/admin/association/presets/new`、`…/admin/memberships/new`。入力欄は `*-fields.tsx` に出して一覧の「直す」と共用。追加のあとは一覧へ戻り、成功のメッセージと足した行の強調（`?added=…`）
-- 動作確認: lint / typecheck / test（TZ 2 回・813 本）、E2E は documents・admin-tournaments・membership・association・ui を WebKit 375×667 で流した（ファイルを分けて）
+### UI 刷新 U-01〜U-04（2026-09-21）
+- 背景: 利用者から「PC で使いにくい・一覧と登録が同じページ・見た目が素っ気ない」の指摘。**ADR 0028** と設計書 **v0.9.6**（§4.3・§4.5）で方針を変えた。タスクは `docs/p0-tasks.md` §7（U-01〜U-06）
+- U-01 土台: 配色を白・`#42B036`（`--brand-500`）・ティールに刷新。**`#42B036` は白文字だと 2.8:1 なので、文字と塗りつぶしのボタンは `--brand-700`（5.37:1）**。角丸・影・イージングのトークンと、器の共通部品（`PageMain` / `PageHeader` / `Card` / `Section` / `Toolbar` / `ActionBar` / `Badge` / `EmptyState`）。`max-w-xl` の直書き 53 か所を置き換え。入力欄の枠 3.1:1・補足の文字 5.96:1。`/dev/ui` に色と器のカタログ
+- U-04 一覧と登録の分離: `…/documents/new`・`…/categories/new`・`…/admin/association/presets/new`・`…/admin/memberships/new`。入力欄は `*-fields.tsx` に出して一覧の「直す」と共用。追加のあとは一覧へ戻り、成功のメッセージと足した行の強調（`?added=…`）
+- U-02 選手側: 375 / 768 / 1280 の 3 段。大会は `TournamentCard` ＋ `TournamentGrid`（1 → 2 → 3 列）、締切は `deadlineTone`（3 日以内は橙・当日は赤）。大会詳細は PC で 2 列（申し込みは右に固定）。主要操作はスマホだけ下部固定（`ActionBar`）
+- U-03 管理画面: `[slug]/admin/layout.tsx` ＋ `AdminNav`（PC は左に貼り付き、狭い画面は上）。**管理者でない人には案内を出さない**（403 の画面に項目を出さない）。管理のトップでは案内を出さない（同じリンクを二重にしない）。一覧は Toolbar ＋カードの格子。参加チーム一覧は部ごとのカード
+- 動作確認: lint / typecheck / test（TZ 2 回・815 本）・`pnpm build`。E2E は 375×667（WebKit）と **1280×800（Chromium・新しく足した）**の両方で、top・public-tournaments・roster・entry-form・entry-manage・documents・admin-tournaments・admin-teams・trash・membership・association・ui を流した（ファイルを分けて）
 - 次への申し送り:
-  - **大会の部の追加だけ、足した行の強調がない**。`addCategoriesFromPresets` が件数しか返さないため（成功のメッセージは出る）。ID を返す形にするなら U-05 か別タスクで
-  - `/dev/ui` に色と器のカタログを足した。U-02・U-03 はここを見ながら進める
-  - `tests/e2e/membership.spec.ts` の `logout()` は `router.refresh()` と競合してまれに落ちる（再実行で通る。U-01 以前からの挙動）
-  - **選手側・管理画面の各ページはまだ 1 カラムのまま**（U-02・U-03 でブレークポイントを入れる）
+  - 次は **U-05 マイクロインタラクション**（節目の演出・スケルトン・進み具合）→ U-06 仕上げ
+  - **大会の部の追加だけ、足した行の強調がない**。`addCategoriesFromPresets` が件数しか返さないため（成功のメッセージは出る）
+  - ヘッダのように `truncate` を使うときは、親の flex 要素にも `min-w-0` が要る（375px で 10px はみ出していた）
 
 ### 運用フロー図（2026-09-21）
 - やったこと: `docs/ops.md` の先頭に「0. 全体像」を追加。mermaid の図（凡例＋登場人物と入口 / サイトマップ 利用者 / サイトマップ 管理者・運営 / 大会 1 回分の流れ / 1 年の流れ・年度更新 / ジョブ・メール・保存先）。URL は `src/app` の実際のルートから起こした。9 分類（登場人物・公開・ログイン・代表者・申し込み・協会管理者・運営管理者・バックエンド・保管先）で色分け、全図共通の `classDef`（淡い塗り＋濃い文字色でコントラストを確保）。**画面や分類を増やしたらここも直す**
