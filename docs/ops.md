@@ -122,30 +122,30 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  AD["協会の管理<br/>/（スラッグ）/admin"]
+  AD["協会の管理<br/>/（スラッグ）/admin"]:::admin
 
   subgraph t["大会"]
-    TRN["大会の管理<br/>/（スラッグ）/admin/tournaments"]
-    TNW["大会を作る<br/>…/new"]
-    TED["大会の編集（部・締切・定員）<br/>…/（大会 ID）"]
-    DCS["大会の資料<br/>…/（大会 ID）/documents"]
-    ENT["申し込みの管理・要確認<br/>…/（大会 ID）/entries"]
-    CSV["CSV のダウンロード（API）<br/>/api/（スラッグ）/admin/tournaments/（大会 ID）/entries/exports"]
+    TRN["大会の管理<br/>/（スラッグ）/admin/tournaments"]:::admin
+    TNW["大会を作る<br/>…/new"]:::admin
+    TED["大会の編集（部・締切・定員）<br/>…/（大会 ID）"]:::admin
+    DCS["大会の資料<br/>…/（大会 ID）/documents"]:::admin
+    ENT["申し込みの管理・要確認<br/>…/（大会 ID）/entries"]:::admin
+    CSV["CSV のダウンロード（API）<br/>/api/（スラッグ）/admin/tournaments/（大会 ID）/entries/exports"]:::admin
   end
 
   subgraph p["人とチーム"]
-    MEM["メンバー管理<br/>/（スラッグ）/admin/members"]
-    MD["人物のページ<br/>…/（人物 ID）"]
-    RV["登録の確認（同じ人かを見る）<br/>…/（人物 ID）/review"]
-    TMS["チーム管理<br/>/（スラッグ）/admin/teams"]
-    TMD["チームの詳細<br/>…/（チーム ID）"]
-    MSH["協会員の管理（年度更新）<br/>/（スラッグ）/admin/memberships"]
+    MEM["メンバー管理<br/>/（スラッグ）/admin/members"]:::admin
+    MD["人物のページ<br/>…/（人物 ID）"]:::admin
+    RV["登録の確認（同じ人かを見る）<br/>…/（人物 ID）/review"]:::admin
+    TMS["チーム管理<br/>/（スラッグ）/admin/teams"]:::admin
+    TMD["チームの詳細<br/>…/（チーム ID）"]:::admin
+    MSH["協会員の管理（年度更新）<br/>/（スラッグ）/admin/memberships"]:::admin
   end
 
   subgraph o["そのほか"]
-    CTS["問い合わせ管理<br/>/（スラッグ）/admin/contacts"]
-    ASC["協会の設定<br/>/（スラッグ）/admin/association"]
-    TRS["削除済みデータ（復元）<br/>/（スラッグ）/admin/trash"]
+    CTS["問い合わせ管理<br/>/（スラッグ）/admin/contacts"]:::admin
+    ASC["協会の設定<br/>/（スラッグ）/admin/association"]:::admin
+    TRS["削除済みデータ（復元）<br/>/（スラッグ）/admin/trash"]:::admin
   end
 
   AD --> TRN --> TNW
@@ -159,75 +159,90 @@ flowchart TD
   AD --> ASC
   AD --> TRS
 
-  PF["運営管理<br/>/platform"] --> PA["協会の設定・管理者の招待<br/>/platform/associations/（協会 ID）"]
-  PF --> PC["サイトへの問い合わせ<br/>/platform/contacts"]
+  PF["運営管理<br/>/platform"]:::platform --> PA["協会の設定・管理者の招待<br/>/platform/associations/（協会 ID）"]:::platform
+  PF --> PC["サイトへの問い合わせ<br/>/platform/contacts"]:::platform
   PA -->|"切り替えて入る（1 時間で切れる・記録が残る）"| AD
+
+  classDef admin fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef platform fill:#ffe4e6,stroke:#e11d48,color:#881337
 ```
 
 ### 0-4. 運用の流れ（大会 1 回分）
 
 ```mermaid
 flowchart TD
-  S1["① 大会を作る（できた直後は準備中）<br/>/（スラッグ）/admin/tournaments/new"]
-  S2["② 部を足す・締切・基準日・定員を決める<br/>…/admin/tournaments/（大会 ID）"]
-  S3["③ 資料（PDF）を置いて公開する<br/>…/（大会 ID）/documents<br/>個人情報が入っていないか確かめる"]
-  S4["④ 受付中にする<br/>公開ページ /（スラッグ）/tournaments に出る"]
-  S5["⑤ 代表者が申し込む<br/>/（スラッグ）/tournaments/（大会 ID）/entry"]
-  S6["⑥ 要確認を片づける・代理で直す<br/>…/（大会 ID）/entries"]
-  S7["⑦ 締切<br/>代表者は直せなくなる（管理者は可）"]
-  S8["⑧ 申し込みの管理から CSV を出す<br/>…/（大会 ID）/entries<br/>生年月日はチェックしたときだけ"]
-  S9["⑨ 組み合わせ表を資料に置く<br/>…/（大会 ID）/documents"]
-  S10["⑩ 大会当日"]
-  S11["⑪ 使い終わった CSV を消す<br/>資料を非公開に戻す"]
+  S1["① 大会を作る（できた直後は準備中）<br/>/（スラッグ）/admin/tournaments/new"]:::admin
+  S2["② 部を足す・締切・基準日・定員を決める<br/>…/admin/tournaments/（大会 ID）"]:::admin
+  S3["③ 資料（PDF）を置いて公開する<br/>…/（大会 ID）/documents<br/>個人情報が入っていないか確かめる"]:::admin
+  S4["④ 受付中にする<br/>公開ページ /（スラッグ）/tournaments に出る"]:::admin
+  S5["⑤ 代表者が申し込む<br/>/（スラッグ）/tournaments/（大会 ID）/entry"]:::entry
+  S6["⑥ 要確認を片づける・代理で直す<br/>…/（大会 ID）/entries"]:::admin
+  S7["⑦ 締切<br/>代表者は直せなくなる（管理者は可）"]:::job
+  S8["⑧ 申し込みの管理から CSV を出す<br/>…/（大会 ID）/entries<br/>生年月日はチェックしたときだけ"]:::admin
+  S9["⑨ 組み合わせ表を資料に置く<br/>…/（大会 ID）/documents"]:::admin
+  S10["⑩ 大会当日"]:::job
+  S11["⑪ 使い終わった CSV を消す<br/>資料を非公開に戻す"]:::admin
 
-  M1["申込の控えメール<br/>代表者へ"]
-  B1["日次ジョブ ②<br/>申込一覧を暗号化してバックアップ<br/>（締切の翌日〜開催日の翌日まで毎日）"]
+  M1["申込の控えメール<br/>代表者へ"]:::job
+  B1["日次ジョブ ②<br/>申込一覧を暗号化してバックアップ<br/>（締切の翌日〜開催日の翌日まで毎日）"]:::job
 
   S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11
   S5 -.-> M1
   S7 -.-> B1
-  S6 -.->|"同じ人かもしれない"| RV["登録の確認<br/>/（スラッグ）/admin/members"]
+  S6 -.->|"同じ人かもしれない"| RV["登録の確認<br/>/（スラッグ）/admin/members"]:::admin
+
+  classDef admin fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef entry fill:#ccfbf1,stroke:#0d9488,color:#134e4a
+  classDef job fill:#e2e8f0,stroke:#475569,color:#1e293b
 ```
 
 ### 0-5. 1 年の流れ（協会員の年度更新）
 
 ```mermaid
 flowchart LR
-  Y1["3 月まで<br/>受付の設定を決める<br/>年度・受付期間・承認を省くか"]
-  Y2["4/1 受付開始<br/>/（スラッグ）/admin/memberships<br/>代表者の画面に案内が出る"]
-  Y3["4〜6 月<br/>代表者が申告<br/>…/teams/（チーム ID）/membership"]
-  Y4["承認<br/>/（スラッグ）/admin/memberships<br/>まとめて承認・代理で申告"]
-  Y5["6/30 締切<br/>ここまでが通常の申告"]
-  Y6["7 月〜年度末<br/>追加の申告（増やすだけ）<br/>承認を省く年度でも承認が要る"]
-  Y7["3/31 年度の終わり"]
+  Y1["3 月まで<br/>受付の設定を決める<br/>年度・受付期間・承認を省くか"]:::admin
+  Y2["4/1 受付開始<br/>/（スラッグ）/admin/memberships<br/>代表者の画面に案内が出る"]:::admin
+  Y3["4〜6 月<br/>代表者が申告<br/>…/teams/（チーム ID）/membership"]:::rep
+  Y4["承認<br/>/（スラッグ）/admin/memberships<br/>まとめて承認・代理で申告"]:::admin
+  Y5["6/30 締切<br/>ここまでが通常の申告"]:::job
+  Y6["7 月〜年度末<br/>追加の申告（増やすだけ）<br/>承認を省く年度でも承認が要る"]:::rep
+  Y7["3/31 年度の終わり"]:::job
 
   Y1 --> Y2 --> Y3 --> Y4 --> Y5 --> Y6 --> Y7
-  Y4 -.->|"承認のメール"| R1["代表者"]
-  T1["大会は 1 年を通して随時<br/>0-4 の流れ"] -.->|"開催日の年度で会員かを見る"| Y4
+  Y4 -.->|"承認のメール"| R1["代表者"]:::actor
+  T1["大会は 1 年を通して随時<br/>0-4 の流れ"]:::job -.->|"開催日の年度で会員かを見る"| Y4
+
+  classDef admin fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef rep fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef job fill:#e2e8f0,stroke:#475569,color:#1e293b
+  classDef actor fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
 ```
 
 ### 0-6. 裏で動くもの（ジョブ・メール・保存先）
 
 ```mermaid
 flowchart LR
-  APP["サイト本体<br/>本番: Cloud Run / ローカル: pnpm dev"]
+  APP["サイト本体<br/>本番: Cloud Run / ローカル: pnpm dev"]:::job
 
-  APP -->|"送信待ちに積む"| OB[("メールの送信待ち<br/>outbox（DB）")]
-  JM["メールの送信<br/>pnpm job:mail（数分おき）"] --> OB
-  JM --> MAIL["本番: Brevo<br/>ローカル: Mailpit http://localhost:8025"]
+  APP -->|"送信待ちに積む"| OB[("メールの送信待ち<br/>outbox（DB）")]:::store
+  JM["メールの送信<br/>pnpm job:mail（数分おき）"]:::job --> OB
+  JM --> MAIL["本番: Brevo<br/>ローカル: Mailpit http://localhost:8025"]:::job
 
-  JD["日次の後始末<br/>pnpm job:daily（毎日 3:00）"] --> J2["② 締切後の申込一覧を暗号化してバックアップ"]
-  JD --> J3["③ 期限切れの確認番号・セッション・レート制限を消す"]
-  JD --> J4["④ 期限切れの招待を expired にして知らせる"]
-  JD --> J5["⑤ 保存期間を過ぎた記録を消す"]
-  JD --> J6["⑥ どこからも指されていない資料のファイルを消す"]
+  JD["日次の後始末<br/>pnpm job:daily（毎日 3:00）"]:::job --> J2["② 締切後の申込一覧を暗号化してバックアップ"]:::job
+  JD --> J3["③ 期限切れの確認番号・セッション・レート制限を消す"]:::job
+  JD --> J4["④ 期限切れの招待を expired にして知らせる"]:::job
+  JD --> J5["⑤ 保存期間を過ぎた記録を消す"]:::job
+  JD --> J6["⑥ どこからも指されていない資料のファイルを消す"]:::job
 
-  APP --> DB[("Postgres<br/>本番: Neon / ローカル: db:5432")]
-  APP --> ST["ファイル<br/>本番: R2（公開用・保管用・バックアップ用）<br/>ローカル: .local-storage/"]
-  APP --> LOG["操作ログ（1 リクエスト 1 行）<br/>本番: Cloud Logging（stdout）<br/>ローカル: logs/access.log"]
+  APP --> DB[("Postgres<br/>本番: Neon / ローカル: db:5432")]:::store
+  APP --> ST["ファイル<br/>本番: R2（公開用・保管用・バックアップ用）<br/>ローカル: .local-storage/"]:::store
+  APP --> LOG["操作ログ（1 リクエスト 1 行）<br/>本番: Cloud Logging（stdout）<br/>ローカル: logs/access.log"]:::job
   J2 --> ST
   J6 --> ST
-  APP -.->|"つながっているか"| HC["/api/health"]
+  APP -.->|"つながっているか"| HC["/api/health"]:::job
+
+  classDef job fill:#e2e8f0,stroke:#475569,color:#1e293b
+  classDef store fill:#cffafe,stroke:#0891b2,color:#164e63
 ```
 
 ## 1. 協会（テナント）を増やす
