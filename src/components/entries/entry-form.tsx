@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ActionBar } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { TextField } from "@/components/ui/text-field";
 import { useDraft } from "@/hooks/use-draft";
@@ -358,7 +359,7 @@ export function EntryForm({
             {chosen.preset.mixedMinMale}人以上・女性{chosen.preset.mixedMinFemale}人以上）
           </p>
         ) : null}
-        <ul className="flex flex-col gap-3">
+        <ul className="grid gap-3 lg:grid-cols-2">
           {values.slots.map((slot, index) => (
             <PlayerSlotField
               // 枠は並べ替えない。増減は末尾だけなので添字で足りる
@@ -430,9 +431,12 @@ export function EntryForm({
       ) : null}
       {notice ? <Message kind="success" title={notice} /> : null}
       {draft.savedAt ? <p className="text-sm text-muted">入力した内容をこの端末に保存しました。</p> : null}
-      <Button fullWidth onClick={onNext}>
-        確認へ
-      </Button>
+      {/* 主要操作はスマホだけ画面の下に貼り付ける（§4.3・v0.9.6）。PC は本文の中 */}
+      <ActionBar>
+        <Button fullWidth onClick={onNext}>
+          確認へ
+        </Button>
+      </ActionBar>
     </div>
   );
 }

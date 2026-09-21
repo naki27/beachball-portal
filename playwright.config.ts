@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
-// E2E（Playwright）。選手側の画面はスマホが 9 割なので、WebKit 375×667 と Chromium 360×640 の 2 つで流す（設計書 §4.3・§12.1）
+// E2E（Playwright）。選手側の画面はスマホが 9 割なので WebKit 375×667 と Chromium 360×640 で流し、
+// PC でも操作する人がいるので Chromium 1280×800 でも流す（設計書 §4.3 v0.9.6・§12.1・ADR 0028）
 const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000";
 
 export default defineConfig({
@@ -42,6 +43,14 @@ export default defineConfig({
         deviceScaleFactor: 3,
         isMobile: true,
         hasTouch: true,
+      },
+    },
+    // PC でも操作する人がいる（ADR 0028・§4.3 v0.9.6）。1280×800 でも崩れないことを見る
+    {
+      name: "chromium-1280x800",
+      use: {
+        browserName: "chromium",
+        viewport: { width: 1280, height: 800 },
       },
     },
   ],

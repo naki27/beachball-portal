@@ -2,7 +2,8 @@ import Link from "next/link";
 import { OpenTournaments } from "@/components/top/open-tournaments";
 import { RecentDocuments } from "@/components/top/recent-documents";
 import { type TodoItem, YourTodos } from "@/components/top/your-todos";
-import { PageMain } from "@/components/ui/layout";
+import { buttonClass } from "@/components/ui/button";
+import { PageHeader, PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { entryTodos, listMyEntries } from "@/lib/entries/my-entries";
@@ -51,22 +52,27 @@ export default async function AssociationTop({ params }: Props) {
   }
 
   return (
-    <PageMain gap="lg">
-      <h1 className="text-2xl font-bold">{association.name}</h1>
+    <PageMain width="wide" gap="lg">
+      <PageHeader
+        tone="hero"
+        title={association.name}
+        lead="大会の申し込みと、チームの登録はここから。"
+        actions={
+          principal.userId ? (
+            <>
+              <Link href={`/${association.slug}/teams/new`} className={buttonClass("secondary")}>
+                チームを登録する
+              </Link>
+              <Link href={`/${association.slug}/teams/new?kind=individual`} className={buttonClass("secondary")}>
+                個人で登録する
+              </Link>
+            </>
+          ) : null
+        }
+      />
       {principal.userId ? <YourTodos items={todos} /> : null}
       <OpenTournaments slug={association.slug} open={tournaments.open} upcoming={tournaments.upcoming} now={now} />
       <RecentDocuments slug={association.slug} documents={documents} />
-      {principal.userId ? (
-        <p>
-          <Link href={`/${association.slug}/teams/new`} className="font-semibold underline underline-offset-2">
-            チームを登録する
-          </Link>
-          {"　"}
-          <Link href={`/${association.slug}/teams/new?kind=individual`} className="font-semibold underline underline-offset-2">
-            個人で登録する
-          </Link>
-        </p>
-      ) : null}
     </PageMain>
   );
 }

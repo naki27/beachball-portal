@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ActionBar, Card } from "@/components/ui/layout";
 import { Skeleton } from "@/components/ui/loading";
 import { Message } from "@/components/ui/message";
 import { useDraft } from "@/hooks/use-draft";
@@ -132,7 +133,8 @@ export function EntryConfirm({
         入力に戻って直す
       </Button>
 
-      <dl className="flex flex-col gap-3">
+      <Card>
+        <dl className="flex flex-col gap-3">
         <div>
           <dt className="font-semibold">大会</dt>
           <dd>{tournamentName}</dd>
@@ -169,7 +171,8 @@ export function EntryConfirm({
             <dd className="whitespace-pre-wrap break-words">{values.note}</dd>
           </div>
         ) : null}
-      </dl>
+        </dl>
+      </Card>
 
       {!players.ok ? (
         <Message kind="error" title="入力に足りないところがあります">
@@ -178,12 +181,15 @@ export function EntryConfirm({
       ) : null}
       {notice ? <Message kind="error" title={notice} /> : null}
 
-      <Button fullWidth onClick={onSubmit} pending={pending} pendingLabel="申し込んでいます…" disabled={!players.ok}>
-        申し込む
-      </Button>
-      <Button variant="secondary" onClick={backToInput} fullWidth>
-        入力に戻って直す
-      </Button>
+      {/* 主要操作はスマホだけ画面の下に貼り付ける（§4.3・v0.9.6）。PC は横並び */}
+      <ActionBar>
+        <Button fullWidth onClick={onSubmit} pending={pending} pendingLabel="申し込んでいます…" disabled={!players.ok}>
+          申し込む
+        </Button>
+        <Button variant="secondary" onClick={backToInput} fullWidth>
+          入力に戻って直す
+        </Button>
+      </ActionBar>
     </div>
   );
 }

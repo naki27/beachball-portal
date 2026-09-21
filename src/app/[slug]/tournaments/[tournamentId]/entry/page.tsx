@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ConflictScreen } from "@/components/conflict-screen";
 import { EntryForm, type EntryFormCategoryView } from "@/components/entries/entry-form";
 import { EntrySteps } from "@/components/entries/entry-steps";
-import { PageMain } from "@/components/ui/layout";
+import { PageHeader, PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -47,14 +47,14 @@ export default async function EntryPage({ params }: Props) {
 
   const { tournament } = data;
   return (
-    <PageMain>
+    <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/tournaments/${tournament.id}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/tournaments/${tournament.id}`} className="bb-link text-primary no-underline">
           ← {tournament.name}
         </Link>
       </p>
       <EntrySteps current="input" />
-      <h1 className="text-2xl font-bold break-words">{tournament.name}に申し込む</h1>
+      <PageHeader eyebrow={tournament.name} title={`${tournament.name}に申し込む`} />
       {data.isAssociationAdmin ? (
         <Message kind="info" title="協会の管理者として開いています">
           <p>締切を過ぎた部にも申し込めます。</p>

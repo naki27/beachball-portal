@@ -12,7 +12,7 @@ export function SiteHeader({ title, href, right }: { title: string; href: string
       <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <Link
           href={href}
-          className="bb-pressable flex min-h-12 items-center gap-2 py-2 text-lg font-bold no-underline hover:text-primary"
+          className="bb-pressable flex min-h-12 min-w-0 items-center gap-2 py-2 text-lg font-bold no-underline hover:text-primary"
         >
           <SiteMark className="size-7 shrink-0" />
           <span className="min-w-0 truncate">{title}</span>

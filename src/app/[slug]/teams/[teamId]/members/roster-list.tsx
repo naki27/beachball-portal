@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
+import { Card, EmptyState } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { TextField } from "@/components/ui/text-field";
 import { UndoBar } from "@/components/ui/undo-bar";
@@ -113,7 +114,7 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
     }
     if (inviting === item.teamMemberId) {
       return (
-        <form onSubmit={(e) => void sendInvitation(e, item)} noValidate className="flex flex-col gap-2 rounded-md border border-border bg-surface px-3 py-3">
+        <form onSubmit={(e) => void sendInvitation(e, item)} noValidate className="flex flex-col gap-2 rounded-md border border-border-strong bg-surface px-3 py-3">
           <TextField
             id={`invite-${item.teamMemberId}`}
             label="本人のメールアドレス"
@@ -163,13 +164,14 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
         />
       ))}
       {roster.items.length === 0 ? (
-        <p className="leading-relaxed text-muted">まだ選手がいません。</p>
+        <EmptyState title="まだ選手がいません" description="「選手を追加する」から、大会に出る人を登録してください。" />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="bb-stagger grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {roster.items.map((item) => {
             const birth = item.personal ? parsePlainDate(item.personal.birthDate) : null;
             return (
-              <li key={item.teamMemberId} className="flex flex-col gap-2 rounded-md border border-border px-4 py-3">
+              <li key={item.teamMemberId}>
+                <Card className="flex h-full flex-col gap-2">
                 <div className="flex flex-col">
                   <span className="text-lg font-semibold break-words">
                     {item.name}
@@ -188,16 +190,16 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
                 ) : null}
                 {viewerCanManage ? accountLine(item) : null}
                 {viewerCanManage ? (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
                     <Link
                       href={`/${slug}/teams/${roster.team.id}/members/${item.teamMemberId}/edit`}
-                      className="inline-flex min-h-10 items-center font-semibold underline underline-offset-2"
+                      className={buttonClass("secondary", false, "sm")}
                     >
                       修正する
                     </Link>
                     <Button
                       variant="secondary"
-                      className="min-h-10"
+                      size="sm"
                       onClick={() => void call(`leave:${item.teamMemberId}`, `${base}/members/${item.teamMemberId}/leave`, { method: "POST" })}
                       pending={pending === `leave:${item.teamMemberId}`}
                       pendingLabel="外しています…"
@@ -206,6 +208,7 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
                     </Button>
                   </div>
                 ) : null}
+                </Card>
               </li>
             );
           })}

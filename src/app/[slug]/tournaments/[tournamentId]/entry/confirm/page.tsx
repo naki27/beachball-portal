@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ConflictScreen } from "@/components/conflict-screen";
 import { EntryConfirm } from "@/components/entries/entry-confirm";
 import { EntrySteps } from "@/components/entries/entry-steps";
-import { PageMain } from "@/components/ui/layout";
+import { PageHeader, PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { type EntryFormData, getEntryFormData } from "@/lib/entries/entry-form";
@@ -42,7 +42,7 @@ export default async function EntryConfirmPage({ params }: Props) {
   return (
     <PageMain>
       <EntrySteps current="confirm" />
-      <h1 className="text-2xl font-bold break-words">この内容で申し込みます</h1>
+      <PageHeader eyebrow={data.tournament.name} title="この内容で申し込みます" />
       <EntryConfirm
         slug={association.slug}
         associationId={association.id}

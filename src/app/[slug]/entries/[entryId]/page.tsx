@@ -3,7 +3,7 @@ import Link from "next/link";
 import { secondaryButtonClass } from "@/components/button-classes";
 import { EntryCancel } from "@/components/entries/entry-cancel";
 import { EntrySteps } from "@/components/entries/entry-steps";
-import { PageMain } from "@/components/ui/layout";
+import { Card, PageHeader, PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -44,9 +44,10 @@ export default async function EntryPage({ params, searchParams }: Props) {
   return (
     <PageMain>
       {justDone ? <EntrySteps current="done" /> : null}
-      <h1 className="text-2xl font-bold break-words">
-        {justDone ? `${entry.tournamentName}のお申し込みを受け付けました` : "申し込みの内容"}
-      </h1>
+      <PageHeader
+        eyebrow={justDone ? undefined : entry.tournamentName}
+        title={justDone ? `${entry.tournamentName}のお申し込みを受け付けました` : "申し込みの内容"}
+      />
       {justDone ? (
         <Message kind="success" title="申し込みが完了しました">
           <p>控えのメールをお送りしました。届かないときは、迷惑メールのフォルダもご確認ください。</p>
@@ -63,7 +64,8 @@ export default async function EntryPage({ params, searchParams }: Props) {
         </Message>
       ))}
 
-      <dl className="flex flex-col gap-3">
+      <Card>
+        <dl className="flex flex-col gap-3">
         <div>
           <dt className="font-semibold">申込番号</dt>
           <dd className="break-all font-mono text-sm">{entry.entryId}</dd>
@@ -111,7 +113,8 @@ export default async function EntryPage({ params, searchParams }: Props) {
             <dd className="whitespace-pre-wrap break-words">{entry.note}</dd>
           </div>
         ) : null}
-      </dl>
+        </dl>
+      </Card>
 
       {/* 変更方法の文言は §4.4 の定型文（§5.5(d)） */}
       {entry.canEdit ? (

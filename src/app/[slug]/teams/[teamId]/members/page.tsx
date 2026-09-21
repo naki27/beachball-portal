@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageMain } from "@/components/ui/layout";
+import { buttonClass } from "@/components/ui/button";
+import { PageHeader, PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -27,25 +28,25 @@ export default async function RosterPage({ params, searchParams }: Props) {
   const roster = await getRoster(getDb(), { ...principal, userId: principal.userId }, association.id, teamId).catch(pageErrorFrom);
 
   return (
-    <PageMain>
+    <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/teams/${roster.team.id}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/teams/${roster.team.id}`} className="bb-link text-primary no-underline">
           ← {roster.team.name}
         </Link>
       </p>
-      <h1 className="text-2xl font-bold">選手一覧</h1>
+      <PageHeader
+        eyebrow={roster.team.name}
+        title="選手一覧"
+        actions={
+          roster.canManage && roster.team.kind === "team" ? (
+            <Link href={`/${association.slug}/teams/${roster.team.id}/members/new`} className={buttonClass()}>
+              選手を追加する
+            </Link>
+          ) : null
+        }
+      />
       {added === "1" ? <Message kind="success" title="選手一覧に追加しました" /> : null}
       {updated === "1" ? <Message kind="success" title="選手の情報を保存しました" /> : null}
-      {roster.canManage && roster.team.kind === "team" ? (
-        <p>
-          <Link
-            href={`/${association.slug}/teams/${roster.team.id}/members/new`}
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-md bg-primary px-4 font-semibold text-on-primary no-underline"
-          >
-            選手を追加する
-          </Link>
-        </p>
-      ) : null}
       <RosterList slug={association.slug} roster={roster} viewerCanManage={roster.canManage} />
     </PageMain>
   );
