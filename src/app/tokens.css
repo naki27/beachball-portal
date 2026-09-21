@@ -205,3 +205,17 @@
     transform: scaleX(1);
   }
 }
+
+/* 封筒が 1 回だけ小さく動く（§4.5「確認番号を送った」） */
+@keyframes bb-nudge {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  30% {
+    transform: translateY(-4px) rotate(-6deg);
+  }
+  60% {
+    transform: translateY(0) rotate(4deg);
+  }
+}

@@ -3,6 +3,8 @@
 import { type ReactNode, useState } from "react";
 import { type BirthDateValue, BirthDateField } from "@/components/ui/birth-date-field";
 import { Button } from "@/components/ui/button";
+import { Celebrate } from "@/components/ui/celebrate";
+import { EnvelopeIcon } from "@/components/ui/envelope-icon";
 import { ActionBar, Badge, Card, EmptyState, PageHeader, Toolbar } from "@/components/ui/layout";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { DelayedSkeleton } from "@/components/ui/loading";
@@ -49,6 +51,7 @@ export function UiGallery() {
   const [removed, setRemoved] = useState(false);
   const [loading, setLoading] = useState(false);
   const [memo, setMemo] = useState("");
+  const [envelopeKey, setEnvelopeKey] = useState(0);
   const draft = useDraft<string>(DEMO_DRAFT_KEY, { onRestore: setMemo });
   const [birth, setBirth] = useState<BirthDateValue>({ date: null, ready: false });
   const birthDate = birth.date ? parsePlainDate(birth.date) : null;
@@ -124,6 +127,15 @@ export function UiGallery() {
         />
       </Section>
 
+      <Section title="節目の演出（申込・申告の完了だけ）">
+        <p className="text-sm text-muted">
+          ADR 0028。1 回だけで止まる。OS の「視差効果を減らす」が ON なら紙吹雪は出ず、チェックと文字だけが残る。
+        </p>
+        <Celebrate title="申し込みが完了しました">
+          <p>控えのメールをお送りしました。</p>
+        </Celebrate>
+      </Section>
+
       <Section title="ボタン">
         <div className="flex flex-col gap-3">
           <Button
@@ -150,6 +162,16 @@ export function UiGallery() {
             下書きを保存
           </Button>
         </ActionBar>
+      </Section>
+
+      <Section title="封筒（確認番号を送ったとき）">
+        <p className="flex items-start gap-2">
+          <EnvelopeIcon key={envelopeKey} className="mt-0.5 size-7 shrink-0" />
+          <span>メールを送りました。届いた 6 けたの数字を入れてください。</span>
+        </p>
+        <Button variant="secondary" onClick={() => setEnvelopeKey((n) => n + 1)}>
+          もう一度送ったことにする（封筒が 1 回動く）
+        </Button>
       </Section>
 
       <Section title="入力欄と誤りの表示">

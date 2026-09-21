@@ -3,6 +3,7 @@ import Link from "next/link";
 import { secondaryButtonClass } from "@/components/button-classes";
 import { EntryCancel } from "@/components/entries/entry-cancel";
 import { EntrySteps } from "@/components/entries/entry-steps";
+import { Celebrate } from "@/components/ui/celebrate";
 import { Card, PageHeader, PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
@@ -48,10 +49,11 @@ export default async function EntryPage({ params, searchParams }: Props) {
         eyebrow={justDone ? undefined : entry.tournamentName}
         title={justDone ? `${entry.tournamentName}のお申し込みを受け付けました` : "申し込みの内容"}
       />
+      {/* 節目の演出（ADR 0028）。「視差効果を減らす」が ON なら紙吹雪は出ず、チェックと文字だけが残る */}
       {justDone ? (
-        <Message kind="success" title="申し込みが完了しました">
+        <Celebrate title="申し込みが完了しました">
           <p>控えのメールをお送りしました。届かないときは、迷惑メールのフォルダもご確認ください。</p>
-        </Message>
+        </Celebrate>
       ) : null}
       {entry.status === "cancelled" ? (
         <Message kind="info" title="この申し込みは取り消されています">

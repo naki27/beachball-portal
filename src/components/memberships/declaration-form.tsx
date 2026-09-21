@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Celebrate } from "@/components/ui/celebrate";
 import { Message } from "@/components/ui/message";
 
 // 年度更新の申告（設計書 §5.12「申告フロー」・§4.5「年度更新・管理画面」）
@@ -89,7 +90,12 @@ export function DeclarationForm({
   return (
     <section className="flex flex-col gap-4">
       {notice ? <Message kind="error" title={notice} /> : null}
-      {done ? <Message kind="success" title={done} /> : null}
+      {/* 節目の演出（ADR 0028）。申告が終わったときだけ */}
+      {done ? (
+        <Celebrate title={done}>
+          <p>申告の控えをメールでお送りしました。</p>
+        </Celebrate>
+      ) : null}
       {asAdmin ? (
         <Message kind="info" title="運営として代理で入力しています">
           締切を過ぎたあとも直せます。チームの代表者には申告の控えが届きます。

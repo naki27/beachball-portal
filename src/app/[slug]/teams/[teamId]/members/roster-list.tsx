@@ -27,6 +27,8 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
   const [inviting, setInviting] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState<string | null>(null);
+  // 外している最中の行（§4.5「行がふわっと消える」）。消えたことは「外しました［元に戻す］」の帯でも伝える
+  const [leaving, setLeaving] = useState<string | null>(null);
   const base = `/api/${slug}/teams/${roster.team.id}`;
 
   async function call(key: string, url: string, init: RequestInit, onOk?: (body: Record<string, unknown> | null) => void) {
@@ -159,7 +161,11 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
         <UndoBar
           key={r.teamMemberId}
           message={`${r.name}さんを外しました`}
-          onUndo={() => void call(`undo:${r.teamMemberId}`, `${base}/members/${r.teamMemberId}/undo-leave`, { method: "POST" })}
+          onUndo={() => {
+            // 戻した行をまた薄いままにしない
+            setLeaving(null);
+            void call(`undo:${r.teamMemberId}`, `${base}/members/${r.teamMemberId}/undo-leave`, { method: "POST" });
+          }}
           pending={pending === `undo:${r.teamMemberId}`}
         />
       ))}
@@ -170,7 +176,7 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
           {roster.items.map((item) => {
             const birth = item.personal ? parsePlainDate(item.personal.birthDate) : null;
             return (
-              <li key={item.teamMemberId}>
+              <li key={item.teamMemberId} className={leaving === item.teamMemberId ? "bb-fade-out" : undefined}>
                 <Card className="flex h-full flex-col gap-2">
                 <div className="flex flex-col">
                   <span className="text-lg font-semibold break-words">
@@ -200,7 +206,15 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => void call(`leave:${item.teamMemberId}`, `${base}/members/${item.teamMemberId}/leave`, { method: "POST" })}
+                      onClick={() => {
+                        setLeaving(item.teamMemberId);
+                        void call(`leave:${item.teamMemberId}`, `${base}/members/${item.teamMemberId}/leave`, { method: "POST" }).then(
+                          (ok) => {
+                            // 失敗したら元に戻す（消えたままにしない）
+                            if (!ok) setLeaving(null);
+                          },
+                        );
+                      }}
                       pending={pending === `leave:${item.teamMemberId}`}
                       pendingLabel="外しています…"
                     >

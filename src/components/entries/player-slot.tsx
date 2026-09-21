@@ -40,6 +40,7 @@ export function PlayerSlotField({
   referenceDate,
   errors,
   notice = null,
+  highlight = false,
 }: {
   index: number;
   slot: PlayerSlot;
@@ -54,6 +55,8 @@ export function PlayerSlotField({
   errors: PlayerSlotErrors;
   // 枠に添える知らせ（申込の変更で、選手一覧からいなくなった人の印・§5.5）
   notice?: string | null;
+  // 足した直後・前回コピーで入った直後だけ 1 秒強調する（§4.5「内容が変わった」）
+  highlight?: boolean;
 }) {
   const uid = useId();
   const id = (part: string) => `slot-${index}-${part}`;
@@ -127,7 +130,10 @@ export function PlayerSlotField({
   const chosen = slot.kind === "pick" && slot.memberId;
 
   return (
-    <li className="flex flex-col gap-3 rounded-md border border-border p-3">
+    <li
+      id={`entry-slot-${index}`}
+      className={`flex flex-col gap-3 rounded-lg border border-border bg-background p-3 shadow-sm ${highlight ? "bb-highlight" : ""}`}
+    >
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-bold">{index + 1}人目</h3>
         {onRemove ? (

@@ -45,6 +45,21 @@ test("/dev/ui が開き、横にはみ出さない。部品が動く", async ({ 
   await page.screenshot({ path: testInfo.outputPath("dev-ui.png"), fullPage: true });
 });
 
+// 節目の演出（ADR 0028・§4.5 原則 1 の例外・原則 5）
+// 「視差効果を減らす」が ON なら紙吹雪は出ず、チェックと文字だけが残る
+test("節目の演出: 視差効果を減らすと紙吹雪が出ず、文字は残る", async ({ page }) => {
+  await page.goto("/dev/ui");
+  const celebration = page.getByText("申し込みが完了しました");
+  await expect(celebration).toBeVisible();
+  const confetti = page.locator(".bb-confetti");
+  await expect(confetti).toBeVisible();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await expect(page.getByText("申し込みが完了しました")).toBeVisible();
+  await expect(page.locator(".bb-confetti")).toBeHidden();
+});
+
 test("フッタからプライバシーポリシーと利用規約を開ける（ログインしていなくても）", async ({ page }) => {
   await page.goto("/sawara");
   await expect(page.getByRole("link", { name: "利用規約" })).toHaveAttribute("href", "/terms");

@@ -140,6 +140,9 @@ h3 {
 .bb-highlight {
   animation: bb-highlight 1s ease-out 1;
 }
+.bb-nudge {
+  animation: bb-nudge var(--motion-slow) var(--ease-out) 1;
+}
 .bb-grow {
   transform-origin: left center;
   animation: bb-grow var(--motion-slow) var(--ease-out) 1;

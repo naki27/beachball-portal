@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ActionBar } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
@@ -103,6 +103,25 @@ export function EntryForm({
   // 前回コピー（§5.5(b)）の結果。外した選手の理由もここに出す
   const [copied, setCopied] = useState<{ title: string; dropped: string | null } | null>(null);
   const [copying, setCopying] = useState(false);
+  // 足した直後・前回コピーで入った直後の枠を 1 秒強調する（§4.5「内容が変わった」）
+  const [flash, setFlash] = useState<readonly number[]>([]);
+  // 足した枠まで自動でスクロールする（§4.5「新しい枠が下から入り、その枠まで自動でスクロール」）
+  // 状態ではなく ref に持つ（描画をもう 1 回起こさないため）
+  const scrollToRef = useRef<number | null>(null);
+
+  function flashSlots(indexes: readonly number[]): void {
+    setFlash(indexes);
+    // 強調は 1 秒で終わる（globals.css の bb-highlight）。消し忘れないように状態も戻す
+    window.setTimeout(() => setFlash([]), 1200);
+  }
+
+  useEffect(() => {
+    const index = scrollToRef.current;
+    if (index === null) return;
+    scrollToRef.current = null;
+    // behavior は指定しない（html の scroll-behavior に任せる。「視差効果を減らす」では瞬時に飛ぶ）
+    document.getElementById(`entry-slot-${index}`)?.scrollIntoView({ block: "center" });
+  }, [values.slots.length]);
   // 確認ページで断られた理由（締切・定員・資格）。該当する枠・欄の下にも出す（§5.5）
   // sessionStorage から 1 回だけ読む（URL には載せない・§12）。描画は hydrated のあとなので食い違わない
   const [rejected, setRejected] = useState<EntrySubmitError | null>(() => takeSubmitError(key));
@@ -130,13 +149,16 @@ export function EntryForm({
     });
   }
 
+  // 選手を追加（§4.5「新しい枠が下から入り、その枠まで自動でスクロール」）
+  // 状態の更新関数の中で別の状態を変えないよう、ここで組み立ててから渡す
   function addSlot() {
-    setValues((current) => {
-      if (current.slots.length >= teamSizeMax) return current;
-      const updated = { ...current, slots: [...current.slots, emptySlot()] };
-      draft.save(updated);
-      return updated;
-    });
+    if (values.slots.length >= teamSizeMax) return;
+    const index = values.slots.length;
+    const updated = { ...values, slots: [...values.slots, emptySlot()] };
+    setValues(updated);
+    draft.save(updated);
+    flashSlots([index]);
+    scrollToRef.current = index;
   }
 
   function removeSlot(index: number) {
@@ -173,6 +195,8 @@ export function EntryForm({
       draft.saveNow(updated);
       setSlotErrors({});
       setEligibility(null);
+      // 入った枠を一瞬強調する（§4.5「選手が上から順に入り、入った枠を一瞬強調」）
+      flashSlots(slots.map((slot, i) => (isBlankSlot(slot) ? -1 : i)).filter((i) => i >= 0));
       setCopied({
         title: `前回（${previous.tournamentName}${previous.cancelled ? "・取り消した申し込み" : ""}）と同じ選手にしました`,
         dropped: droppedMessage(dropped),
@@ -353,6 +377,11 @@ export function EntryForm({
             協会員だけを表示
           </label>
         ) : null}
+        {/* 人数（§4.5「選手 4人（7人まで）」。下限に届いたら緑。色だけに頼らず文字も変える） */}
+        <p className={`text-sm font-semibold ${filled.length >= teamSizeMin ? "text-success" : "text-muted"}`} aria-live="polite">
+          選手 {filled.length}人（{teamSizeMax}人まで）
+          {filled.length >= teamSizeMin ? "・人数は足りています" : `・あと${teamSizeMin - filled.length}人必要です`}
+        </p>
         {chosen && chosen.preset.gender === "mixed" ? (
           <p className="text-sm font-semibold" data-testid="entry-sex-counts">
             いま 男性{counts.male}人・女性{counts.female}人（コートに出る{chosen.preset.courtSize}人のうち、男性
@@ -375,6 +404,7 @@ export function EntryForm({
               membersOnly={membersOnly}
               referenceDate={chosen?.referenceDate ?? todayInTokyo()}
               errors={slotErrorsView[index] ?? {}}
+              highlight={flash.includes(index)}
             />
           ))}
         </ul>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { EnvelopeIcon } from "@/components/ui/envelope-icon";
 import { Message } from "@/components/ui/message";
 import { TextField } from "@/components/ui/text-field";
 import {
@@ -141,9 +142,8 @@ export function CodeForm({ next }: { next: string | null }) {
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
       <p className="bb-slide-in flex items-start gap-2 leading-relaxed">
-        <span aria-hidden="true" className="text-xl">
-          ✉️
-        </span>
+        {/* 送るたびに 1 回だけ動かす（key を変えるとアニメーションがやり直される） */}
+        <EnvelopeIcon key={sentCount} className="mt-0.5 size-7 shrink-0" />
         <span>
           <span className="font-semibold">{email ?? ""}</span> にメールを送りました。届いた 6 けたの数字を入れてください。
           {sentCount > 1 ? " 届いたメールのどの番号でも使えます。" : ""}
