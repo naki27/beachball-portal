@@ -1,5 +1,5 @@
 import type { Db } from "@/db/client";
-import type { MemberSex } from "@/db/schema";
+import type { MemberSex, RefereeGrade } from "@/db/schema";
 import { withTenantOn } from "@/db/tenant";
 import { ageAt } from "@/lib/age";
 import { can, type Principal } from "@/lib/authz";
@@ -8,7 +8,7 @@ import { isUuid } from "@/lib/ids";
 import { matchKeysOf, resolveMember } from "@/lib/matching";
 import { currentFiscalYear, membershipDisplays, membershipDisplayText } from "@/lib/membership";
 import { findAssociationById } from "@/lib/repo/associations";
-import { updateMemberPerson } from "@/lib/repo/members";
+import { updateMemberPerson, updateMemberReferee } from "@/lib/repo/members";
 import { listTeamInvitations } from "@/lib/repo/team-invitations";
 import {
   addTeamMember,
@@ -33,6 +33,9 @@ export const UNDO_LEAVE_WINDOW_MS = 30 * 60 * 1000;
 
 export type Personal = { birthDate: string; age: number; sex: MemberSex };
 
+// 審判の資格（K-01）。級はチームの人なら見られる。審判Noは生年月日と同じ範囲（代表者以上と本人）に限る（ADR 0030）
+export type Referee = { grade: RefereeGrade | null; no: string | null };
+
 // 本人のアカウントとの紐づけの状態（代表者以上にだけ入る・§5.15）
 export type AccountState = {
   // 本人がログインできる（members.user_id あり）
@@ -50,6 +53,8 @@ export type RosterItem = {
   isSelf: boolean;
   // 生年月日・年齢・性別。代表者以上と本人にだけ入る（§3.2）
   personal: Personal | null;
+  // 審判の資格（K-01）。審判Noは personal と同じ範囲の人にだけ入る
+  referee: Referee;
   // 代表者以上にだけ入る
   account: AccountState | null;
   // 今年度の協会員の状態の文言（§5.12「表示」）。代表者以上と本人だけ。データのない年度は null
@@ -113,6 +118,7 @@ export async function getRoster(
           kana: row.kana,
           isSelf,
           personal: showPersonal ? personalOf(row, today) : null,
+          referee: { grade: row.refereeGrade, no: showPersonal ? row.refereeNo : null },
           membershipLabel: can(role, "viewMembershipStatus", { self: isSelf })
             ? membershipDisplayText(displays.get(row.memberId) ?? "no_data", year)
             : null,
@@ -166,6 +172,10 @@ export async function addPlayer(
       if (await findActiveTeamMember(tx, associationId, teamId, resolved.memberId)) {
         throw new TeamError(409, "この方はすでに選手一覧にいます");
       }
+      // 審判の資格（K-01）。すでにある人物に結びついたときは、入力があったときだけ書き換える（空欄で消さない・ADR 0030）
+      if (parsed.value.refereeGrade || parsed.value.refereeNo) {
+        await updateMemberReferee(tx, associationId, resolved.memberId, parsed.value);
+      }
       const row = await addTeamMember(tx, associationId, teamId, resolved.memberId);
       return { teamMemberId: row.id, memberId: resolved.memberId, created: resolved.created, needsReview: resolved.needsReview };
     },
@@ -189,7 +199,18 @@ export async function getPlayerForEdit(
       const { team } = await authorizeTeam(tx, principal, associationId, teamId, "manageRoster");
       const row = await findTeamMemberRow(tx, associationId, teamId, teamMemberId);
       if (!row || row.leftAt) throw new TeamError(404, "選手が見つかりません");
-      return { team, teamMemberId, player: { name: row.name, kana: row.kana, birthDate: row.birthDate, sex: row.sex } };
+      return {
+        team,
+        teamMemberId,
+        player: {
+          name: row.name,
+          kana: row.kana,
+          birthDate: row.birthDate,
+          sex: row.sex,
+          refereeGrade: row.refereeGrade,
+          refereeNo: row.refereeNo,
+        },
+      };
     },
     { userId: principal.userId },
   );

@@ -9,9 +9,27 @@ import { Message } from "@/components/ui/message";
 import { TextField } from "@/components/ui/text-field";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { todayInTokyo } from "@/lib/date";
-import { parsePlayerInput, PLAYER_KANA_MAX, PLAYER_NAME_MAX, type PlayerField, SEX_CHOICES } from "@/lib/teams/player-input";
+import {
+  parsePlayerInput,
+  PLAYER_KANA_MAX,
+  PLAYER_NAME_MAX,
+  type PlayerField,
+  REFEREE_GRADE_CHOICES,
+  REFEREE_GRADE_NONE,
+  REFEREE_NO_DIGITS,
+  SEX_CHOICES,
+} from "@/lib/teams/player-input";
+import type { RefereeGrade } from "@/db/schema";
 
-export type PlayerFormValues = { name: string; kana: string; birthDate: string | null; sex: "male" | "female" | "" };
+export type PlayerFormValues = {
+  name: string;
+  kana: string;
+  birthDate: string | null;
+  sex: "male" | "female" | "";
+  // 審判の資格（任意・K-01）。なしは ""
+  refereeGrade: RefereeGrade | "";
+  refereeNo: string;
+};
 
 // 送り先。extra は本文に足す値（{ kind: "individual" }・{ self: true } など）。応答に redirectTo があればそちらへ
 export type PlayerFormSubmit = {
@@ -25,10 +43,32 @@ export type PlayerFormSubmit = {
 
 type ApiBody = { redirectTo?: string; error?: { message?: string; field?: PlayerField } };
 
-const FIELD_LABEL: Record<PlayerField, string> = { name: "氏名", kana: "ふりがな", birthDate: "生年月日", sex: "性別" };
-const FIELD_ID: Record<PlayerField, string> = { name: "player-name", kana: "player-kana", birthDate: "player-birth-year", sex: "player-sex-male" };
+const FIELD_LABEL: Record<PlayerField, string> = {
+  name: "氏名",
+  kana: "ふりがな",
+  birthDate: "生年月日",
+  sex: "性別",
+  refereeGrade: "審判級",
+  refereeNo: "審判No",
+};
+const FIELD_ID: Record<PlayerField, string> = {
+  name: "player-name",
+  kana: "player-kana",
+  birthDate: "player-birth-year",
+  sex: "player-sex-male",
+  refereeGrade: "player-referee-grade-none",
+  refereeNo: "player-referee-no",
+};
 
-// 本人の情報（氏名・ふりがな・生年月日・性別）の入力（設計書 §5.11）。選手の追加・修正、個人で登録、自分を選手として登録
+// 審判級の選びかた（色は CSS 変数だけ・§5.17。色だけに頼らず級の文字を必ず出す・§4.5 原則 2）
+const GRADE_MARK: Record<RefereeGrade, string> = {
+  a: "bg-referee-a-mark border-referee-a-border",
+  b: "bg-referee-b-mark border-referee-b-border",
+  c: "bg-referee-c-mark border-referee-c-border",
+};
+
+// 本人の情報（氏名・ふりがな・生年月日・性別）と、任意の審判の資格（K-01）の入力（設計書 §5.11）。
+// 選手の追加・修正、個人で登録、自分を選手として登録
 // 生年月日の部品が「◯歳で合っていますか？」を出している間は送れない（§4.3）
 export function PlayerForm({ submit, initial }: { submit: PlayerFormSubmit; initial: PlayerFormValues }) {
   const router = useRouter();
@@ -139,6 +179,56 @@ export function PlayerForm({ submit, initial }: { submit: PlayerFormSubmit; init
           </p>
         ) : null}
       </fieldset>
+
+      {/* 審判の資格（K-01）。どちらも任意。ほかの項目と混ざらないよう線で囲って分ける */}
+      <fieldset className="flex flex-col gap-4 rounded-md border border-border bg-surface px-4 py-4">
+        <legend className="px-1 font-semibold">審判の資格（任意）</legend>
+        <p className="text-sm text-muted">お持ちの方だけ入力してください。あとから直せます</p>
+        <div className="flex flex-col gap-1.5">
+          <p className="font-semibold" id="player-referee-grade-label">
+            審判級
+          </p>
+          <div role="radiogroup" aria-labelledby="player-referee-grade-label" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[{ id: "" as const, label: REFEREE_GRADE_NONE, color: null }, ...REFEREE_GRADE_CHOICES].map((choice) => (
+              <label
+                key={choice.id || "none"}
+                className="bb-pressable flex min-h-12 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border-strong bg-background text-center font-semibold has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-on-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--color-focus)]"
+              >
+                <input
+                  id={`player-referee-grade-${choice.id || "none"}`}
+                  type="radio"
+                  name="player-referee-grade"
+                  value={choice.id}
+                  checked={values.refereeGrade === choice.id}
+                  onChange={() => set("refereeGrade", choice.id)}
+                  className="sr-only"
+                />
+                {choice.color ? (
+                  <span aria-hidden="true" className={`size-3 shrink-0 rounded-full border ${GRADE_MARK[choice.id]}`} />
+                ) : null}
+                {choice.color ? `${choice.label}（${choice.color}）` : choice.label}
+              </label>
+            ))}
+          </div>
+          {errors.refereeGrade ? (
+            <p className="text-sm font-semibold text-danger" role="alert">
+              {errors.refereeGrade}
+            </p>
+          ) : null}
+        </div>
+        <TextField
+          id="player-referee-no"
+          label="審判No"
+          value={values.refereeNo}
+          onChange={(e) => set("refereeNo", e.target.value)}
+          error={errors.refereeNo}
+          hint={`数字${REFEREE_NO_DIGITS}桁`}
+          inputMode="numeric"
+          maxLength={REFEREE_NO_DIGITS * 2}
+          autoComplete="off"
+        />
+      </fieldset>
+
       <Button type="submit" fullWidth pending={pending} pendingLabel={submit.pendingLabel}>
         {submit.label}
       </Button>

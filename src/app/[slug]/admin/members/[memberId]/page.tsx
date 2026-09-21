@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PlayerForm } from "@/components/teams/player-form";
+import { RefereeBadge } from "@/components/teams/referee-badge";
 import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
@@ -43,6 +44,11 @@ export default async function AdminMemberPage({ params, searchParams }: Props) {
       ) : null}
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold break-words">{member.name}</h1>
+        {member.refereeGrade ? (
+          <p>
+            <RefereeBadge grade={member.refereeGrade} no={member.refereeNo} />
+          </p>
+        ) : null}
         {member.status === "needs_review" ? (
           <p className="text-sm">
             <span className="rounded bg-highlight px-1">確認が必要</span>
@@ -73,7 +79,14 @@ export default async function AdminMemberPage({ params, searchParams }: Props) {
             label: "保存する",
             pendingLabel: "保存しています…",
           }}
-          initial={{ name: member.name, kana: member.kana ?? "", birthDate: member.birthDate, sex: member.sex }}
+          initial={{
+            name: member.name,
+            kana: member.kana ?? "",
+            birthDate: member.birthDate,
+            sex: member.sex,
+            refereeGrade: member.refereeGrade ?? "",
+            refereeNo: member.refereeNo ?? "",
+          }}
         />
       </section>
     </PageMain>

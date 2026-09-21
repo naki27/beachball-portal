@@ -8,7 +8,7 @@ import { withTenantOn } from "@/db/tenant";
 import { ANONYMOUS, type Principal } from "@/lib/authz";
 import { normalizeName } from "@/lib/normalize";
 import { TeamError } from "@/lib/teams/errors";
-import { addPlayer, getRoster, leavePlayer, UNDO_LEAVE_WINDOW_MS, undoLeave, updatePlayer } from "@/lib/teams/roster";
+import { addPlayer, getPlayerForEdit, getRoster, leavePlayer, UNDO_LEAVE_WINDOW_MS, undoLeave, updatePlayer } from "@/lib/teams/roster";
 import { registerTeam } from "@/lib/teams/teams";
 
 // 選手一覧（設計書 §5.11 の受け入れ条件・§3.2 の見せる範囲）。操作は app_user、準備と後片付けは app_owner
@@ -199,5 +199,57 @@ describe("修正", () => {
     expect((await getRoster(app, as(ids.adminB), S, teamY)).items.find((i) => i.memberId === added.memberId)?.name).toBe(`${tag} 渡邊`);
     expect(await statusOf(() => updatePlayer(app, as(ids.adminA), S, teamX, added.teamMemberId, { ...person("渡邊"), name: "" }))).toBe(400);
     expect(await statusOf(() => updatePlayer(app, as(ids.adminA), S, teamX, "not-a-uuid", person("渡邊")))).toBe(404);
+  });
+});
+
+// 審判の資格（K-01・ADR 0030）
+describe("審判の資格", () => {
+  it("追加のときに入れた級と審判Noが人物に入り、修正で書き換え・「なし」に戻せる", async () => {
+    const added = await addPlayer(app, as(ids.adminA), S, teamX, person("審判", { refereeGrade: "b", refereeNo: "０１２３４５" }));
+    const [row] = await withTenantOn(owner, S, (tx) => tx.select().from(members).where(eq(members.id, added.memberId)));
+    expect(row).toMatchObject({ refereeGrade: "b", refereeNo: "012345" }); // 全角は半角にそろう
+
+    // 修正の画面は今の値を出す（代表者だけ）
+    expect((await getPlayerForEdit(app, as(ids.adminA), S, teamX, added.teamMemberId)).player).toMatchObject({
+      refereeGrade: "b",
+      refereeNo: "012345",
+    });
+
+    await updatePlayer(app, as(ids.adminA), S, teamX, added.teamMemberId, person("審判", { refereeGrade: "a", refereeNo: "999999" }));
+    const [changed] = await withTenantOn(owner, S, (tx) => tx.select().from(members).where(eq(members.id, added.memberId)));
+    expect(changed).toMatchObject({ refereeGrade: "a", refereeNo: "999999" });
+
+    // 修正の画面は今の値を出しているので、空欄は「なし」にする
+    await updatePlayer(app, as(ids.adminA), S, teamX, added.teamMemberId, person("審判"));
+    const [cleared] = await withTenantOn(owner, S, (tx) => tx.select().from(members).where(eq(members.id, added.memberId)));
+    expect(cleared).toMatchObject({ refereeGrade: null, refereeNo: null });
+
+    // 審判Noの形が違えば 400
+    expect(await statusOf(() => updatePlayer(app, as(ids.adminA), S, teamX, added.teamMemberId, person("審判", { refereeNo: "12345" })))).toBe(400);
+  });
+
+  it("追加の画面は今の値を出さないので、空欄で送っても既にある人物の資格は消えない", async () => {
+    const first = await addPlayer(app, as(ids.adminA), S, teamX, person("笛吹", { refereeGrade: "c", refereeNo: "222222" }));
+    // 別のチームの代表者が同じ人を追加する（名寄せで同じ人物に結びつく）。審判の欄は空
+    const again = await addPlayer(app, as(ids.adminB), S, teamY, person("笛吹"));
+    expect(again.memberId).toBe(first.memberId);
+    const [row] = await withTenantOn(owner, S, (tx) => tx.select().from(members).where(eq(members.id, first.memberId)));
+    expect(row).toMatchObject({ refereeGrade: "c", refereeNo: "222222" });
+  });
+
+  it("級はチームの選手にも見えるが、審判Noは生年月日と同じ範囲（代表者以上と本人）にだけ出す", async () => {
+    // 「見せる範囲」で player のアカウントに紐づけた人物（田中）に資格を入れる
+    const self = (await getRoster(app, as(ids.player), S, teamX)).items.find((i) => i.isSelf)!;
+    await withTenantOn(owner, S, (tx) =>
+      tx.update(members).set({ refereeGrade: "a", refereeNo: "334455" }).where(eq(members.id, self.memberId)),
+    );
+    const other = await addPlayer(app, as(ids.adminA), S, teamX, person("副審", { refereeGrade: "b", refereeNo: "556677" }));
+
+    const forAdmin = (await getRoster(app, as(ids.adminA), S, teamX)).items.find((i) => i.memberId === self.memberId);
+    expect(forAdmin?.referee).toEqual({ grade: "a", no: "334455" });
+
+    const asPlayer = await getRoster(app, as(ids.player), S, teamX);
+    expect(asPlayer.items.find((i) => i.memberId === self.memberId)?.referee).toEqual({ grade: "a", no: "334455" }); // 本人
+    expect(asPlayer.items.find((i) => i.memberId === other.memberId)?.referee).toEqual({ grade: "b", no: null }); // ほかの人
   });
 });

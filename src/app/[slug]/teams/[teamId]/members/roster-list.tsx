@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { RefereeBadge } from "@/components/teams/referee-badge";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card, EmptyState } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
@@ -188,6 +189,11 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
                 {item.personal && birth ? (
                   <p className="text-sm">
                     {formatBirthDateLong(birth)}・{item.personal.age}歳・{SEX_LABEL[item.personal.sex]}
+                  </p>
+                ) : null}
+                {item.referee.grade ? (
+                  <p>
+                    <RefereeBadge grade={item.referee.grade} no={item.referee.no} />
                   </p>
                 ) : null}
                 {item.membershipLabel ? <p className="text-sm text-muted">今年度: {item.membershipLabel}</p> : null}

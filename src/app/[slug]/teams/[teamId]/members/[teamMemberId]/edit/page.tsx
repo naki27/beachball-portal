@@ -51,7 +51,14 @@ export default async function EditPlayerPage({ params }: Props) {
           label: "保存する",
           pendingLabel: "保存しています…",
         }}
-        initial={{ name: player.name, kana: player.kana ?? "", birthDate: player.birthDate, sex: player.sex }}
+        initial={{
+          name: player.name,
+          kana: player.kana ?? "",
+          birthDate: player.birthDate,
+          sex: player.sex,
+          refereeGrade: player.refereeGrade ?? "",
+          refereeNo: player.refereeNo ?? "",
+        }}
       />
     </PageMain>
   );

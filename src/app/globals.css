@@ -32,6 +32,20 @@
   --color-highlight: var(--color-highlight);
   --color-focus: var(--color-focus);
 
+  /* 審判級（K-01） */
+  --color-referee-a: var(--referee-a);
+  --color-referee-a-surface: var(--referee-a-surface);
+  --color-referee-a-border: var(--referee-a-border);
+  --color-referee-a-mark: var(--referee-a-mark);
+  --color-referee-b: var(--referee-b);
+  --color-referee-b-surface: var(--referee-b-surface);
+  --color-referee-b-border: var(--referee-b-border);
+  --color-referee-b-mark: var(--referee-b-mark);
+  --color-referee-c: var(--referee-c);
+  --color-referee-c-surface: var(--referee-c-surface);
+  --color-referee-c-border: var(--referee-c-border);
+  --color-referee-c-mark: var(--referee-c-mark);
+
   /* 色の段階（図・帯・薄い面で使う） */
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);

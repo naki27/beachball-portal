@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RefereeBadge } from "@/components/teams/referee-badge";
 import { Badge, Card, EmptyState, PageHeader, PageMain, Toolbar } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { searchMembersForAdmin } from "@/lib/admin/members";
@@ -91,9 +92,10 @@ export default async function AdminMembersPage({ params, searchParams }: Props) 
                       {m.name}
                       {m.kana ? <span className="ml-2 text-sm font-normal text-muted">{m.kana}</span> : null}
                     </span>
-                    {m.status === "needs_review" ? (
-                      <span>
-                        <Badge tone="warning">確認が必要</Badge>
+                    {m.status === "needs_review" || m.refereeGrade ? (
+                      <span className="flex flex-wrap gap-2">
+                        {m.status === "needs_review" ? <Badge tone="warning">確認が必要</Badge> : null}
+                        <RefereeBadge grade={m.refereeGrade} no={m.refereeNo} />
                       </span>
                     ) : null}
                     <span className="mt-auto pt-1 text-sm text-muted">

@@ -2,7 +2,7 @@ import type { MemberSex } from "@/db/schema";
 import { type PlainDate, parsePlainDate } from "@/lib/date";
 import type { EligibilityPlayer } from "@/lib/eligibility";
 import { isUuid } from "@/lib/ids";
-import { parsePlayerInput } from "@/lib/teams/player-input";
+import { parsePlayerInput, type PlayerField } from "@/lib/teams/player-input";
 
 // 申込の選手枠（設計書 §5.5「入力ページ」3）。画面（その場の検査）とサーバー（送信・B-10）の両方で使う
 // サーバー専用の import を置かない
@@ -38,7 +38,8 @@ export function isBlankSlot(slot: PlayerSlot): boolean {
   return !slot.memberId && !slot.name.trim() && !slot.birthDate && !slot.sex;
 }
 
-export type PlayerSlotIssue = { index: number; field: "name" | "kana" | "birthDate" | "sex" | "memberId"; message: string };
+// 申込の選手枠は審判の資格（K-01）を入力しないので、実際に入るのは氏名・ふりがな・生年月日・性別と memberId だけ
+export type PlayerSlotIssue = { index: number; field: PlayerField | "memberId"; message: string };
 
 export type PlayerSlotsResult =
   | { ok: true; players: (PlayerSlot & { birthDate: string; sex: MemberSex })[] }
@@ -73,7 +74,8 @@ export function parsePlayerSlots(slots: PlayerSlot[], today: PlainDate): PlayerS
       issues.push({ index, field: parsed.field, message: parsed.message });
       return;
     }
-    players.push({ ...slot, ...parsed.value, birthDate: parsed.value.birthDate, sex: parsed.value.sex });
+    // 審判の資格（K-01）は申込には持ち込まない。枠に要る項目だけを取る
+    players.push({ ...slot, name: parsed.value.name, kana: parsed.value.kana, birthDate: parsed.value.birthDate, sex: parsed.value.sex });
   });
 
   return issues.length > 0 ? { ok: false, issues } : { ok: true, players };

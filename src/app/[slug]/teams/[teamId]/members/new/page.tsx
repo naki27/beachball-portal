@@ -62,7 +62,7 @@ export default async function NewPlayerPage({ params, searchParams }: Props) {
                 label: "選手一覧に追加する",
                 pendingLabel: "追加しています…",
               }}
-              initial={{ name: "", kana: "", birthDate: null, sex: "" }}
+              initial={{ name: "", kana: "", birthDate: null, sex: "", refereeGrade: "", refereeNo: "" }}
             />
           </>
         )}
@@ -96,7 +96,7 @@ export default async function NewPlayerPage({ params, searchParams }: Props) {
           label: "選手一覧に追加する",
           pendingLabel: "追加しています…",
         }}
-        initial={{ name: "", kana: "", birthDate: null, sex: "" }}
+        initial={{ name: "", kana: "", birthDate: null, sex: "", refereeGrade: "", refereeNo: "" }}
       />
     </PageMain>
   );

@@ -5,6 +5,7 @@ import { type BirthDateValue, BirthDateField } from "@/components/ui/birth-date-
 import { Button } from "@/components/ui/button";
 import { Celebrate } from "@/components/ui/celebrate";
 import { EnvelopeIcon } from "@/components/ui/envelope-icon";
+import { RefereeBadge } from "@/components/teams/referee-badge";
 import { ActionBar, Badge, Card, EmptyState, PageHeader, Toolbar } from "@/components/ui/layout";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { DelayedSkeleton } from "@/components/ui/loading";
@@ -125,6 +126,18 @@ export function UiGallery() {
           description="受付が始まると、ここに表示されます。"
           action={<Button variant="secondary">大会を見る</Button>}
         />
+      </Section>
+
+      <Section title="審判の資格（K-01）">
+        <p className="text-sm text-muted">
+          級ごとに色（A=赤・B=黄・C=白）を変えるが、色だけに頼らず必ず級の文字を入れる（§4.5 原則 2）。審判Noは生年月日と同じ範囲の人にだけ出す
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <RefereeBadge grade="a" />
+          <RefereeBadge grade="b" />
+          <RefereeBadge grade="c" />
+          <RefereeBadge grade="a" no="123456" />
+        </div>
       </Section>
 
       <Section title="節目の演出（申込・申告の完了だけ）">

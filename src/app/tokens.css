@@ -58,6 +58,20 @@
   --color-highlight: #fef9c3; /* 内容が変わった箇所（薄い黄色） */
   --color-focus: var(--brand-700);
 
+  /* --- 審判級の色（K-01）。A=赤・B=黄・C=白。色だけに頼らず、必ず「A級」などの文字を添える（§4.5 原則 2） --- */
+  --referee-a: #a81b1b; /* 文字。薄い赤の面の上で 6.77:1 */
+  --referee-a-surface: #fef2f2;
+  --referee-a-border: #dc2626; /* 枠と丸い印の輪郭。白の上で 4.83:1 */
+  --referee-a-mark: #dc2626; /* 丸い印の塗り（赤） */
+  --referee-b: #78430b; /* 黄色は文字にすると読めないので、文字は濃い琥珀。薄い黄の面の上で 7.74:1 */
+  --referee-b-surface: #fefbe8;
+  --referee-b-border: #a16207; /* #ca8a04 は白の上で 2.94:1 で足りないので一段濃く（4.92:1） */
+  --referee-b-mark: #facc15; /* 丸い印の塗り（黄）。面との差が小さいので輪郭を必ず付ける */
+  --referee-c: #3f463f; /* 白も文字にできないので、文字は濃い灰。白の上で 9.73:1 */
+  --referee-c-surface: #ffffff;
+  --referee-c-border: #8b958c; /* 入力欄の枠と同じ濃さ（3.1:1） */
+  --referee-c-mark: #ffffff; /* 丸い印の塗り（白）。輪郭で形を出す */
+
   /* 見出し・ヒーローのグラデーション（緑 → 海）。白文字で 5.37:1 以上 */
   --gradient-hero: linear-gradient(135deg, var(--brand-700) 0%, var(--brand-600) 45%, var(--accent-700) 100%);
   --gradient-brand: linear-gradient(90deg, var(--brand-500) 0%, var(--accent-500) 100%);

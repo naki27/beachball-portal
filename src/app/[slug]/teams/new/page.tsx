@@ -100,7 +100,7 @@ async function IndividualSection({ slug, associationId, userId }: { slug: string
             label: "個人で登録する",
             pendingLabel: "登録しています…",
           }}
-          initial={{ name: "", kana: "", birthDate: null, sex: "" }}
+          initial={{ name: "", kana: "", birthDate: null, sex: "", refereeGrade: "", refereeNo: "" }}
         />
       )}
     </>

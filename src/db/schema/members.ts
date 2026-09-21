@@ -18,6 +18,8 @@ import { users } from "./users";
 
 export type MemberSex = "male" | "female";
 export type MemberStatus = "active" | "needs_review" | "merged";
+// 審判の資格（K-01）。A（赤）・B（黄）・C（白）。「なし」は null で持つ
+export type RefereeGrade = "a" | "b" | "c";
 
 // 人物（名簿に載る人・§5.15）。テナントに属する。ログインできるとは限らない
 // 生年月日は「年月日」のまま文字列（YYYY-MM-DD）で扱い、JS の Date に変換しない（§7.0）
@@ -34,6 +36,9 @@ export const members = pgTable(
     sex: text().$type<MemberSex>().notNull(),
     nameNormalized: text().notNull(), // src/lib/normalize.ts（A-04）
     kanaNormalized: text(),
+    // 審判の資格（任意・K-01）。名寄せのキーには入れない
+    refereeGrade: text().$type<RefereeGrade>(),
+    refereeNo: text(),
     // 所属チームは team_members 経由で引く
     status: text().$type<MemberStatus>().notNull().default("active"),
     mergedIntoId: uuid().references((): AnyPgColumn => members.id),
@@ -50,6 +55,8 @@ export const members = pgTable(
     unique("members_association_id_id_unique").on(t.associationId, t.id),
     check("members_sex_check", sql`${t.sex} in ('male', 'female')`),
     check("members_status_check", sql`${t.status} in ('active', 'needs_review', 'merged')`),
+    check("members_referee_grade_check", sql`${t.refereeGrade} is null or ${t.refereeGrade} in ('a', 'b', 'c')`),
+    check("members_referee_no_check", sql`${t.refereeNo} is null or ${t.refereeNo} ~ '^[0-9]{6}$'`),
     // 協会内で 1 アカウント = 1 人物
     uniqueIndex("members_user_uk")
       .on(t.associationId, t.userId)
