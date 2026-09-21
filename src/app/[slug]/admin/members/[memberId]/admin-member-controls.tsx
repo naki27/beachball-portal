@@ -60,7 +60,7 @@ export function AdminMemberControls({ slug, memberId, linkedEmail, teams }: { sl
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="danger"
-                      className="min-h-10"
+                      size="sm"
                       onClick={() =>
                         void call(`row:${t.teamMemberId}`, `/api/${slug}/admin/teams/${t.teamId}/members/${t.teamMemberId}`, () =>
                           setNotice({ kind: "info", title: `${t.teamName}の選手一覧の行を消しました` }),
@@ -71,13 +71,13 @@ export function AdminMemberControls({ slug, memberId, linkedEmail, teams }: { sl
                     >
                       行を消す
                     </Button>
-                    <Button variant="secondary" className="min-h-10" onClick={() => setConfirming(null)}>
+                    <Button variant="secondary" size="sm" onClick={() => setConfirming(null)}>
                       やめる
                     </Button>
                   </div>
                 </div>
               ) : (
-                <Button variant="secondary" className="min-h-10 self-start" onClick={() => setConfirming(t.teamMemberId)}>
+                <Button variant="secondary" size="sm" className="self-start" onClick={() => setConfirming(t.teamMemberId)}>
                   誤登録として行を消す
                 </Button>
               )}
@@ -101,14 +101,14 @@ export function AdminMemberControls({ slug, memberId, linkedEmail, teams }: { sl
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="danger"
-                    className="min-h-10"
+                    size="sm"
                     onClick={() => void call("unlink", `/api/${slug}/members/${memberId}/link`, () => setNotice({ kind: "info", title: "アカウントとの結びつきを解除しました" }))}
                     pending={pending === "unlink"}
                     pendingLabel="解除しています…"
                   >
                     解除する
                   </Button>
-                  <Button variant="secondary" className="min-h-10" onClick={() => setConfirming(null)}>
+                  <Button variant="secondary" size="sm" onClick={() => setConfirming(null)}>
                     やめる
                   </Button>
                 </div>
@@ -137,7 +137,7 @@ export function AdminMemberControls({ slug, memberId, linkedEmail, teams }: { sl
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="danger"
-                className="min-h-10"
+                size="sm"
                 onClick={() =>
                   void call("member", `/api/${slug}/admin/members/${memberId}`, () => router.push(`/${slug}/admin/members`))
                 }
@@ -146,7 +146,7 @@ export function AdminMemberControls({ slug, memberId, linkedEmail, teams }: { sl
               >
                 削除する
               </Button>
-              <Button variant="secondary" className="min-h-10" onClick={() => setConfirming(null)}>
+              <Button variant="secondary" size="sm" onClick={() => setConfirming(null)}>
                 やめる
               </Button>
             </div>

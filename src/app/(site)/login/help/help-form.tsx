@@ -87,7 +87,7 @@ export function HelpForm({ senderDomain }: { senderDomain: string }) {
               href={c.href}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-10 items-center underline underline-offset-2"
+              className="inline-flex min-h-11 items-center underline underline-offset-2"
             >
               {c.name} の設定
             </a>

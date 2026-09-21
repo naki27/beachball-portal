@@ -41,10 +41,10 @@ export function EntryCancel({ slug, entryId }: { slug: string; entryId: string }
         <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
           <p className="text-sm">取り消すと元に戻せません。もう一度出る場合は申し込み直してください。</p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="danger" className="min-h-10" onClick={cancel} pending={pending} pendingLabel="取り消しています…">
+            <Button variant="danger" size="sm" onClick={cancel} pending={pending} pendingLabel="取り消しています…">
               申し込みを取り消す
             </Button>
-            <Button variant="secondary" className="min-h-10" onClick={() => setConfirming(false)} disabled={pending}>
+            <Button variant="secondary" size="sm" onClick={() => setConfirming(false)} disabled={pending}>
               やめる
             </Button>
           </div>

@@ -14,12 +14,13 @@ export function EntrySteps({ current }: { current: EntryStep }) {
   const index = STEPS.findIndex((step) => step.key === current);
   return (
     <nav aria-label="申し込みの進み具合">
-      <ol className="flex items-center">
+      {/* 文字サイズを大きくすると丸も文字も rem ぶん大きくなるので、1 行に収まらなければ折り返す（U-06） */}
+      <ol className="flex flex-wrap items-center gap-y-2">
         {STEPS.map((step, i) => {
           const done = i < index;
           const now = i === index;
           return (
-            <li key={step.key} className="flex flex-1 items-center last:flex-none">
+            <li key={step.key} className="flex min-w-0 flex-1 items-center last:flex-none">
               <span className="flex items-center gap-2">
                 <span
                   aria-hidden="true"

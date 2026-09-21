@@ -78,7 +78,7 @@ export default async function TournamentPage({ params }: Props) {
             )}
             <Link
               href={`/${association.slug}/tournaments/${tournament.id}/entries`}
-              className="bb-link text-center font-semibold text-primary no-underline"
+              className="bb-link flex min-h-11 items-center justify-center font-semibold text-primary no-underline"
             >
               参加チーム一覧（{tournament.teams} チーム）
             </Link>

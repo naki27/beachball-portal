@@ -123,16 +123,16 @@ export function AdminManagement({
                       {self ? "代表者を降りると、このチームの選手一覧や申し込みを操作できなくなります。" : `${labelOf(a)}さんを代表者から外します。`}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="danger" className="min-h-10" onClick={() => void revoke(a)} pending={pending === `revoke:${a.userId}`} pendingLabel="外しています…">
+                      <Button variant="danger" size="sm" onClick={() => void revoke(a)} pending={pending === `revoke:${a.userId}`} pendingLabel="外しています…">
                         {self ? "代表者を降りる" : "外す"}
                       </Button>
-                      <Button variant="secondary" className="min-h-10" onClick={() => setConfirmRevoke(null)}>
+                      <Button variant="secondary" size="sm" onClick={() => setConfirmRevoke(null)}>
                         やめる
                       </Button>
                     </div>
                   </div>
                 ) : (
-                  <Button variant="secondary" className="min-h-10 self-start" onClick={() => setConfirmRevoke(a.userId)}>
+                  <Button variant="secondary" size="sm" className="self-start" onClick={() => setConfirmRevoke(a.userId)}>
                     {self ? "代表者を降りる" : "外す"}
                   </Button>
                 )}
@@ -159,7 +159,7 @@ export function AdminManagement({
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="secondary"
-                      className="min-h-10"
+                      size="sm"
                       onClick={() =>
                         void call(`resend:${inv.invitationId}`, `${base}/invitations/${inv.invitationId}/resend`, { method: "POST" }, () => {
                           setNotice({ kind: "success", title: "招待のメールをもう一度送ります" });
@@ -173,7 +173,7 @@ export function AdminManagement({
                     </Button>
                     <Button
                       variant="secondary"
-                      className="min-h-10"
+                      size="sm"
                       onClick={() =>
                         void call(`cancel:${inv.invitationId}`, `${base}/invitations/${inv.invitationId}`, { method: "DELETE" }, () => {
                           setNotice({ kind: "info", title: "招待を取り消しました" });

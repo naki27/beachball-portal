@@ -17,7 +17,7 @@ const TONE: Record<DeadlineTone, "neutral" | "brand" | "warning" | "danger"> = {
 // 選手の情報は出さない（この部品が受け取る PublicTournament にも入っていない）
 export function TournamentCard({ slug, tournament, now }: { slug: string; tournament: PublicTournament; now: Date }) {
   return (
-    <li>
+    <li className="min-w-0">
       <Link href={`/${slug}/tournaments/${tournament.id}`} className="block h-full no-underline">
         <Card interactive className="flex h-full flex-col gap-2">
           <span className="text-lg font-bold break-words">{tournament.name}</span>

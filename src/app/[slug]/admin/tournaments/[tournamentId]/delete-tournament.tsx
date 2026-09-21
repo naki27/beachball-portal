@@ -47,10 +47,10 @@ export function DeleteTournament({ slug, tournamentId, entryCount }: { slug: str
             「削除済みデータ」から元に戻せます。
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="danger" className="min-h-10" onClick={remove} pending={pending} pendingLabel="削除しています…">
+            <Button variant="danger" size="sm" onClick={remove} pending={pending} pendingLabel="削除しています…">
               削除する
             </Button>
-            <Button variant="secondary" className="min-h-10" onClick={() => setConfirming(false)} disabled={pending}>
+            <Button variant="secondary" size="sm" onClick={() => setConfirming(false)} disabled={pending}>
               やめる
             </Button>
           </div>

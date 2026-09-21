@@ -115,7 +115,8 @@ export function MergeControls({
                 </p>
                 <Button
                   variant="secondary"
-                  className="min-h-10 self-start"
+                  size="sm"
+                  className="self-start"
                   onClick={() => {
                     setTarget(candidate);
                     setKeepId(candidate.linkedEmail && !member.linkedEmail ? candidate.id : member.id);
@@ -158,10 +159,10 @@ export function MergeControls({
             <strong>元に戻せません。</strong>
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="danger" className="min-h-10" onClick={merge} pending={pending} pendingLabel="まとめています…">
+            <Button variant="danger" size="sm" onClick={merge} pending={pending} pendingLabel="まとめています…">
               まとめる
             </Button>
-            <Button variant="secondary" className="min-h-10" onClick={() => setTarget(null)} disabled={pending}>
+            <Button variant="secondary" size="sm" onClick={() => setTarget(null)} disabled={pending}>
               やめる
             </Button>
           </div>

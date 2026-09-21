@@ -204,7 +204,8 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-sm font-semibold ${BADGE_TONE[tone]} ${className}`}
+      // max-w-full: 文字サイズを大きくした端末（150%・200%）で、長い文言が器からはみ出さないように折り返す（§12「動作確認の範囲」）
+      className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-0.5 text-sm font-semibold ${BADGE_TONE[tone]} ${className}`}
     >
       {children}
     </span>

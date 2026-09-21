@@ -53,10 +53,10 @@ export function TeamStatusControls({ slug, teamId, status }: { slug: string; tea
               無効にすると、大会に申し込めなくなり、返事待ちの招待は取り消されます。選手一覧と代表者はそのまま残り、いつでも有効に戻せます。
             </p>
             <div className="flex flex-wrap gap-2">
-              <Button variant="danger" className="min-h-10" onClick={() => change("inactive")} pending={pending} pendingLabel="無効にしています…">
+              <Button variant="danger" size="sm" onClick={() => change("inactive")} pending={pending} pendingLabel="無効にしています…">
                 無効にする
               </Button>
-              <Button variant="secondary" className="min-h-10" onClick={() => setConfirming(false)} disabled={pending}>
+              <Button variant="secondary" size="sm" onClick={() => setConfirming(false)} disabled={pending}>
                 やめる
               </Button>
             </div>

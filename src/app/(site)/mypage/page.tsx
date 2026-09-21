@@ -113,14 +113,14 @@ export default async function MyPage() {
             <MyEntryList slug={a.slug} title="選手として出る申し込み" entries={entries[i].asPlayer} now={now} />
             {persons[i] && !individuals[i] ? <UnlinkButton slug={a.slug} memberId={persons[i].memberId} personName={persons[i].name} /> : null}
             <p className="flex flex-wrap gap-x-4 gap-y-2">
-              <Link href={`/${a.slug}`} className="bb-link font-semibold text-primary no-underline">
+              <Link href={`/${a.slug}`} className="bb-link inline-flex min-h-11 items-center font-semibold text-primary no-underline">
                 {a.name}のページへ
               </Link>
-              <Link href={`/${a.slug}/teams/new`} className="bb-link font-semibold text-primary no-underline">
+              <Link href={`/${a.slug}/teams/new`} className="bb-link inline-flex min-h-11 items-center font-semibold text-primary no-underline">
                 チームを登録する
               </Link>
               {!individuals[i] ? (
-                <Link href={`/${a.slug}/teams/new?kind=individual`} className="bb-link font-semibold text-primary no-underline">
+                <Link href={`/${a.slug}/teams/new?kind=individual`} className="bb-link inline-flex min-h-11 items-center font-semibold text-primary no-underline">
                   個人で登録する
                 </Link>
               ) : null}
@@ -134,7 +134,7 @@ export default async function MyPage() {
           ログインに使うメールアドレス: <span className="break-all font-semibold">{profile?.email}</span>
         </p>
         <p>
-          <Link href="/mypage/email" className="bb-link font-semibold text-primary no-underline">
+          <Link href="/mypage/email" className="bb-link inline-flex min-h-11 items-center font-semibold text-primary no-underline">
             メールアドレスを変更する
           </Link>
         </p>

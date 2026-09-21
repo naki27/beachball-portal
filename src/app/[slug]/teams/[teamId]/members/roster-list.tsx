@@ -87,7 +87,7 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
           <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
-              className="min-h-10"
+              size="sm"
               onClick={() =>
                 void call(`resend:${inv.invitationId}`, `${base}/invitations/${inv.invitationId}/resend`, { method: "POST" }, () =>
                   setNotice({ kind: "success", title: `${item.name}さんに招待のメールをもう一度送ります` }),
@@ -100,7 +100,7 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
             </Button>
             <Button
               variant="secondary"
-              className="min-h-10"
+              size="sm"
               onClick={() =>
                 void call(`cancel:${inv.invitationId}`, `${base}/invitations/${inv.invitationId}`, { method: "DELETE" }, () =>
                   setNotice({ kind: "info", title: "招待を取り消しました" }),
@@ -130,10 +130,10 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
             hint="本人がこのアドレスでログインすると、選手一覧や申し込みを見られるようになります"
           />
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" className="min-h-10" pending={pending === `invite:${item.teamMemberId}`} pendingLabel="送っています…">
+            <Button type="submit" size="sm" pending={pending === `invite:${item.teamMemberId}`} pendingLabel="送っています…">
               招待を送る
             </Button>
-            <Button type="button" variant="secondary" className="min-h-10" onClick={() => setInviting(null)}>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setInviting(null)}>
               やめる
             </Button>
           </div>
@@ -143,7 +143,8 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
     return (
       <Button
         variant="secondary"
-        className="min-h-10 self-start"
+        size="sm"
+        className="self-start"
         onClick={() => {
           setInviting(item.teamMemberId);
           setInviteEmail("");

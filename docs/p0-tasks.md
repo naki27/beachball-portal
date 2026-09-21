@@ -145,7 +145,8 @@
 | U-03 | レスポンシブ（管理画面） | M | U-02 | 完了 2026-09-21 |
 | U-04 | 一覧と登録の分離 | M | U-01 | 完了 2026-09-21 |
 | U-05 | マイクロインタラクション | M | U-02 | 完了 2026-09-21 |
-| U-06 | UI 刷新の仕上げ | S | U-03・U-04・U-05 | — |
+| U-06 | UI 刷新の仕上げ | S | U-03・U-04・U-05 | 完了 2026-09-21 |
+| K-01 | 選手に審判の資格情報を追加する | S | - | 完了 2026-09-21 |
 
 ---
 
@@ -857,3 +858,25 @@ Phase 0 の人の作業（GCP・Neon・Cloudflare・Brevo のアカウント、D
 - 読む設計書: `04-3.md` の「検証」の部分、`12-0.md` の「アクセシビリティ」の部分（計 約 3 KB）
 - やること: 375 / 768 / 1280 のスクリーンショットではみ出し・重なりがないことの確認、文字サイズ拡大での確認、コントラスト比とタップ領域（44px）の確認、`docs/ops.md` と `docs/progress.md` の更新
 - ローカルでの動作確認: 主要な 10 画面を 3 つの幅で開く
+
+## 8.追加仕様 （K-01〜）
+
+### K-01 選手に審判の資格情報を追加する
+
+- 審判の資格情報は以下の通り。これらは任意の登録情報となる。
+  - 審判級
+    - A（赤）, B（黄）, C（白）, なし
+    - 審判級は色でも分かれており、UIでも色でわかりやすくすると良い
+  - 審判No
+    - 数字6桁
+
+### K-02 軽微な修正
+
+- チーム情報ページ（/teams/{teamid}）の「代表者」ボタンは、「代表者を追加・変更する」ボタンに変更
+- 表記揺れ
+  - 「よく使う部」を「よく使う部門」とする
+- 大会申込ページの備考の注意書き「駐車場の利用など、伝えることがあれば書いてください。」を、「ビブスの貸し出しや審判についてなど、お気軽にお問い合わせください。」に変更
+- 文字の大きさと空白だけでレイアウトするのは見えにくいので、線やブロックなどで視覚的に分別されているUIが望ましい
+- 「個人で登録する」はテナントによって、出す出さないをスイッチできるように。利用しないテナントもある。
+- デフォルトのアイコン？を変えてほしい。https://scontent-itm1-1.cdninstagram.com/v/t51.82787-15/652349189_18041353271748750_124885626980611598_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=108&ig_cache_key=MzAzNjU2MTM4MzMwNjkzNzkzOA%3D%3D.3-ccb7-5&ccb=7-5&_nc_sid=58cdad&efg=eyJ2ZW5jb2RlX3RhZyI6IkNBUk9VU0VMX0lURU0ueHBpZHMuMTQ0MC5zZHIucmVndWxhcl9waG90by5DMyJ9&_nc_ohc=AbiIj_OBEJwQ7kNvwHZDypq&_nc_oc=AdpO3Zl9c8pO74mUSFE40dIixjJ-_PcBcyGEFt5WQbT_6bols7ihTyFQwtMNx1OHwA3EanFCLorns4kFUPBqoiOg&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-itm1-1.cdninstagram.com&_nc_gid=C-M5SNisNB8ZKzQl8RRLzw&_nc_ss=7a22e&oh=00_AQKyxH03t1E0PjwoyD36nCDIhilO3g0QMswKTlvGoojtKA&oe=6AB67B18を、デフォルメして。
+
