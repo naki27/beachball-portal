@@ -1,8 +1,9 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { and, eq, gt, ne, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { sessions } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
+import { hashSessionId } from "./session-hash";
 
 // セッション（設計書 §9.2）。Cookie には乱数 ID、DB にはそのハッシュ
 // - 10 日で失効。アクセスがあれば延長するが、DB を書くのは前回の更新から 1 日以上たったときだけ
@@ -31,9 +32,7 @@ export function generateSessionId(): string {
   return randomBytes(32).toString("base64url");
 }
 
-export function hashSessionId(sessionId: string): string {
-  return createHash("sha256").update(sessionId).digest("hex");
-}
+export { hashSessionId };
 
 export type SessionRow = typeof sessions.$inferSelect;
 
