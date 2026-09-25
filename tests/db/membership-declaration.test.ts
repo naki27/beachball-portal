@@ -2,8 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb, createDb } from "@/db/client";
 import { requireEnv } from "@/db/env";
-import { associationAdmins, mailLogs, members, membershipDeclarations, membershipPeriods, memberships, teams, users } from "@/db/schema";
-import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
+import { associationAdmins, associations, mailLogs, members, membershipDeclarations, membershipPeriods, memberships, teams, users } from "@/db/schema";
 import { withTenantOn } from "@/db/tenant";
 import { ANONYMOUS, type Principal } from "@/lib/authz";
 import { endOfDayTokyo, startOfDayTokyo } from "@/lib/date";
@@ -18,7 +17,8 @@ import { registerTeam } from "@/lib/teams/teams";
 const owner = createDb(requireEnv("MIGRATION_DATABASE_URL"), { max: 1 });
 const app = createDb(requireEnv("DATABASE_URL"), { max: 1 });
 
-const S = SAWARA_ASSOCIATION_ID;
+// 「直近の受付」を読む処理が、並列で走るほかのテストの年度を拾わないよう、専用の協会を作って使う
+let S = "";
 const random = () => Math.random().toString(36).slice(2, 8);
 const tag = `申告${random()}`;
 const Y = 2092;
@@ -27,7 +27,8 @@ const as = (userId: string): Principal & { userId: string } => ({ ...ANONYMOUS, 
 const BEFORE = new Date("2092-03-01T00:00:00Z");
 const DURING = new Date("2092-05-10T00:00:00Z");
 const LATER = new Date("2092-05-11T00:00:00Z");
-const AFTER = new Date("2092-07-01T00:00:00Z");
+const AFTER = new Date("2092-07-01T00:00:00Z"); // 締切後・年度内（追加の申告の期間）
+const NEXT_YEAR = new Date("2093-04-15T00:00:00Z"); // 年度末（2093-03-31）を過ぎた
 
 async function statusOf(run: () => Promise<unknown>): Promise<"ok" | number> {
   try {
@@ -53,6 +54,8 @@ async function rowsOf(): Promise<Map<string, Map<number, { status: string }>>> {
 const statusIn = (rows: Map<string, Map<number, { status: string }>>, memberId: string, year = Y) => rows.get(memberId)?.get(year)?.status ?? null;
 
 beforeAll(async () => {
+  const [assoc] = await owner.insert(associations).values({ name: `${tag} 協会`, slug: `md-${random()}` }).returning({ id: associations.id });
+  S = assoc.id;
   const [admin] = await owner.insert(users).values({ email: `md-admin-${random()}@example.com`, emailVerifiedAt: new Date() }).returning({ id: users.id });
   adminId = admin.id;
   repEmail = `md-rep-${random()}@example.com`;
@@ -91,6 +94,7 @@ afterAll(async () => {
     await tx.delete(associationAdmins).where(eq(associationAdmins.userId, adminId));
   });
   await owner.delete(mailLogs).where(eq(mailLogs.toEmail, repEmail));
+  await owner.delete(associations).where(eq(associations.id, S));
   await owner.delete(users).where(inArray(users.id, [adminId, repId, strangerId]));
   await closeDb(owner);
   await closeDb(app);
@@ -101,7 +105,7 @@ describe("申告の画面（§5.12）", () => {
     const view = await getDeclarationView(app, as(repId), S, teamId, DURING);
     expect(view.target).toBe(true);
     expect(view.period?.year).toBe(Y);
-    expect(view.state).toBe("open");
+    expect(view.mode).toBe("renewal");
     expect(view.declared).toBeNull();
     expect(view.canSubmit).toBe(true);
     expect(view.players.map((p) => [p.memberId, p.lastYearMember, p.checked])).toEqual([
@@ -112,9 +116,10 @@ describe("申告の画面（§5.12）", () => {
     expect(await statusOf(() => getDeclarationView(app, as(strangerId), S, teamId, DURING))).toBe(403);
     expect((await getDeclarationView(app, as(repId), S, plainTeamId, DURING)).target).toBe(false);
     expect((await getDeclarationView(app, as(repId), S, plainTeamId, DURING)).canSubmit).toBe(false);
-    // 締切後は代表者は送れない（管理者は送れる）
-    expect((await getDeclarationView(app, as(repId), S, teamId, AFTER)).canSubmit).toBe(false);
-    expect((await getDeclarationView(app, as(adminId), S, teamId, AFTER)).canSubmit).toBe(true);
+    // 締切後〜年度末は追加の申告（増やすだけ）。年度末を過ぎると代表者は送れない（管理者は送れる）
+    expect((await getDeclarationView(app, as(repId), S, teamId, AFTER)).mode).toBe("additional");
+    expect((await getDeclarationView(app, as(repId), S, teamId, NEXT_YEAR)).canSubmit).toBe(false);
+    expect((await getDeclarationView(app, as(adminId), S, teamId, NEXT_YEAR)).canSubmit).toBe(true);
   });
 });
 
@@ -175,9 +180,9 @@ describe("申告の送信（§5.12 の受け入れ条件）", () => {
     expect(statusIn(rows, m.a, Y - 1)).toBe("approved");
   });
 
-  it("締切後は代表者 409、テナント管理者は代理で送れる", async () => {
-    expect(await statusOf(() => submitDeclaration(app, as(repId), S, teamId, { memberIds: [m.a] }, AFTER))).toBe(409);
-    const result = await submitDeclaration(app, as(adminId), S, teamId, { memberIds: [m.a, m.b, m.c] }, AFTER);
+  it("年度末を過ぎると代表者 409、テナント管理者は代理で送れる", async () => {
+    expect(await statusOf(() => submitDeclaration(app, as(repId), S, teamId, { memberIds: [m.a] }, NEXT_YEAR))).toBe(409);
+    const result = await submitDeclaration(app, as(adminId), S, teamId, { memberIds: [m.a, m.b, m.c] }, NEXT_YEAR);
     expect(result).toMatchObject({ checked: 3, approved: 1, unchanged: 2 });
     expect(statusIn(await rowsOf(), m.b)).toBe("approved");
   });

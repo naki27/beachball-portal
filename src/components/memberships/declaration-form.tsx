@@ -10,6 +10,7 @@ import { fiscalYearLabel } from "@/lib/memberships/period-input";
 
 // 年度更新の申告の入力（設計書 §5.12・§4.5「今年度も登録する人にチェック」）
 // 「12人中10人を2027年度も登録します」をその場で更新。昨年度の会員には「昨年度の会員」ラベル
+// mode = additional（締切後〜年度末の追加の申告）では、すでに申告した人は外せず、増やすことだけできる
 
 export type DeclarationPlayerView = {
   memberId: string;
@@ -18,6 +19,7 @@ export type DeclarationPlayerView = {
   lastYearMember: boolean;
   status: MembershipStatus | null;
   checked: boolean;
+  locked: boolean;
 };
 
 type ApiError = { error?: { message?: string } };
@@ -42,6 +44,7 @@ export function DeclarationForm({
   slug,
   teamId,
   year,
+  mode,
   autoApprove,
   canSubmit,
   declared,
@@ -50,6 +53,7 @@ export function DeclarationForm({
   slug: string;
   teamId: string;
   year: number;
+  mode: "renewal" | "additional";
   autoApprove: boolean;
   canSubmit: boolean;
   declared: boolean;
@@ -61,6 +65,8 @@ export function DeclarationForm({
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const yearLabel = fiscalYearLabel(year);
+  const added = players.filter((p) => !p.locked && checked.has(p.memberId)).length;
 
   function toggle(memberId: string, on: boolean) {
     setChecked((prev) => {
@@ -88,11 +94,9 @@ export function DeclarationForm({
         setFailure(body?.error?.message ?? "送れませんでした");
         return;
       }
-      setDone(
-        autoApprove
-          ? `${fiscalYearLabel(year)}の申告を送りました。選んだ人はそのまま協会員として登録されました。控えをメールで送りました`
-          : `${fiscalYearLabel(year)}の申告を送りました。運営が確認して承認します。控えをメールで送りました`,
-      );
+      if (mode === "additional") setDone(`${yearLabel}の追加の申告を送りました。運営が確認して承認します。控えをメールで送りました`);
+      else if (autoApprove) setDone(`${yearLabel}の申告を送りました。選んだ人はそのまま協会員として登録されました。控えをメールで送りました`);
+      else setDone(`${yearLabel}の申告を送りました。運営が確認して承認します。控えをメールで送りました`);
       router.refresh();
     } catch {
       setFailure("送れませんでした。電波の状態を確かめてください");
@@ -106,7 +110,7 @@ export function DeclarationForm({
       {done ? <Message kind="success" title={done} /> : null}
       {failure ? <Message kind="error" title={failure} /> : null}
       <p className="text-lg font-bold" aria-live="polite">
-        {players.length}人中{checked.size}人を{fiscalYearLabel(year)}も登録します
+        {mode === "additional" ? `${added}人を${yearLabel}の協会員に追加で登録します` : `${players.length}人中${checked.size}人を${yearLabel}も登録します`}
       </p>
       {players.length === 0 ? (
         <p className="text-sm text-muted">選手一覧に誰もいません。下から選手を追加してください。</p>
@@ -120,7 +124,7 @@ export function DeclarationForm({
                   <input
                     type="checkbox"
                     checked={checked.has(p.memberId)}
-                    disabled={!canSubmit}
+                    disabled={!canSubmit || p.locked}
                     onChange={(e) => toggle(p.memberId, e.target.checked)}
                     className="mt-1 size-5"
                   />
@@ -141,11 +145,12 @@ export function DeclarationForm({
       {canSubmit ? (
         <>
           <p className="text-sm text-muted">
-            チェックを外した人は「更新しない」として記録されます（昨年度の会員だけ）。
-            {autoApprove ? "この年度は承認を省く設定なので、送るとそのまま協会員になります。" : "送ったあと、運営が内容を確認して承認します。"}
+            {mode === "additional"
+              ? "追加の申告は、承認を省く年度でも運営の承認が必要です。すでに登録した人を外すときは運営にお知らせください。"
+              : `チェックを外した人は「更新しない」として記録されます（昨年度の会員だけ）。${autoApprove ? "この年度は承認を省く設定なので、送るとそのまま協会員になります。" : "送ったあと、運営が内容を確認して承認します。"}`}
           </p>
-          <Button type="submit" fullWidth pending={pending} pendingLabel="送っています…">
-            {declared ? "申告を直して送る" : "申告を送る"}
+          <Button type="submit" fullWidth pending={pending} pendingLabel="送っています…" disabled={mode === "additional" && added === 0}>
+            {mode === "additional" ? "追加の申告を送る" : declared ? "申告を直して送る" : "申告を送る"}
           </Button>
         </>
       ) : null}

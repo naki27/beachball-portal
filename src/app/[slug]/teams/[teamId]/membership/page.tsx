@@ -17,8 +17,8 @@ type Props = { params: Promise<{ slug: string; teamId: string }>; searchParams: 
 
 export const metadata: Metadata = { title: "協会員の登録" };
 
-// 年度更新の申告（設計書 §5.12「申告フロー」・§4.5「年度更新・管理画面」）。代表者・テナント管理者だけ（§3.2 declareMembership）
-// 「名簿にチェックを入れて送信するだけ」。昨年度の会員には初期チェック。新しい選手はその場で追加してから申告できる
+// 年度更新の申告（設計書 §5.12「申告フロー」「年度の途中の追加の申告」・§4.5「年度更新・管理画面」）。代表者・テナント管理者だけ
+// 受付期間中は「名簿にチェックを入れて送信するだけ」。締切後〜年度末は追加の申告（増やすだけ）。新しい選手はその場で追加してから申告できる
 export default async function MembershipDeclarationPage({ params, searchParams }: Props) {
   const { slug, teamId } = await params;
   const { added } = await searchParams;
@@ -30,6 +30,7 @@ export default async function MembershipDeclarationPage({ params, searchParams }
   const view = await getDeclarationView(getDb(), me, association.id, teamId, now).catch(pageErrorFrom);
   const teamPath = `/${association.slug}/teams/${view.team.id}`;
   const yearLabel = view.period ? fiscalYearLabel(view.period.year) : null;
+  const additional = view.mode === "additional";
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
@@ -38,7 +39,9 @@ export default async function MembershipDeclarationPage({ params, searchParams }
           ← {view.team.kind === "individual" ? "あなたの登録情報" : view.team.name}
         </Link>
       </p>
-      <h1 className="text-2xl font-bold">{yearLabel ? `${yearLabel}も登録する人を選ぶ` : "協会員の登録"}</h1>
+      <h1 className="text-2xl font-bold">
+        {!yearLabel ? "協会員の登録" : additional ? `${yearLabel}の協会員の追加の登録` : `${yearLabel}も登録する人を選ぶ`}
+      </h1>
       {added === "1" ? <Message kind="success" title="選手を追加しました。下の一覧でチェックを入れてから送ってください" /> : null}
 
       {!view.target ? (
@@ -49,7 +52,7 @@ export default async function MembershipDeclarationPage({ params, searchParams }
           </Link>
           の「協会員の登録をするチーム」を変えてください。
         </Message>
-      ) : !view.period || !yearLabel ? (
+      ) : !view.period || !yearLabel || !view.mode ? (
         <Message kind="info" title="協会員の登録の受付はまだ始まっていません">受付が始まると、トップページの「あなたのやること」に案内が出ます。</Message>
       ) : (
         <>
@@ -59,26 +62,34 @@ export default async function MembershipDeclarationPage({ params, searchParams }
           </p>
           {view.declared ? (
             <Message kind="success" title={`${yearLabel}の申告を送りました（最終更新: ${formatDateTimeTokyo(view.declared.updatedAt)}）`}>
-              {view.canSubmit ? "締切までは、チェックを変えてもう一度送ると直せます。" : null}
+              {view.mode === "renewal" && !view.isAdmin ? "締切までは、チェックを変えてもう一度送ると直せます。" : null}
             </Message>
           ) : null}
-          {!view.canSubmit ? (
-            <Message kind="info" title={view.state === "before" ? "受付はまだ始まっていません" : "受付は終了しました"}>
-              {view.state === "closed" ? (
-                <>
-                  直すときは
-                  <Link href={`/${association.slug}/contact`} className="font-semibold underline underline-offset-2">
-                    運営にお知らせください
-                  </Link>
-                  。年度の途中に入った人の追加の申告は、運営の画面から受け付けます。
-                </>
-              ) : null}
+          {additional && view.fiscalYearEnd ? (
+            <Message kind="info" title="受付は終了しました。年度の途中に入った人の追加の申告を送れます">
+              {formatDateWithWeekday(todayInTokyo(view.fiscalYearEnd))}まで送れます。追加の申告は運営の承認が必要です。登録した人を外すときは
+              <Link href={`/${association.slug}/contact`} className="font-semibold underline underline-offset-2">
+                運営にお知らせください
+              </Link>
+              。
             </Message>
           ) : null}
+          {view.mode === "before" ? <Message kind="info" title="受付はまだ始まっていません" /> : null}
+          {view.mode === "closed" ? (
+            <Message kind="info" title="この年度の協会員の登録は終了しました">
+              直すときは
+              <Link href={`/${association.slug}/contact`} className="font-semibold underline underline-offset-2">
+                運営にお知らせください
+              </Link>
+              。
+            </Message>
+          ) : null}
+          {view.isAdmin && view.mode === "renewal" ? <Message kind="info" title="管理者として代理で申告・修正しています（締切に関係なく送れます）" /> : null}
           <DeclarationForm
             slug={association.slug}
             teamId={view.team.id}
             year={view.period.year}
+            mode={additional ? "additional" : "renewal"}
             autoApprove={view.period.autoApprove}
             canSubmit={view.canSubmit}
             declared={view.declared !== null}
@@ -108,5 +119,5 @@ export default async function MembershipDeclarationPage({ params, searchParams }
 }
 
 function toPlayerView(p: DeclarationPlayer): DeclarationPlayerView {
-  return { memberId: p.memberId, name: p.name, kana: p.kana, lastYearMember: p.lastYearMember, status: p.status, checked: p.checked };
+  return { memberId: p.memberId, name: p.name, kana: p.kana, lastYearMember: p.lastYearMember, status: p.status, checked: p.checked, locked: p.locked };
 }

@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
 import {
+  members,
   type MembershipSource,
   type MembershipStatus,
   membershipDeclarations,
@@ -219,6 +220,80 @@ export async function updateMembership(tx: Tx, associationId: string, id: string
     .update(memberships)
     .set(patch)
     .where(and(eq(memberships.associationId, associationId), eq(memberships.id, id), isNull(memberships.deletedAt)));
+}
+
+// その年度の申告を送ったチーム（teamId → 送信記録）。未申告の一覧は対象チームからこれを引く
+export async function listDeclarationsForYear(tx: Tx, associationId: string, year: number): Promise<Map<string, Declaration & { teamId: string }>> {
+  const rows = await tx
+    .select({
+      id: membershipDeclarations.id,
+      teamId: membershipDeclarations.teamId,
+      submittedBy: membershipDeclarations.submittedBy,
+      submittedAt: membershipDeclarations.submittedAt,
+      updatedAt: membershipDeclarations.updatedAt,
+    })
+    .from(membershipDeclarations)
+    .where(and(eq(membershipDeclarations.associationId, associationId), eq(membershipDeclarations.year, year)));
+  return new Map(rows.map((r) => [r.teamId, r]));
+}
+
+export type TeamMembershipSummary = { applied: number; approved: number; declined: number; additionalApplied: number };
+
+// チームごとの申告の内訳（その年度・申告元のチームで数える）。承認の画面用
+export async function listTeamMembershipSummary(tx: Tx, associationId: string, year: number): Promise<Map<string, TeamMembershipSummary>> {
+  const rows = await tx
+    .select({ teamId: memberships.teamId, status: memberships.status, source: memberships.source })
+    .from(memberships)
+    .where(and(eq(memberships.associationId, associationId), eq(memberships.year, year), isNull(memberships.deletedAt)));
+  const result = new Map<string, TeamMembershipSummary>();
+  for (const row of rows) {
+    if (!row.teamId) continue;
+    const s = result.get(row.teamId) ?? { applied: 0, approved: 0, declined: 0, additionalApplied: 0 };
+    if (row.status === "applied" && row.source === "additional") s.additionalApplied += 1;
+    else if (row.status === "applied") s.applied += 1;
+    else if (row.status === "approved") s.approved += 1;
+    else if (row.status === "declined") s.declined += 1;
+    result.set(row.teamId, s);
+  }
+  return result;
+}
+
+export type AppliedRow = { id: string; memberId: string; teamId: string | null; source: MembershipSource; name: string; appliedAt: Date | null };
+
+// 承認待ち（applied）の行。氏名つき（承認の画面と一括承認用）。source で通常の申告と追加の申告を分ける
+export async function listAppliedRows(tx: Tx, associationId: string, year: number, source: MembershipSource): Promise<AppliedRow[]> {
+  return tx
+    .select({
+      id: memberships.id,
+      memberId: memberships.memberId,
+      teamId: memberships.teamId,
+      source: memberships.source,
+      name: members.name,
+      appliedAt: memberships.appliedAt,
+    })
+    .from(memberships)
+    .innerJoin(members, and(eq(members.associationId, memberships.associationId), eq(members.id, memberships.memberId)))
+    .where(
+      and(
+        eq(memberships.associationId, associationId),
+        eq(memberships.year, year),
+        eq(memberships.status, "applied"),
+        eq(memberships.source, source),
+        isNull(memberships.deletedAt),
+      ),
+    )
+    .orderBy(memberships.appliedAt);
+}
+
+// 承認（applied → approved）。渡した ID のうち applied のものだけ変える。変えた数を返す
+export async function approveMembershipRows(tx: Tx, associationId: string, ids: readonly string[], approvedBy: string, now: Date): Promise<number> {
+  if (ids.length === 0) return 0;
+  const rows = await tx
+    .update(memberships)
+    .set({ status: "approved", approvedBy, approvedAt: now })
+    .where(and(eq(memberships.associationId, associationId), inArray(memberships.id, [...ids]), eq(memberships.status, "applied"), isNull(memberships.deletedAt)))
+    .returning({ id: memberships.id });
+  return rows.length;
 }
 
 // そのチームから申告した、その年度の会員（申告済み・承認済み）の数（控えのメール用）

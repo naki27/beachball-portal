@@ -13,6 +13,13 @@ export function fiscalYearOf(date: PlainDate, startMonth: number): number {
   return fiscalYear(date, startMonth);
 }
 
+// 年度の末日（4 月開始なら翌年 3 月 31 日）。追加の申告はこの日まで送れる（§5.12「年度の途中の追加の申告」）
+export function fiscalYearEndOf(year: number, startMonth: number): PlainDate {
+  // 翌年度の開始日の前日 = 開始月の前月の末日（Date.UTC の日 0 は前月の末日）
+  const last = new Date(Date.UTC(year + 1, startMonth - 1, 0));
+  return { year: last.getUTCFullYear(), month: last.getUTCMonth() + 1, day: last.getUTCDate() };
+}
+
 // 画面・CSV の表示用（§5.12・§4.4）。isMember の結果は変えず、表示のしかただけを決める
 //   member:          その年度に approved
 //   pending:         applied（運営の確認待ち）

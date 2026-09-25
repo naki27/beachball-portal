@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { fiscalYearOf, isApproved, membershipDisplayLabel, membershipDisplayOf } from "@/lib/membership";
+import { fiscalYearEndOf, fiscalYearOf, isApproved, membershipDisplayLabel, membershipDisplayOf } from "@/lib/membership";
+
+describe("fiscalYearEndOf（年度の末日・追加の申告の期限）", () => {
+  it("4 月開始なら翌年 3 月 31 日。1 月開始は 12 月 31 日。うるう年の 2 月も正しい", () => {
+    expect(fiscalYearEndOf(2027, 4)).toEqual({ year: 2028, month: 3, day: 31 });
+    expect(fiscalYearEndOf(2027, 1)).toEqual({ year: 2027, month: 12, day: 31 });
+    expect(fiscalYearEndOf(2027, 9)).toEqual({ year: 2028, month: 8, day: 31 });
+    expect(fiscalYearEndOf(2027, 3)).toEqual({ year: 2028, month: 2, day: 29 });
+    expect(fiscalYearEndOf(2026, 3)).toEqual({ year: 2027, month: 2, day: 28 });
+  });
+});
 
 // 会員判定の純粋な部分（設計書 §5.12・付録 F・D-01）。DB を読む isMember / membershipDisplays は tests/db/membership.test.ts
 

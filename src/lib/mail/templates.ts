@@ -320,18 +320,45 @@ const TEMPLATES: Partial<Record<MailType, Template>> = {
   },
 
   // 年度更新の申告の控え（§5.12・§11 の membership_applied）。人数だけ載せ、氏名は載せない
+  // params.additional = 年度の途中の追加の申告（承認を省く年度でも承認が要る）
   membership_applied: async (params, ctx, tx) => {
     const d = await loadDeclaration(tx, params);
+    const additional = params.additional === true;
     const url = ctx.associationSlug ? `${ctx.baseUrl}/${ctx.associationSlug}/teams/${d.teamId}/membership` : ctx.baseUrl;
     return {
-      subject: subjectWithBrand(ctx, `${d.year}年度の協会員の申告を受け付けました`),
+      subject: subjectWithBrand(ctx, additional ? `${d.year}年度の協会員の追加の申告を受け付けました` : `${d.year}年度の協会員の申告を受け付けました`),
       text: [
-        `${d.teamName}の${d.year}年度の協会員の申告を受け付けました。`,
+        additional ? `${d.teamName}の${d.year}年度の協会員の追加の申告を受け付けました。` : `${d.teamName}の${d.year}年度の協会員の申告を受け付けました。`,
         "",
-        `登録する人: ${d.count} 人`,
-        d.autoApprove ? "承認を省く設定のため、そのまま協会員として登録されました。" : "運営が内容を確認して承認します。",
+        additional ? `追加で登録する人: ${typeof params.count === "number" ? params.count : 0} 人` : `登録する人: ${d.count} 人`,
+        additional
+          ? "運営が内容を確認して承認します（追加の申告は、承認を省く年度でも承認が必要です）。"
+          : d.autoApprove
+            ? "承認を省く設定のため、そのまま協会員として登録されました。"
+            : "運営が内容を確認して承認します。",
         "",
-        d.closesAt ? `${formatDateWithWeekday(todayInTokyo(d.closesAt))}までは、下のページから直せます。` : "内容は下のページで確かめられます。",
+        !additional && d.closesAt ? `${formatDateWithWeekday(todayInTokyo(d.closesAt))}までは、下のページから直せます。` : "内容は下のページで確かめられます。",
+        url,
+        "",
+        "このメールに心当たりがない場合は、運営までお知らせください。",
+      ].join("\n"),
+    };
+  },
+
+  // 承認のお知らせ（§5.12・§11 の membership_approved）。チームごとに 1 通、人数だけ
+  membership_approved: async (params, ctx, tx) => {
+    const d = await loadDeclaration(tx, params);
+    const count = typeof params.count === "number" ? params.count : d.count;
+    const additional = params.additional === true;
+    const url = ctx.associationSlug ? `${ctx.baseUrl}/${ctx.associationSlug}/teams/${d.teamId}` : ctx.baseUrl;
+    return {
+      subject: subjectWithBrand(ctx, `${d.year}年度の協会員の登録を承認しました`),
+      text: [
+        `${d.teamName}の${d.year}年度の協会員の${additional ? "追加の" : ""}登録を承認しました。`,
+        "",
+        `承認した人: ${count} 人`,
+        "",
+        "登録の状況は下のページで確かめられます。",
         url,
         "",
         "このメールに心当たりがない場合は、運営までお知らせください。",

@@ -3,11 +3,14 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: D-03 年度更新の申告（代表者）（1d）。**Phase 1c は完了**。作業ブランチは `feature/cd`（`main` は B-18 のまま）。2026-09-24 に L-02〜B-18 の申し送りを全部コードと突き合わせ、解消済みを消して残りを下にまとめた（各タスクの「やったこと」は docs/progress-archive.md）
-- 次のタスク: D-04 承認と追加の申告
+- 最後に終わったタスク: D-04 承認と追加の申告（1d）。**Phase 1c は完了**。作業ブランチは `feature/cd`（`main` は B-18 のまま）。2026-09-24 に L-02〜B-18 の申し送りを全部コードと突き合わせ、解消済みを消して残りを下にまとめた（各タスクの「やったこと」は docs/progress-archive.md）
+- 次のタスク: D-05 協会員区分の表示と 1d の仕上げ
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 直近のタスクの申し送り
+### D-04（2026-09-25）
+- やったこと: `/admin/memberships/[year]`（未申告の一覧＝対象チームだけ・申告済みの内訳・「運営の確認待ちの N 人をまとめて承認する」・追加の申告をチームごとに承認・代理の申告と修正は各チームの申告の画面へ）。`src/lib/admin/membership-approval.ts`（`getMembershipYearForAdmin`・`approveMemberships`: applied → approved、チームごとに `membership_approved`）。追加の申告は `declaration.ts` の `declarationMode`（受付前 / 受付中 / 締切後〜年度末 = additional / 年度末後）。additional は増やすだけ・`source = additional`・承認を省く年度でも applied・すでに申告した人は画面でロック。年度末は `membership.ts` の `fiscalYearEndOf`。API `POST /api/[slug]/admin/memberships/[year]/approve`
+- 次への申し送り: 督促メール・依頼メールの一斉送信は P1。`mail.test.ts` の「雛形のない種別」は `team_admin_granted` に変えた（membership_* に雛形ができたため）。チーム管理の「今年度: 会員／未申告／非会員」・申込一覧と CSV の区分・申告の E2E は D-05
 ### D-03（2026-09-25）
 - やったこと: `/teams/[id]/membership`（昨年度の会員に初期チェック・「N人中M人を2027年度も登録します」・「昨年度の会員」ラベル・状態の言い方・その場で選手を追加（`PlayerForm` を `<details>` に）・締切後は運営への案内）。`src/lib/memberships/declaration.ts`（`getDeclarationView`・`submitDeclaration`: 入れた人は applied（承認を省く年度は approved）、外した人は当年度が applied/approved なら declined・行がなく昨年度の会員なら declined を作る、変えていない人はそのまま。締切後は代表者 409・テナント管理者は代理で可。控えは `membership_applied`）。API `POST /api/[slug]/teams/[id]/membership`（`declareMembership`）
 - 次への申し送り: 追加の申告（年度の途中・`source = additional`・承認必須）と未申告一覧・一括承認は D-04。チーム管理の画面の「今年度: 会員／未申告／非会員」と申込一覧の区分は D-05。DB テストの年度は 2091（受付）・2092（申告）・2991（判定）で分けている

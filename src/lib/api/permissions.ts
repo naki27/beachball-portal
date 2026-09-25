@@ -90,6 +90,8 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   // 年度更新の受付（§5.12「受付開始」）。会員の承認の行
   { path: "[slug]/admin/memberships/periods", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
   { path: "[slug]/admin/memberships/periods/[periodId]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageMemberships" } },
+  // 申告の一括承認（通常・追加）。年度は URL の数字
+  { path: "[slug]/admin/memberships/[year]/approve", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
   { path: "[slug]/admin/contacts", methods: ["PATCH"], guard: { kind: "tenant", action: "manageContacts" } },
   { path: "[slug]/admin/contacts/[id]", methods: ["DELETE"], guard: { kind: "tenant", action: "manageContacts" } },
   { path: "[slug]/admin/trash", methods: ["GET"], guard: { kind: "tenant", action: "physicalDelete" } },

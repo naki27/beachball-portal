@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -232,6 +233,11 @@ function PeriodRow({ slug, period }: { slug: string; period: PeriodRowView }) {
       <p className="text-sm">承認: {period.autoApprove ? "省く（申告をそのまま協会員にする）" : "運営が確認して承認する"}</p>
       <p className="text-sm text-muted">
         対象チーム {period.targetTeams} のうち申告済み {period.declaredTeams}
+      </p>
+      <p className="text-sm">
+        <Link href={`/${slug}/admin/memberships/${period.year}`} className="font-semibold underline underline-offset-2">
+          申告の状況を見る（未申告・承認）
+        </Link>
       </p>
       {failure ? <p className="text-sm font-semibold text-danger">{failure}</p> : null}
       {editing ? (
