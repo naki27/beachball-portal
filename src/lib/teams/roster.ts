@@ -27,6 +27,10 @@ import { parsePlayerInput, type PlayerInput } from "./player-input";
 // 見せる範囲は §3.2: 選手にはほかの人の生年月日・年齢・性別を返さない（本人の分は返す）
 
 // 外してから元に戻せる時間（§5.11・30 分【仮】）
+import { fiscalYear } from "@/lib/date";
+import { membershipDisplayLabel, membershipDisplays } from "@/lib/membership";
+import { findAssociationById } from "@/lib/repo/associations";
+
 export const UNDO_LEAVE_WINDOW_MS = 30 * 60 * 1000;
 
 export type Personal = { birthDate: string; age: number; sex: MemberSex };
@@ -50,12 +54,16 @@ export type RosterItem = {
   personal: Personal | null;
   // 代表者以上にだけ入る
   account: AccountState | null;
+  // 今年度の協会員区分の言い方（§5.12「表示」・§4.4）。代表者以上と本人にだけ入る。受付も取り込みもない年度は null
+  membership: string | null;
 };
 
 export type Roster = {
   team: Pick<Team, "id" | "name" | "kind" | "status">;
   // 代表者以上（追加・修正・外すができる）
   canManage: boolean;
+  // 「今年度」の年度（協会の年度開始月で、今日の年度）
+  membershipYear: number;
   items: RosterItem[];
   // 見ている人が 30 分以内に外した行（「外しました［元に戻す］」）
   recentlyLeft: { teamMemberId: string; name: string; leftAt: string }[];
@@ -78,6 +86,8 @@ export async function getRoster(
   teamId: string,
   now: Date = new Date(),
 ): Promise<Roster> {
+  // 「今年度」は協会の年度開始月で決める（§5.12）
+  const startMonth = (await findAssociationById(db, associationId))?.fiscalYearStartMonth ?? 4;
   return withTenantOn(
     db,
     associationId,
@@ -87,6 +97,14 @@ export async function getRoster(
       const today = todayInTokyo(now);
       const rows = await listActiveRoster(tx, associationId, teamId);
       const invitations = canManage ? await listTeamInvitations(tx, associationId, teamId, ["pending", "expired"]) : [];
+      const membershipYear = fiscalYear(today, startMonth);
+      const displays = await membershipDisplays(
+        tx,
+        associationId,
+        rows.map((r) => r.memberId),
+        membershipYear,
+        now,
+      );
       const items = rows.map((row): RosterItem => {
         const isSelf = row.userId === principal.userId;
         const showPersonal = can(role, "viewPlayerPersonal", { self: isSelf });
@@ -98,6 +116,10 @@ export async function getRoster(
           kana: row.kana,
           isSelf,
           personal: showPersonal ? personalOf(row, today) : null,
+          // 協会員かどうかは代表者以上と本人にだけ（§3.2 viewMembershipStatus）。受付も取り込みもない年度は出さない
+          membership: can(role, "viewMembershipStatus", { self: isSelf })
+            ? membershipDisplayLabel(displays.get(row.memberId) ?? "no_data", membershipYear)
+            : null,
           account: canManage
             ? {
                 linked: row.userId !== null,
@@ -118,7 +140,7 @@ export async function getRoster(
             (row) => ({ teamMemberId: row.teamMemberId, name: row.name, leftAt: (row.leftAt as Date).toISOString() }),
           )
         : [];
-      return { team: { id: team.id, name: team.name, kind: team.kind, status: team.status }, canManage, items, recentlyLeft };
+      return { team: { id: team.id, name: team.name, kind: team.kind, status: team.status }, canManage, membershipYear, items, recentlyLeft };
     },
     { userId: principal.userId },
   );

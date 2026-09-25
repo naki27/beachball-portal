@@ -70,9 +70,9 @@
 
 ## 4. タスクの一覧
 
-### 進捗（2026-09-24 時点）
+### 進捗（2026-09-25 時点）
 
-- 完了: **L-01〜L-05・A-01〜A-29・B-01〜B-18**（A-12 は人の確認待ち）。Phase 1a・1b は実装が一巡した。次: **C-01**
+- 完了: **L-01〜L-05・A-01〜A-29・B-01〜B-18・C-01〜C-03・D-01〜D-05**（A-12 は人の確認待ち）。P0 の実装が一巡した（作業ブランチ `feature/cd`）。次: **X-01〜X-05**（環境ができてから）
 - 開発マシンは Mac ではなく **Windows 11**。Colima の代わりに Rancher Desktop で `.devcontainer/` を動かす（手順はリポジトリの `docs/setup.md` §7。`tools/setup-mac.sh` は使わない）
 - リポジトリ名は `beach-entry` から **`beachball-portal`** に変更した（ローカルは `C:/Users/34265/Documents/beach/beachball-portal`、GitHub は https://github.com/naki27/beachball-portal ・HTTPS）。このファイルの `beach-entry` は読み替える
 - 詳しい申し送りはリポジトリの `docs/progress.md`
@@ -138,7 +138,7 @@
 | D-02 | 年度更新の受付開始と対象チーム | S | D-01 | 完了 2026-09-25 |
 | D-03 | 年度更新の申告（代表者） | M | D-02 | 完了 2026-09-25 |
 | D-04 | 承認と追加の申告 | M | D-03 | 完了 2026-09-25 |
-| D-05 | 協会員区分の表示と 1d の仕上げ | S | D-04 |  |
+| D-05 | 協会員区分の表示と 1d の仕上げ | S | D-04 | 完了 2026-09-25 |
 
 ---
 

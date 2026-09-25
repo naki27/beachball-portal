@@ -14,6 +14,7 @@ import {
   tournaments,
   users,
 } from "@/db/schema";
+import { membershipPeriods } from "@/db/schema";
 import { withTenantOn } from "@/db/tenant";
 import { addCategoriesFromPresets, getCategoriesForAdmin } from "@/lib/admin/categories";
 import { exportEntriesCsv, getAdminEntries, markEntryChecked } from "@/lib/admin/entries";
@@ -134,6 +135,7 @@ afterAll(async () => {
   await withTenantOn(owner, A, async (tx) => {
     await tx.delete(exportLogs).where(eq(exportLogs.associationId, A));
     await tx.delete(memberships).where(eq(memberships.associationId, A));
+    await tx.delete(membershipPeriods).where(eq(membershipPeriods.associationId, A));
     await tx.delete(tournaments).where(eq(tournaments.associationId, A));
     await tx.delete(members).where(eq(members.associationId, A));
     await tx.delete(teams).where(eq(teams.associationId, A));
@@ -179,6 +181,47 @@ describe("申込一覧（§5.5(f)・§3.2）", () => {
     const view = await getAdminEntries(app, as(adminId), A, openId, NOW);
     expect(view.entries.find((e) => e.entryId === entry.entryId)?.needsAdminCheck).toBe(false);
     expect(await statusOf(() => markEntryChecked(app, as(repId), A, entry.entryId, NOW))).toBe(403);
+  });
+});
+
+describe("協会員区分（§5.12「表示」・§4.4・D-05）", () => {
+  // 大会の開催日（2026-11-23）の年度 = 2026 年度。受付は 4/1〜12/31 で、MEMBER_NOW は受付期間中
+  const MEMBER_NOW = new Date("2026-09-20T03:00:00Z");
+
+  it("受付も取り込みもない年度は空欄。受付があれば開催日の年度で判定し、「更新の受付中」も出す。CSV も同じ言い方", async () => {
+    const entry = await submitEntry(app, as(repId), A, openId, submitBody({ teamName: `${tag} 区分` }), NOW);
+    const labelsOf = (view: Awaited<ReturnType<typeof getAdminEntries>>) => view.entries.find((e) => e.entryId === entry.entryId)?.players.map((p) => p.membership);
+
+    const before = await getAdminEntries(app, as(adminId), A, openId, MEMBER_NOW);
+    expect(before.hasMembershipData).toBe(false);
+    expect(labelsOf(before)).toEqual(["", "", "", ""]);
+
+    await withTenantOn(owner, A, async (tx) => {
+      await tx.insert(membershipPeriods).values({
+        associationId: A,
+        year: 2026,
+        opensAt: new Date("2026-03-31T15:00:00Z"),
+        closesAt: new Date("2026-12-31T14:59:59.999Z"),
+        autoApprove: false,
+      });
+      await tx.insert(memberships).values([
+        { associationId: A, memberId: roster[0].memberId, year: 2026, status: "approved", source: "renewal" },
+        { associationId: A, memberId: roster[1].memberId, year: 2025, status: "approved", source: "renewal" },
+        { associationId: A, memberId: roster[2].memberId, year: 2026, status: "applied", source: "renewal" },
+      ]);
+    });
+    const during = await getAdminEntries(app, as(adminId), A, openId, MEMBER_NOW);
+    expect(during.hasMembershipData).toBe(true);
+    expect(labelsOf(during)).toEqual(["協会員（2026年度）", "更新の受付中（昨年度は協会員）", "運営の確認待ち", "協会員ではない"]);
+
+    // 締切後は昨年度の会員も「協会員ではない」
+    const closed = await getAdminEntries(app, as(adminId), A, openId, new Date("2027-01-10T00:00:00Z"));
+    expect(labelsOf(closed)?.[1]).toBe("協会員ではない");
+
+    const csv = await exportEntriesCsv(app, as(adminId), A, openId, { includeBirthDate: false }, MEMBER_NOW);
+    expect(csv.body).toContain("協会員（2026年度）");
+    expect(csv.body).toContain("更新の受付中（昨年度は協会員）");
+    expect(csv.body).not.toContain(",協会員,");
   });
 });
 

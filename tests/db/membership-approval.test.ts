@@ -11,7 +11,7 @@ import { endOfDayTokyo, startOfDayTokyo } from "@/lib/date";
 import { getDeclarationView, submitDeclaration } from "@/lib/memberships/declaration";
 import { listMembershipRows } from "@/lib/repo/memberships";
 import { TeamError } from "@/lib/teams/errors";
-import { addPlayer } from "@/lib/teams/roster";
+import { addPlayer, getRoster } from "@/lib/teams/roster";
 import { registerTeam } from "@/lib/teams/teams";
 
 // 承認と追加の申告（設計書 §5.12 の受け入れ条件・D-04）。年度は 2093（受付 2091・申告 2092・判定 2991 と分ける）
@@ -170,5 +170,15 @@ describe("追加の申告（§5.12「年度の途中の追加の申告」）", (
     expect((await getDeclarationView(app, as(adminId), S, teamA, NEXT_YEAR)).mode).toBe("renewal");
     expect(await statusOf(() => submitDeclaration(app, as(adminId), S, teamA, { memberIds: [m.a1, m.a2] }, NEXT_YEAR))).toBe("ok");
     expect(await statusOf(() => submitDeclaration(app, as(repId), S, teamC, { memberIds: [] }, OPEN))).toBe(409);
+  });
+
+  it("選手一覧の「今年度」の区分は同じ判定を通る（§5.12「表示」・D-05）。代表者以上と本人にだけ", async () => {
+    const roster = await getRoster(app, as(repId), S, teamA, CLOSED);
+    expect(roster.membershipYear).toBe(Y);
+    expect(roster.items.find((i) => i.memberId === m.a1)?.membership).toBe(`協会員（${Y}年度）`);
+    expect(roster.items.find((i) => i.memberId === m.a2)?.membership).toBe(`協会員（${Y}年度）`);
+    // 受付も取り込みもない年度（Y+2 の日付で見る）は出さない
+    const later = await getRoster(app, as(repId), S, teamA, new Date(`${Y + 2}-05-01T00:00:00Z`));
+    expect(later.items.every((i) => i.membership === null)).toBe(true);
   });
 });

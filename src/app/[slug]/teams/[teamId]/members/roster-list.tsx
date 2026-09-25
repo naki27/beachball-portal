@@ -182,6 +182,11 @@ export function RosterList({ slug, roster, viewerCanManage }: { slug: string; ro
                     {formatBirthDateLong(birth)}・{item.personal.age}歳・{SEX_LABEL[item.personal.sex]}
                   </p>
                 ) : null}
+                {item.membership ? (
+                  <p className="text-sm">
+                    今年度（{roster.membershipYear}年度）: <span className="font-semibold">{item.membership}</span>
+                  </p>
+                ) : null}
                 {item.isSelf && !viewerCanManage ? (
                   <p className="text-sm text-muted">情報の修正はチームの代表者だけができます。代表者に直接お伝えください</p>
                 ) : null}

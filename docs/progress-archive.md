@@ -2,6 +2,10 @@
 
 `docs/progress.md` から移した古い申し送り（新しいものを上に）。タスクでは読まない。
 
+### D-02（2026-09-25）
+- やったこと: `/admin/memberships`（受付の開始: 対象年度・開始日・締切日・承認を省く。一覧は状態・対象チーム数・申告済み数。期間と承認は直せる、年度は変えられない）。`src/lib/admin/membership-periods.ts`・`memberships/period-input.ts`・`repo/memberships.ts`（受付・申告済みチーム・対象チーム `listRenewalTargetTeams` / `isRenewalTarget` = 登録をするチーム＋個人登録、有効・未削除）。案内は `memberships/renewal-notice.ts`（受付中だけ。トップの「あなたのやること」の先頭と、チーム・登録情報のページの帯。代表者以上に）。API `POST /api/[slug]/admin/memberships/periods`・`PATCH …/[periodId]`（`manageMemberships`）
+- 次への申し送り: 依頼メールの一斉送信・督促は P1
+
 ### C-03（2026-09-25）
 - やったこと: E2E `tests/e2e/documents.spec.ts`（管理者が偽 PDF を拒否され本物を上げる → 未ログインの 375×667 で大会ページから開く（302 → PDF・「開いています…」）→ トップの「新しい資料」→ 非公開で 404）、`RecentDocuments`（トップ・新しい順 5 件・`listRecentDocumentsForPublic`）、`DocumentLink`（押した直後に「開いています…」）
 - 動作確認: E2E `documents` を WebKit と Chromium で。`.env` の `PUBLIC_FILES_BASE_URL=`（空）で公開用の URL が壊れていたのを E2E が見つけ、`createStorage()` を `||` に直した
