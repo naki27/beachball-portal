@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DocumentLink } from "@/components/tournaments/document-link";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { formatDateWithWeekday } from "@/lib/date";
+import { formatBytes } from "@/lib/documents/document-input";
 import { getPrincipal } from "@/lib/auth/principal";
 import { requireAssociation } from "@/lib/page/require-association";
 import { pageErrorFrom } from "@/lib/page/team-errors";
@@ -92,6 +94,26 @@ export default async function TournamentPage({ params }: Props) {
           参加チーム一覧（{tournament.teams} チーム）
         </Link>
       </p>
+
+      {/* 大会資料（§5.9）。公開中の PDF だけ。リンク先はアプリの URL（期限なし・共有してよい）で、公開用のファイルへ転送する */}
+      {tournament.documents.length > 0 ? (
+        <section aria-labelledby="documents" className="flex flex-col gap-3">
+          <h2 id="documents" className="text-lg font-bold">
+            大会資料
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {tournament.documents.map((document) => (
+              <li key={document.id}>
+                <DocumentLink
+                  href={`/${association.slug}/tournaments/${tournament.id}/documents/${document.id}`}
+                  title={document.title}
+                  meta={`${document.docType}・PDF ${formatBytes(document.sizeBytes)}・新しいタブで開きます`}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </main>
   );
 }

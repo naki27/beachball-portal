@@ -7,6 +7,7 @@ import { withTenant } from "@/db/tenant";
 import { can } from "@/lib/authz";
 import { parsePlainDate } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
+import { getTeamRenewalNotice, renewalHref, renewalNoticeText } from "@/lib/memberships/renewal-notice";
 import { requireAssociation } from "@/lib/page/require-association";
 import { requireTeam } from "@/lib/page/require-team";
 import { pageErrorFrom } from "@/lib/page/team-errors";
@@ -36,6 +37,16 @@ export default async function TeamPage({ params, searchParams }: Props) {
   const association = await requireAssociation(slug);
   const { team, role, principal } = await requireTeam(association, teamId, "viewOwnTeamRoster");
   const canEdit = can(role, "editTeam");
+  // 年度更新の案内（受付中で、このチームが対象のときだけ・§5.12）。代表者以上に出す
+  const now = new Date();
+  const renewal = canEdit ? await getTeamRenewalNotice(getDb(), association.id, team, now) : null;
+  const renewalBanner = renewal ? (
+    <Message kind="info" title={renewalNoticeText(renewal, now)}>
+      <Link href={renewalHref(association.slug, team.id)} className="font-semibold underline underline-offset-2">
+        {renewal.declared ? "申告の内容を見る・直す" : "登録する人を選ぶ"}
+      </Link>
+    </Message>
+  ) : null;
 
   if (team.kind === "individual") {
     const roster = await getRoster(getDb(), { ...principal, userId: principal.userId as string }, association.id, teamId).catch(pageErrorFrom);
@@ -45,6 +56,7 @@ export default async function TeamPage({ params, searchParams }: Props) {
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
         {created === "1" ? <Message kind="success" title="個人で登録しました" /> : null}
         {updated === "1" ? <Message kind="success" title="登録情報を保存しました" /> : null}
+        {renewalBanner}
         <h1 className="text-2xl font-bold">あなたの登録情報</h1>
         {me ? (
           <div className="flex flex-col gap-1 rounded-md border border-border px-4 py-3">
@@ -73,6 +85,7 @@ export default async function TeamPage({ params, searchParams }: Props) {
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
       {created === "1" ? <Message kind="success" title="チームを登録しました。あなたがこのチームの代表者です" /> : null}
       {updated === "1" ? <Message kind="success" title="チーム情報を保存しました" /> : null}
+      {renewalBanner}
       {team.status === "inactive" ? (
         <Message kind="info" title="このチームは無効になっています">
           大会に申し込めず、招待もできません。代表者は「有効に戻す」でいつでも戻せます。

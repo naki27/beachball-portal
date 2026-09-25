@@ -14,6 +14,13 @@ import {
   users,
 } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
+import { and, inArray } from "drizzle-orm";
+import {
+  membershipDeclarations as declarationsTable,
+  membershipPeriods as periodsTable,
+  memberships as membershipsTable,
+  teams as teamsTable,
+} from "@/db/schema";
 import { subjectLabel } from "@/lib/contact-subjects";
 import { formatDateWithWeekday, todayInTokyo } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
@@ -93,6 +100,31 @@ async function loadContactMessage(tx: Tx | Db, params: Record<string, unknown>) 
 // 送信待ちから送る種別の雛形。ここにないものは送れず failed になる（各タスクで足す）
 // 申込完了（§5.7・§11）: 申込番号・大会名・部・チーム名・選手一覧・締切・変更方法を ID から読む
 // **生年月日はメールに載せない**（§5.7）。年齢・性別も載せない（本文に残さない）
+// 年度更新の申告の控え用。チーム名・受付の締切・申告した人数（applied / approved の行の数）だけを読む
+async function loadDeclaration(tx: Tx | Db, params: Record<string, unknown>) {
+  const teamId = typeof params.teamId === "string" ? params.teamId : "";
+  const year = typeof params.year === "number" ? params.year : Number.NaN;
+  if (!isUuid(teamId) || !Number.isInteger(year)) throw new Error("申告がありません");
+  const [team] = await tx.select({ id: teamsTable.id, name: teamsTable.name, associationId: teamsTable.associationId }).from(teamsTable).where(eq(teamsTable.id, teamId)).limit(1);
+  if (!team) throw new Error("チームがありません");
+  const [declaration] = await tx
+    .select({ id: declarationsTable.id })
+    .from(declarationsTable)
+    .where(and(eq(declarationsTable.teamId, teamId), eq(declarationsTable.year, year)))
+    .limit(1);
+  if (!declaration) throw new Error("申告がありません");
+  const [period] = await tx
+    .select({ closesAt: periodsTable.closesAt, autoApprove: periodsTable.autoApprove })
+    .from(periodsTable)
+    .where(and(eq(periodsTable.associationId, team.associationId), eq(periodsTable.year, year)))
+    .limit(1);
+  const rows = await tx
+    .select({ id: membershipsTable.id })
+    .from(membershipsTable)
+    .where(and(eq(membershipsTable.teamId, teamId), eq(membershipsTable.year, year), inArray(membershipsTable.status, ["applied", "approved"])));
+  return { teamId, teamName: team.name, year, count: rows.length, closesAt: period?.closesAt ?? null, autoApprove: period?.autoApprove ?? false };
+}
+
 async function loadEntry(tx: Tx | Db, params: Record<string, unknown>) {
   const id = typeof params.entryId === "string" ? params.entryId : "";
   // 形が違えば問い合わせない（uuid 以外を渡すと Postgres がトランザクションごと落とす）
@@ -281,6 +313,26 @@ const TEMPLATES: Partial<Record<MailType, Template>> = {
         "",
         `${formatDateWithWeekday(todayInTokyo(e.deadline))}までは、下のページから変更・取り消しができます。`,
         entryUrl,
+        "",
+        "このメールに心当たりがない場合は、運営までお知らせください。",
+      ].join("\n"),
+    };
+  },
+
+  // 年度更新の申告の控え（§5.12・§11 の membership_applied）。人数だけ載せ、氏名は載せない
+  membership_applied: async (params, ctx, tx) => {
+    const d = await loadDeclaration(tx, params);
+    const url = ctx.associationSlug ? `${ctx.baseUrl}/${ctx.associationSlug}/teams/${d.teamId}/membership` : ctx.baseUrl;
+    return {
+      subject: subjectWithBrand(ctx, `${d.year}年度の協会員の申告を受け付けました`),
+      text: [
+        `${d.teamName}の${d.year}年度の協会員の申告を受け付けました。`,
+        "",
+        `登録する人: ${d.count} 人`,
+        d.autoApprove ? "承認を省く設定のため、そのまま協会員として登録されました。" : "運営が内容を確認して承認します。",
+        "",
+        d.closesAt ? `${formatDateWithWeekday(todayInTokyo(d.closesAt))}までは、下のページから直せます。` : "内容は下のページで確かめられます。",
+        url,
         "",
         "このメールに心当たりがない場合は、運営までお知らせください。",
       ].join("\n"),

@@ -53,6 +53,8 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/teams/[teamId]/admins/[userId]", methods: ["DELETE"], guard: { kind: "tenant", action: "manageTeamAdmins" } },
   // 前回コピー（§5.5(b)）。前回の選手の氏名を返すので、そのチームの代表者だけ
   { path: "[slug]/teams/[teamId]/entries/latest", methods: ["GET"], guard: { kind: "tenant", action: "manageEntries" } },
+  // 年度更新の申告（§5.12）。締切後の代表者は 409（テナント管理者は代理で送れる）
+  { path: "[slug]/teams/[teamId]/membership", methods: ["POST"], guard: { kind: "tenant", action: "declareMembership" } },
   // 紐づけの解除は本人とテナント管理者だけ（§3.2 の注）。サービス層で本人かを見る
   { path: "[slug]/members/[memberId]/link", methods: ["DELETE"], guard: { kind: "tenant", action: "viewOwnTeamRoster" } },
   // 申込の選手枠のサジェストと「この方ですか？」（§8.4・§8.3）。候補は代表者を務めるチームの選手だけなので、
@@ -80,11 +82,14 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/admin/tournaments/[tournamentId]/categories", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/categories/[categoryId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/age-reference/confirm", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
-  // 大会資料（§5.9）。アップロードは multipart、編集は JSON。公開用への反映と削除は C-02
+  // 大会資料（§5.9）。アップロードと差し替え（PUT）は multipart、編集は JSON。削除は論理削除（完全に削除するのは /admin/trash から）
   { path: "[slug]/admin/tournaments/[tournamentId]/documents", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
-  { path: "[slug]/admin/tournaments/[tournamentId]/documents/[documentId]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageTournaments" } },
+  { path: "[slug]/admin/tournaments/[tournamentId]/documents/[documentId]", methods: ["PATCH", "PUT", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets/[presetId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
+  // 年度更新の受付（§5.12「受付開始」）。会員の承認の行
+  { path: "[slug]/admin/memberships/periods", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
+  { path: "[slug]/admin/memberships/periods/[periodId]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageMemberships" } },
   { path: "[slug]/admin/contacts", methods: ["PATCH"], guard: { kind: "tenant", action: "manageContacts" } },
   { path: "[slug]/admin/contacts/[id]", methods: ["DELETE"], guard: { kind: "tenant", action: "manageContacts" } },
   { path: "[slug]/admin/trash", methods: ["GET"], guard: { kind: "tenant", action: "physicalDelete" } },

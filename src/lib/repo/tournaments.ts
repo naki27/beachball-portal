@@ -190,3 +190,9 @@ export async function softDeleteTournament(tx: Tx, associationId: string, id: st
     .returning({ id: tournaments.id });
   return rows.length > 0;
 }
+
+// 日次ジョブ（大会資料の公開の整合・§5.9）用。削除済みも含めた ID をすべて返す
+export async function listTournamentIds(tx: Tx, associationId: string): Promise<string[]> {
+  const rows = await tx.select({ id: tournaments.id }).from(tournaments).where(eq(tournaments.associationId, associationId));
+  return rows.map((r) => r.id);
+}

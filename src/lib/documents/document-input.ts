@@ -8,6 +8,9 @@ export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024; // 1 ファイル 10 MB ま�
 export const MAX_DOCUMENT_BYTES_TEXT = "10 MB";
 export const PDF_CONTENT_TYPE = "application/pdf";
 export const TITLE_MAX = 100;
+// Cloudflare のキャッシュは短め（1 時間【仮】・§5.9）。非公開にしても最長この時間は開けることがある。画面にも出すのでここに置く
+export const PUBLIC_CACHE_SECONDS = 3600;
+export const PUBLIC_CACHE_TEXT = "1 時間";
 const PDF_HEAD = new TextEncoder().encode("%PDF-");
 
 export function isDocumentType(value: unknown): value is DocumentType {

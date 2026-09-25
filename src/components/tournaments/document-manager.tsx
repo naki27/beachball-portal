@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Message } from "@/components/ui/message";
 import { TextField } from "@/components/ui/text-field";
 import { useHydrated } from "@/hooks/use-hydrated";
-import { DOCUMENT_TYPES, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_BYTES_TEXT, TITLE_MAX } from "@/lib/documents/document-input";
+import { DOCUMENT_TYPES, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_BYTES_TEXT, PUBLIC_CACHE_TEXT, TITLE_MAX } from "@/lib/documents/document-input";
 
-// 大会資料の管理（設計書 §5.9）。アップロード（PDF だけ）と、種別・タイトル・公開／非公開・並び順の編集
+// 大会資料の管理（設計書 §5.9）。アップロード（PDF だけ）、種別・タイトル・公開／非公開・並び順の編集、差し替え、削除
 // 中身はシステムでは検査しない。管理者に「個人情報が含まれていないか確認してください」と出す
 
 export type DocumentRowView = {
@@ -17,6 +17,8 @@ export type DocumentRowView = {
   docType: DocumentType;
   title: string;
   isPublic: boolean;
+  // いま公開用に置かれているか（「公開」でも大会が準備中の間は置かれない）
+  published: boolean;
   sortOrder: number;
   sizeText: string;
   createdText: string;
@@ -25,9 +27,26 @@ export type DocumentRowView = {
 type ApiError = { error?: { message?: string; field?: string } };
 
 const SELECT_CLASS = "min-h-12 w-full rounded-md border border-border bg-background px-3 text-base";
+const FILE_CLASS =
+  "min-h-12 w-full rounded-md border border-border bg-background px-3 py-2 text-base file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2";
 const PRIVACY_NOTE = "個人情報が含まれていないか確認してください（選手名の載った組み合わせ表などは協会の判断で公開されます）";
 
-export function DocumentManager({ slug, tournamentId, documents }: { slug: string; tournamentId: string; documents: DocumentRowView[] }) {
+async function readError(response: Response, fallback: string): Promise<{ message: string; field: string | null }> {
+  const body = (await response.json().catch(() => null)) as ApiError | null;
+  return { message: body?.error?.message ?? fallback, field: body?.error?.field ?? null };
+}
+
+export function DocumentManager({
+  slug,
+  tournamentId,
+  tournamentIsDraft,
+  documents,
+}: {
+  slug: string;
+  tournamentId: string;
+  tournamentIsDraft: boolean;
+  documents: DocumentRowView[];
+}) {
   const hydrated = useHydrated();
   return (
     <div data-hydrated={hydrated || undefined} className="flex flex-col gap-8">
@@ -36,6 +55,9 @@ export function DocumentManager({ slug, tournamentId, documents }: { slug: strin
         <h2 id="documents-list" className="text-lg font-bold">
           アップロード済みの資料（{documents.length} 件）
         </h2>
+        {tournamentIsDraft && documents.length > 0 ? (
+          <Message kind="info" title="大会が「準備中」の間は、「公開」の資料も大会のページに出ません。大会を「受付中」などにすると公開されます" />
+        ) : null}
         {documents.length === 0 ? (
           <p className="text-sm text-muted">まだ資料はありません。</p>
         ) : (
@@ -93,10 +115,9 @@ function UploadForm({ slug, tournamentId }: { slug: string; tournamentId: string
     try {
       const response = await fetch(`/api/${slug}/admin/tournaments/${tournamentId}/documents`, { method: "POST", body: form });
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as ApiError | null;
-        const message = body?.error?.message ?? "アップロードできませんでした";
-        if (body?.error?.field) setErrors({ [body.error.field]: message });
-        else setFailure(message);
+        const error = await readError(response, "アップロードできませんでした");
+        if (error.field) setErrors({ [error.field]: error.message });
+        else setFailure(error.message);
         return;
       }
       setDone(`「${title.trim()}」を追加しました`);
@@ -130,7 +151,7 @@ function UploadForm({ slug, tournamentId }: { slug: string; tournamentId: string
           onChange={(e) => choose(e.target.files?.[0] ?? null)}
           aria-describedby="document-file-hint"
           aria-invalid={errors.file ? true : undefined}
-          className="min-h-12 w-full rounded-md border border-border bg-background px-3 py-2 text-base file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2"
+          className={FILE_CLASS}
         />
         <p id="document-file-hint" className="text-sm text-muted">
           PDF だけ。1 ファイル {MAX_DOCUMENT_BYTES_TEXT} まで
@@ -175,55 +196,87 @@ function UploadForm({ slug, tournamentId }: { slug: string; tournamentId: string
 
 function DocumentRow({ slug, tournamentId, document }: { slug: string; tournamentId: string; document: DocumentRowView }) {
   const router = useRouter();
-  const [editing, setEditing] = useState(false);
+  const [mode, setMode] = useState<"view" | "edit" | "replace" | "delete">("view");
   const [docType, setDocType] = useState<DocumentType>(document.docType);
   const [title, setTitle] = useState(document.title);
   const [isPublic, setIsPublic] = useState(document.isPublic);
   const [sortOrder, setSortOrder] = useState(String(document.sortOrder));
+  const [replacement, setReplacement] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const ids = { type: `doc-${document.id}-type`, title: `doc-${document.id}-title`, order: `doc-${document.id}-order` };
+  const [notice, setNotice] = useState<string | null>(null);
+  const ids = { type: `doc-${document.id}-type`, title: `doc-${document.id}-title`, order: `doc-${document.id}-order`, file: `doc-${document.id}-file` };
+  const apiUrl = `/api/${slug}/admin/tournaments/${tournamentId}/documents/${document.id}`;
+  const openUrl = `/${slug}/tournaments/${tournamentId}/documents/${document.id}`;
 
-  function cancel() {
+  function reset() {
     setDocType(document.docType);
     setTitle(document.title);
     setIsPublic(document.isPublic);
     setSortOrder(String(document.sortOrder));
+    setReplacement(null);
     setErrors({});
     setFailure(null);
-    setEditing(false);
+    setMode("view");
   }
 
-  async function save() {
+  // 3 つの操作で共通: 送る → 失敗なら欄かメッセージに出す → 成功なら一覧を読み直す
+  async function send(init: RequestInit, fallback: string, onDone: () => void) {
     if (pending) return;
+    setPending(true);
+    setFailure(null);
+    setNotice(null);
+    setErrors({});
+    try {
+      const response = await fetch(apiUrl, init);
+      if (!response.ok) {
+        const error = await readError(response, fallback);
+        if (error.field) setErrors({ [error.field]: error.message });
+        else setFailure(error.message);
+        return;
+      }
+      onDone();
+      router.refresh();
+    } catch {
+      setFailure(`${fallback}。電波の状態を確かめてください`);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function save() {
     if (!title.trim()) {
       setErrors({ title: "タイトルを入力してください" });
       return;
     }
-    setPending(true);
-    setFailure(null);
-    setErrors({});
-    try {
-      const response = await fetch(`/api/${slug}/admin/tournaments/${tournamentId}/documents/${document.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ docType, title: title.trim(), isPublic, sortOrder }),
-      });
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as ApiError | null;
-        const message = body?.error?.message ?? "保存できませんでした";
-        if (body?.error?.field) setErrors({ [body.error.field]: message });
-        else setFailure(message);
-        return;
-      }
-      setEditing(false);
-      router.refresh();
-    } catch {
-      setFailure("保存できませんでした。電波の状態を確かめてください");
-    } finally {
-      setPending(false);
+    void send(
+      { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ docType, title: title.trim(), isPublic, sortOrder }) },
+      "保存できませんでした",
+      () => setMode("view"),
+    );
+  }
+
+  function replace() {
+    if (!replacement) {
+      setErrors({ file: "ファイルを選んでください" });
+      return;
     }
+    if (replacement.size > MAX_DOCUMENT_BYTES) {
+      setErrors({ file: `ファイルの大きさは ${MAX_DOCUMENT_BYTES_TEXT} までです` });
+      return;
+    }
+    const form = new FormData();
+    form.set("file", replacement);
+    void send({ method: "PUT", body: form }, "差し替えられませんでした", () => {
+      setReplacement(null);
+      setMode("view");
+      setNotice("ファイルを差し替えました。公開中なら、開くための URL が新しくなっています");
+    });
+  }
+
+  function remove() {
+    void send({ method: "DELETE" }, "削除できませんでした", () => setMode("view"));
   }
 
   return (
@@ -239,8 +292,34 @@ function DocumentRow({ slug, tournamentId, document }: { slug: string; tournamen
       <p className="text-sm text-muted">
         {document.sizeText}・{document.createdText} に追加
       </p>
+      {document.published ? (
+        <p className="text-sm">
+          <a href={openUrl} target="_blank" rel="noopener" className="underline underline-offset-2">
+            大会ページと同じ URL で開く
+          </a>
+          （新しいタブ）
+        </p>
+      ) : document.isPublic ? (
+        <p className="text-sm text-muted">大会が「準備中」のため、まだ公開されていません</p>
+      ) : null}
+      {notice ? <Message kind="success" title={notice} /> : null}
       {failure ? <p className="text-sm font-semibold text-danger">{failure}</p> : null}
-      {editing ? (
+
+      {mode === "view" ? (
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" className="min-h-10" onClick={() => setMode("edit")}>
+            変更する
+          </Button>
+          <Button variant="secondary" className="min-h-10" onClick={() => setMode("replace")}>
+            ファイルを差し替える
+          </Button>
+          <Button variant="danger" className="min-h-10" onClick={() => setMode("delete")}>
+            削除する
+          </Button>
+        </div>
+      ) : null}
+
+      {mode === "edit" ? (
         <div className="flex flex-col gap-3 border-t border-border pt-3">
           <div className="flex flex-col gap-1.5">
             <label htmlFor={ids.type} className="font-semibold">
@@ -259,6 +338,7 @@ function DocumentRow({ slug, tournamentId, document }: { slug: string; tournamen
             <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="size-5" />
             <span>公開する</span>
           </label>
+          <p className="text-sm text-muted">非公開にしても、すでに開いていた人は最長 {PUBLIC_CACHE_TEXT} は開けることがあります</p>
           <TextField
             id={ids.order}
             label="並び順"
@@ -273,16 +353,61 @@ function DocumentRow({ slug, tournamentId, document }: { slug: string; tournamen
             <Button className="min-h-10" onClick={save} pending={pending} pendingLabel="保存しています…">
               保存する
             </Button>
-            <Button variant="secondary" className="min-h-10" onClick={cancel} disabled={pending}>
+            <Button variant="secondary" className="min-h-10" onClick={reset} disabled={pending}>
               やめる
             </Button>
           </div>
         </div>
-      ) : (
-        <Button variant="secondary" className="min-h-10 self-start" onClick={() => setEditing(true)}>
-          変更する
-        </Button>
-      )}
+      ) : null}
+
+      {mode === "replace" ? (
+        <div className="flex flex-col gap-3 border-t border-border pt-3">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={ids.file} className="font-semibold">
+              新しい PDF ファイル
+            </label>
+            <input
+              id={ids.file}
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(e) => {
+                setReplacement(e.target.files?.[0] ?? null);
+                setErrors({});
+              }}
+              aria-invalid={errors.file ? true : undefined}
+              className={FILE_CLASS}
+            />
+            <p className="text-sm text-muted">
+              タイトルや公開の設定はそのまま。公開中なら開くための URL が新しくなり、古い URL は開けなくなります（最長 {PUBLIC_CACHE_TEXT}{" "}
+              は古いほうが開けることがあります）
+            </p>
+            {errors.file ? <p className="text-sm font-semibold text-danger">{errors.file}</p> : null}
+          </div>
+          <p className="rounded-md border border-border bg-info-surface px-4 py-3 text-sm">{PRIVACY_NOTE}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button className="min-h-10" onClick={replace} pending={pending} pendingLabel="差し替えています…">
+              差し替える
+            </Button>
+            <Button variant="secondary" className="min-h-10" onClick={reset} disabled={pending}>
+              やめる
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {mode === "delete" ? (
+        <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
+          <p className="text-sm">削除すると大会のページから消え、開くための URL も使えなくなります。「削除済みデータ」から元に戻せます。</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="danger" className="min-h-10" onClick={remove} pending={pending} pendingLabel="削除しています…">
+              削除する
+            </Button>
+            <Button variant="secondary" className="min-h-10" onClick={reset} disabled={pending}>
+              やめる
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

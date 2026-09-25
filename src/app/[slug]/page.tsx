@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { OpenTournaments } from "@/components/top/open-tournaments";
+import { RecentDocuments } from "@/components/top/recent-documents";
 import { type TodoItem, YourTodos } from "@/components/top/your-todos";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { entryTodos, listMyEntries } from "@/lib/entries/my-entries";
+import { listRenewalNotices, renewalTodos } from "@/lib/memberships/renewal-notice";
 import { loadAdminTeams, loadIndividualRegistration } from "@/lib/page/my-associations";
 import { requireAssociation } from "@/lib/page/require-association";
+import { listRecentDocumentsForPublic } from "@/lib/public/documents";
 import { listTournamentsForPublic } from "@/lib/public/tournaments";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -19,21 +22,27 @@ export default async function AssociationTop({ params }: Props) {
   const principal = await getPrincipal();
   const now = new Date();
   const tournaments = await listTournamentsForPublic(getDb(), association.id, now);
+  const recentDocuments = await listRecentDocumentsForPublic(getDb(), association.id);
 
   // ログイン中の人のやること（自分が代表を務めるチーム・個人登録について・§5.17）
   let todos: TodoItem[] = [];
   if (principal.userId) {
-    const [entries, adminTeams, individual] = await Promise.all([
+    const [entries, adminTeams, individual, renewal] = await Promise.all([
       listMyEntries(getDb(), principal, association.id),
       loadAdminTeams(principal, association.id),
       loadIndividualRegistration(principal, association.id),
+      listRenewalNotices(getDb(), principal, association.id, now),
     ]);
-    todos = entryTodos(
-      association.slug,
-      tournaments.open.map((t) => ({ id: t.id, name: t.name })),
-      entries.managed,
-      adminTeams.length > 0 || individual !== null,
-    );
+    // 年度更新の案内（受付中で対象のチームだけ・§5.12）→ 申込の分
+    todos = [
+      ...renewalTodos(association.slug, renewal, now),
+      ...entryTodos(
+        association.slug,
+        tournaments.open.map((t) => ({ id: t.id, name: t.name })),
+        entries.managed,
+        adminTeams.length > 0 || individual !== null,
+      ),
+    ];
   }
 
   return (
@@ -41,6 +50,7 @@ export default async function AssociationTop({ params }: Props) {
       <h1 className="text-2xl font-bold">{association.name}</h1>
       {principal.userId ? <YourTodos items={todos} /> : null}
       <OpenTournaments slug={association.slug} open={tournaments.open} upcoming={tournaments.upcoming} now={now} />
+      <RecentDocuments slug={association.slug} documents={recentDocuments} />
       {principal.userId ? (
         <p>
           <Link href={`/${association.slug}/teams/new`} className="font-semibold underline underline-offset-2">

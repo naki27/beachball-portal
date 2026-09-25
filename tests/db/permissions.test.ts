@@ -7,6 +7,8 @@ import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
 import { withTenantOn } from "@/db/tenant";
 import { ACTIONS, type Action, ANONYMOUS, can, type Principal, type Role, ROLES } from "@/lib/authz";
 import { getDocumentsForAdmin } from "@/lib/admin/documents";
+import { listMembershipPeriodsForAdmin } from "@/lib/admin/membership-periods";
+import { getDeclarationView } from "@/lib/memberships/declaration";
 import { getAdminEntries } from "@/lib/admin/entries";
 import { addCategoriesFromPresets, getCategoriesForAdmin } from "@/lib/admin/categories";
 import { createTournament, listTournamentsForAdmin } from "@/lib/admin/tournaments";
@@ -175,6 +177,9 @@ const CASES: readonly Case[] = [
   { action: "manageTournaments", name: "申込一覧（管理）", run: (a) => getAdminEntries(app, a, S, tournamentId) },
   // 1c（大会資料・§5.9）
   { action: "manageTournaments", name: "大会資料の一覧（管理）", run: (a) => getDocumentsForAdmin(app, a, S, tournamentId) },
+  // 1d（年度更新・§5.12）
+  { action: "manageMemberships", name: "年度更新の受付の一覧（管理）", run: (a) => listMembershipPeriodsForAdmin(app, a, S) },
+  { action: "declareMembership", name: "年度更新の申告の画面", run: (a) => getDeclarationView(app, a, S, teamX) },
 ];
 
 describe("権限表（§3.2）どおりに API が応える", () => {

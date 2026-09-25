@@ -2,6 +2,21 @@
 
 `docs/progress.md` から移した古い申し送り（新しいものを上に）。タスクでは読まない。
 
+### C-03（2026-09-25）
+- やったこと: E2E `tests/e2e/documents.spec.ts`（管理者が偽 PDF を拒否され本物を上げる → 未ログインの 375×667 で大会ページから開く（302 → PDF・「開いています…」）→ トップの「新しい資料」→ 非公開で 404）、`RecentDocuments`（トップ・新しい順 5 件・`listRecentDocumentsForPublic`）、`DocumentLink`（押した直後に「開いています…」）
+- 動作確認: E2E `documents` を WebKit と Chromium で。`.env` の `PUBLIC_FILES_BASE_URL=`（空）で公開用の URL が壊れていたのを E2E が見つけ、`createStorage()` を `||` に直した
+- 次への申し送り: E2E の流し方（Turbopack・`.next/dev`・ウォームアップ）は `docs/progress.md` の「作業の注意」
+
+### C-02（2026-09-25）
+- やったこと: ADR 0026（配信は第 1 案。第 2 案でも `PUBLIC_FILES_BASE_URL` を変えるだけ）。`src/lib/documents/publish.ts`（公開すべき条件と、公開用への置き直し・取り下げを 1 か所で。名前は `documents/<32 桁>.pdf`、Content-Disposition と Cache-Control 1 時間）。資料の追加・編集・差し替え（`PUT`）・削除（`DELETE`）、大会の編集（状態）・削除、削除済みデータの復元・完全に削除、日次ジョブ ⑥（整合と消し忘れの掃除・`document-cleanup.ts`）のすべてから同じ sync を呼ぶ。`/[スラッグ]/tournaments/[id]/documents/[docId]` → 302（非公開・削除・draft は 404）、`/dev-files/…`（開発時だけ）、大会詳細の「大会資料」、`/admin/trash` に「大会資料」。ローカルの保存先は `<キー>.meta.json` に Content-Type などを持つ
+- 動作確認: lint / typecheck / test（TZ 2 回・72 ファイル）、E2E は `public-tournaments` / `admin-tournaments` / `trash` を WebKit と Chromium で
+- 次への申し送り: タイトルを変えても公開用の名前は変えない。R2 の Content-Disposition・Cache-Control は本物で未確認（X-01）
+
+### C-01（2026-09-24）
+- やったこと: `tournament_documents`（`0016` 表・`0017` RLS と権限。app_job にも delete）、`src/lib/documents/document-input.ts`（10 MB・Content-Type・先頭の `%PDF-`・種別／タイトル／公開／並び順の検査）、`src/lib/repo/tournament-documents.ts`、`src/lib/admin/documents.ts`（保管用 `private` バケットの `documents/<協会>/<大会>/<資料>.pdf`。行を入れてからファイルを置き、置けなければ戻る）、`POST …/admin/tournaments/[id]/documents`（multipart）・`PATCH …/documents/[docId]`、画面 `/admin/tournaments/[id]/documents`（追加・種別・タイトル・公開／非公開・並び順・「個人情報が含まれていないか確認してください」）
+- 動作確認: lint / typecheck / test（TZ 2 回・70 ファイル。単体 10 本・DB 7 本）、E2E `admin-tournaments`
+- 次への申し送り: `0016` は drizzle が出した SQL から、`0014` で手で足した `entries.submit_token` の分を取り除いた（snapshot はこれで追いついた）
+
 ### B-08〜B-10（2026-09-20）
 - やったこと:
   - B-08: ビュー `player_suggestions`（付録 A）と `src/lib/search/`（`MemberSearch` と Postgres の実装・付録 C の SQL）。`POST /api/[スラッグ]/members/suggest`（`{q, members_only, year}`）と `…/members/same-name`（氏名の完全一致・最大 3 件）。**候補は代表者を務める有効なチームの現役の選手だけ**。正規化後 2 文字未満は 0 件、60 回/分/ユーザー。`TeamError` に 429、`date.ts` に `fiscalYear`

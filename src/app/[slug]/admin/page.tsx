@@ -39,11 +39,13 @@ export default async function AdminHome({ params }: Props) {
         <Link href={`/${association.slug}/admin/trash`} className={itemClass}>
           削除済みデータ
         </Link>
+        <Link href={`/${association.slug}/admin/memberships`} className={itemClass}>
+          会員の管理（年度更新）
+        </Link>
         <Link href={`/${association.slug}/admin/association`} className={itemClass}>
           協会の設定（よく使う部）
         </Link>
       </nav>
-      <p className="text-sm text-muted">会員の管理は準備中です。</p>
     </main>
   );
 }

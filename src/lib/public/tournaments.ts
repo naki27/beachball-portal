@@ -5,6 +5,7 @@ import type { PlainDate } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
 import { countEntriesByTournament, listPublicEntryTeams } from "@/lib/repo/entries";
 import { listTournamentCategories, type TournamentCategory } from "@/lib/repo/tournament-categories";
+import { listPublicDocuments, type TournamentDocument } from "@/lib/repo/tournament-documents";
 import { findPublicTournament, listPublicTournaments, type Tournament } from "@/lib/repo/tournaments";
 import { TeamError } from "@/lib/teams/errors";
 import { categoryConditionText } from "@/lib/tournaments/category-text";
@@ -40,7 +41,20 @@ export type PublicTournament = {
   daysLeft: number; // 締切まであと何日（当日は 0・過ぎていれば負）
   categories: PublicCategory[];
   teams: number;
+  // 公開中の大会資料（§5.9）。大会詳細だけに入れる（一覧では空）。開く URL は /[スラッグ]/tournaments/[id]/documents/[docId]
+  documents: PublicDocument[];
 };
+
+export type PublicDocument = {
+  id: string;
+  docType: TournamentDocument["docType"];
+  title: string;
+  sizeBytes: number;
+};
+
+function toPublicDocument(document: TournamentDocument): PublicDocument {
+  return { id: document.id, docType: document.docType, title: document.title, sizeBytes: document.sizeBytes };
+}
 
 export type PublicTournamentList = {
   open: PublicTournament[]; // 受付中
@@ -62,7 +76,13 @@ function toPublicCategory(category: TournamentCategory, tournament: Tournament, 
   };
 }
 
-function toPublicTournament(tournament: Tournament, categories: PublicCategory[], teams: number, now: Date): PublicTournament {
+function toPublicTournament(
+  tournament: Tournament,
+  categories: PublicCategory[],
+  teams: number,
+  now: Date,
+  documents: PublicDocument[] = [],
+): PublicTournament {
   const state = tournamentEntryState(
     tournament,
     categories.map((c) => ({ entryEndAt: c.entryEndAt })),
@@ -85,6 +105,7 @@ function toPublicTournament(tournament: Tournament, categories: PublicCategory[]
     daysLeft: daysUntilDeadline(latest, now),
     categories,
     teams,
+    documents,
   };
 }
 
@@ -125,11 +146,13 @@ async function loadPublic(tx: Tx, associationId: string, tournamentId: string, n
   const teams = await listPublicEntryTeams(tx, associationId, tournamentId);
   const byCategory = new Map<string, number>();
   for (const team of teams) byCategory.set(team.categoryId, (byCategory.get(team.categoryId) ?? 0) + 1);
+  const documents = await listPublicDocuments(tx, associationId, tournamentId);
   const view = toPublicTournament(
     tournament,
     categories.map((c) => toPublicCategory(c, tournament, byCategory.get(c.id) ?? 0, now)),
     teams.length,
     now,
+    documents.map(toPublicDocument),
   );
   return { tournament, view };
 }

@@ -15,10 +15,11 @@ import { enqueueMail } from "@/lib/mail/outbox";
 import { listAllAssociations } from "@/lib/repo/associations";
 import { getStorage } from "@/lib/storage";
 import type { StorageAdapter } from "@/lib/storage/types";
+import { cleanupDocuments } from "./document-cleanup";
 import { backupClosedTournamentEntries } from "./entry-backup";
 
 // 日次ジョブ（設計書 §6.5.1 の定期ジョブの表 ②③④⑤）。app_job（JOB_DATABASE_URL）で動かす
-// ① DB バックアップ（pg_dump）・⑥ R2 の後始末・⑦ 最小インスタンス数は後のタスク
+// ⑥ の大会資料の後始末は document-cleanup.ts。① DB バックアップ（pg_dump）・⑦ 最小インスタンス数は後のタスク（X-03・X-04）
 // 協会に属する表はかならず withTenantOn で協会ごとに処理する（§5.14）。ログには件数だけを出す（氏名・メールアドレスは出さない）
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -52,6 +53,11 @@ export type DailyJobResult = {
   purgedAdminInvitations: number;
   purgedMailLogs: number;
   purgedAdminAccessLogs: number;
+  // 大会資料の後始末（⑥・§5.9）: 公開の整合と、消し忘れたファイル
+  documentsPublished: number;
+  documentsWithdrawn: number;
+  documentsMissing: number;
+  documentFilesRemoved: number;
 };
 
 export type DailyJobOptions = {
@@ -164,6 +170,10 @@ export async function runDailyJob(db: Db, options: DailyJobOptions = {}): Promis
     purgedAdminInvitations: 0,
     purgedMailLogs: 0,
     purgedAdminAccessLogs: 0,
+    documentsPublished: 0,
+    documentsWithdrawn: 0,
+    documentsMissing: 0,
+    documentFilesRemoved: 0,
   };
 
   const invitationCutoff = daysAgo(now, RETENTION_DAYS.invitations);
@@ -185,9 +195,17 @@ export async function runDailyJob(db: Db, options: DailyJobOptions = {}): Promis
   result.purgedAdminAccessLogs = deletedCount(logs);
 
   // ② 締切後の申込一覧 CSV のバックアップ（暗号化してバックアップ用の保存先へ・§5.5(f)）
-  const backup = await backupClosedTournamentEntries(db, options.storage ?? getStorage(), now);
+  const storage = options.storage ?? getStorage();
+  const backup = await backupClosedTournamentEntries(db, storage, now);
   result.backedUpTournaments = backup.tournaments;
   result.skippedBackups = backup.skipped;
+
+  // ⑥ 大会資料の公開の整合と、消し忘れたファイルの後始末（§5.9）
+  const documents = await cleanupDocuments(db, storage);
+  result.documentsPublished = documents.published;
+  result.documentsWithdrawn = documents.withdrawn;
+  result.documentsMissing = documents.missing;
+  result.documentFilesRemoved = documents.removedPrivate + documents.removedPublic;
 
   return result;
 }
@@ -201,5 +219,6 @@ export function formatDailyJobResult(result: DailyJobResult): string {
     `期限切れの招待 チーム ${result.expiredTeamInvitations} 件 / 協会の管理者 ${result.expiredAdminInvitations} 件`,
     `保存期間切れ 招待 ${result.purgedTeamInvitations + result.purgedAdminInvitations} 件 / 送信記録 ${result.purgedMailLogs} 件 / 操作記録 ${result.purgedAdminAccessLogs} 件`,
     `申込一覧のバックアップ ${result.backedUpTournaments} 大会${result.skippedBackups > 0 ? `（${result.skippedBackups} 大会は作れず）` : ""}`,
+    `大会資料 公開 ${result.documentsPublished} 件 / 取り下げ ${result.documentsWithdrawn} 件 / 消し忘れ ${result.documentFilesRemoved} 件${result.documentsMissing > 0 ? `（${result.documentsMissing} 件は保管用がなく公開できず）` : ""}`,
   ].join("、");
 }

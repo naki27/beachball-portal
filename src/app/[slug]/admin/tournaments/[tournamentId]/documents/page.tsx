@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DocumentManager, type DocumentRowView } from "@/components/tournaments/document-manager";
 import { getDb } from "@/db/client";
-import { getDocumentsForAdmin } from "@/lib/admin/documents";
+import { type AdminDocument, getDocumentsForAdmin } from "@/lib/admin/documents";
 import { getPrincipal } from "@/lib/auth/principal";
 import { formatDateTimeTokyo } from "@/lib/date";
 import { formatBytes, MAX_DOCUMENT_BYTES_TEXT } from "@/lib/documents/document-input";
 import { denyPage } from "@/lib/page/forbidden";
 import { requireAssociation } from "@/lib/page/require-association";
 import { pageErrorFrom } from "@/lib/page/team-errors";
-import type { TournamentDocument } from "@/lib/repo/tournament-documents";
 
 type Props = { params: Promise<{ slug: string; tournamentId: string }> };
 
@@ -35,17 +34,23 @@ export default async function TournamentDocumentsPage({ params }: Props) {
         大会冊子・要項・組み合わせ・結果などの PDF を置きます（1 ファイル {MAX_DOCUMENT_BYTES_TEXT} まで）。
         「公開」にした資料は、大会のページから誰でも開けるようになります。
       </p>
-      <DocumentManager slug={association.slug} tournamentId={view.tournament.id} documents={view.documents.map(toRow)} />
+      <DocumentManager
+        slug={association.slug}
+        tournamentId={view.tournament.id}
+        tournamentIsDraft={view.tournament.status === "draft"}
+        documents={view.documents.map(toRow)}
+      />
     </main>
   );
 }
 
-function toRow(d: TournamentDocument): DocumentRowView {
+function toRow(d: AdminDocument): DocumentRowView {
   return {
     id: d.id,
     docType: d.docType,
     title: d.title,
     isPublic: d.isPublic,
+    published: d.published,
     sortOrder: d.sortOrder,
     sizeText: formatBytes(d.sizeBytes),
     createdText: formatDateTimeTokyo(d.createdAt),
