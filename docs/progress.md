@@ -3,13 +3,18 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: B-18 1b の仕上げ（**Phase 1a・1b は完了**）。2026-09-24 に L-02〜B-18 の申し送りを全部コードと突き合わせ、解消済みを消して残りを下にまとめた（各タスクの「やったこと」は docs/progress-archive.md）
-- 次のタスク: C-01 大会資料のアップロードと保管（1c）
+- 最後に終わったタスク: C-01 大会資料のアップロードと保管（1c）。2026-09-24 に L-02〜B-18 の申し送りを全部コードと突き合わせ、解消済みを消して残りを下にまとめた（各タスクの「やったこと」は docs/progress-archive.md）
+- 次のタスク: C-02 大会資料の公開と配信（1c）
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
+
+## 直近のタスクの申し送り
+### C-01（2026-09-24）
+- やったこと: `tournament_documents`（`0016` 表・`0017` RLS と権限。app_job にも delete）、`src/lib/documents/document-input.ts`（10 MB・Content-Type・先頭の `%PDF-`・種別／タイトル／公開／並び順の検査）、`src/lib/repo/tournament-documents.ts`、`src/lib/admin/documents.ts`（保管用 `private` バケットの `documents/<協会>/<大会>/<資料>.pdf`。行を入れてからファイルを置き、置けなければ戻る）、`POST …/admin/tournaments/[id]/documents`（multipart）・`PATCH …/documents/[docId]`、画面 `/admin/tournaments/[id]/documents`（追加・種別・タイトル・公開／非公開・並び順・「個人情報が含まれていないか確認してください」）
+- 次への申し送り: **「C を始める前に」の配信方法（§5.9 の第 1〜3 案）の ADR はまだ書いていない**。C-02 の計画で聞いて書く（B-14 の `PUBLIC_FILES_BASE_URL` は第 1 案・第 2 案のどちらでも同じ）。`public_key` は列だけ（公開用へのコピー・非公開の取り下げ・削除・後始末は C-02）。`0016` は drizzle が出した SQL から、`0014` で手で足した `entries.submit_token` の分を取り除いた（snapshot はこれで追いついた）。dev サーバーが E2E の途中で落ちたら `pnpm dev:poll` を立て直してから流し直す
 
 ## 残っている申し送り（2026-09-24 に見直し）
 ### あとのタスクで片づくもの
-- `StorageAdapter` の `private` / `public` はまだ使っていない（`backup` だけ）。C-01 から使う
+- `StorageAdapter` の `public` はまだ使っていない（`private`・`backup` だけ）。C-02 から使う
 - 協会員区分は「協会員／非会員」だけ（`memberships` の年度データがなければ空欄）。「更新の受付中」などは D-05
 
 ### 本番の前に（X 系・運用）

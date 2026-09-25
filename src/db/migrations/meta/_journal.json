@@ -113,6 +113,20 @@
       "when": 1789880706131,
       "tag": "0015_entry-audit-anonymize",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790236491330,
+      "tag": "0016_tournament-documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790236497251,
+      "tag": "0017_rls-tournament-documents",
+      "breakpoints": true
     }
   ]
 }

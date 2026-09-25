@@ -10,5 +10,6 @@ export * from "./schema/contacts";
 export * from "./schema/members";
 export * from "./schema/teams";
 export * from "./schema/tournaments";
+export * from "./schema/tournament-documents";
 export * from "./schema/entries";
 export * from "./schema/memberships";

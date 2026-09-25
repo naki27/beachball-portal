@@ -6,6 +6,7 @@ import { associationAdmins, associations, mailLogs, members, platformAdmins, tea
 import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
 import { withTenantOn } from "@/db/tenant";
 import { ACTIONS, type Action, ANONYMOUS, can, type Principal, type Role, ROLES } from "@/lib/authz";
+import { getDocumentsForAdmin } from "@/lib/admin/documents";
 import { getAdminEntries } from "@/lib/admin/entries";
 import { addCategoriesFromPresets, getCategoriesForAdmin } from "@/lib/admin/categories";
 import { createTournament, listTournamentsForAdmin } from "@/lib/admin/tournaments";
@@ -172,6 +173,8 @@ const CASES: readonly Case[] = [
   { action: "viewOwnTeamEntries", name: "自チームの申込を見る", run: (a) => getEntryDetail(app, a, S, entryId) },
   { action: "manageEntries", name: "申込の変更の画面", run: (a) => getEntryEditData(app, a, S, entryId) },
   { action: "manageTournaments", name: "申込一覧（管理）", run: (a) => getAdminEntries(app, a, S, tournamentId) },
+  // 1c（大会資料・§5.9）
+  { action: "manageTournaments", name: "大会資料の一覧（管理）", run: (a) => getDocumentsForAdmin(app, a, S, tournamentId) },
 ];
 
 describe("権限表（§3.2）どおりに API が応える", () => {
