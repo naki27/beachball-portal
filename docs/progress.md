@@ -4,7 +4,7 @@
 
 ## 今の状態
 - 最後に終わったタスク: D-05 協会員区分の表示と 1d の仕上げ。**Phase 1c・1d は完了（P0 の実装は一巡）**。作業ブランチは `feature/cd`（`main` は B-18 のまま）。2026-09-24 に L-02〜B-18 の申し送りを全部コードと突き合わせ、解消済みを消して残りを下にまとめた（各タスクの「やったこと」は docs/progress-archive.md）
-- 次のタスク: X-01〜X-05（本番の準備。環境ができてから `docs/p0-tasks.md` §6 に書き足す）。`feature/cd` を `main` に取り込む判断は人が行う
+- 次のタスク: X-01〜X-05（本番の準備。人の準備は `docs/deploy-prep.md` のチェックリスト。環境ができてから `docs/p0-tasks.md` §6 に書き足す）。`feature/cd` を `main` に取り込む判断は人が行う
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 直近のタスクの申し送り
