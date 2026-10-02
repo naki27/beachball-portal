@@ -62,10 +62,10 @@ flowchart LR
 ### X-02 コンテナ・マイグレーションの Job・デプロイの GitHub Actions［M］
 
 - 前提: X-01
-- 読む設計書: `06-6.md`、`06-5.md` の「構成と契約先」の部分（計 約 5 KB）
+- 読む設計書: `06-6.md`、`06-5.md` の「構成と契約先」の部分（計 約 5 KB）。ADR 0029
 - やること
   - **コンテナ**: `next.config.ts` に `output: "standalone"`、`Dockerfile`（マルチステージ・root で動かさない・ポート 8080）、`.dockerignore`（`.env*`・`.local-storage/`・`*.local.md`・`docs/`（`docs/legal/` は残す）を入れない）
-  - **ジョブの動かし方を決める（ADR）**: いまのジョブは `tsx` で動く（`src/jobs/*.ts`・devDependencies）。本番のイメージに `tsx` を入れるか、esbuild で 1 ファイルにまとめるか。おすすめは後者（イメージが小さく、開発用の依存を本番に持ち込まない）。日次ジョブは X-03 で `pg_dump` を使うので、ジョブ用のイメージには PostgreSQL 16 のクライアントを入れる
+  - **ジョブは esbuild で 1 ファイルにまとめる**（ADR 0029）: `src/jobs/*.ts` と `migrate.ts` を `dist/jobs/*.mjs` に。CI で、まとめたファイルを使い捨ての DB で 1 回ずつ動かす。Artifact Registry に古いイメージを消すルール（無料枠 0.5 GB）。日次ジョブは X-03 で `pg_dump` を使うので、ジョブ用のイメージには PostgreSQL 16 のクライアントを入れる
   - **マイグレーション**: `drizzle-kit`（開発用）ではなく `drizzle-orm` の `migrate()` を呼ぶ小さなスクリプト（`src/db/scripts/migrate.ts`）。Cloud Run Jobs の `migrate` から動かし、`MIGRATION_DATABASE_URL` だけを渡す。初期データ（`seed`）も同じ Job から流す（何度流してもよい作りなので）
   - **GCP の初期設定スクリプト** `tools/gcp-bootstrap.sh`（人が手元の PC で 1 回実行。何度流しても同じ結果になる）: API の有効化、Artifact Registry、サービスアカウント（デプロイ用・アプリ・メールのジョブ・日次ジョブ・migrate）、Workload Identity Federation（`naki27/beachball-portal` の `main` だけ）、Secret の器（値は入れない）と、**Secret ごと・サービスアカウントごとの読み取り権限**（§6.3「使うサービスにだけ」）。プロジェクト ID などは引数か環境変数で受け取り、スクリプトに書かない
   - **Secret に値を入れる手順**: `gcloud secrets versions add <名前> --data-file=-`（標準入力から）を `docs/ops.md` に書く
