@@ -25,7 +25,7 @@
 - 協会員区分は「協会員／非会員」だけ（`memberships` の年度データがなければ空欄）。「更新の受付中」などは D-05
 
 ### 本番の前に（X 系・運用）
-- R2（`src/lib/storage/r2.ts`）は**本物の R2 で未確認**（Content-Disposition・Cache-Control を含む）。§11.2 の送信数 8 割の警告も未実装 → X-01。バックアップの鍵はローカルだと `.local-storage/backup-test-key.json`。配信は ADR 0026（第 1 案。ドメインと公開用バケットの設定は X-05）
+- R2（`src/lib/storage/r2.ts`）は**本物の R2 で未確認**（Content-Disposition・Cache-Control を含む）。§11.2 の送信数 8 割の警告も未実装 → X-01。バックアップの鍵はローカルだと `.local-storage/backup-test-key.json`。配信は ADR 0027（Workers。D-4 は「任せられない」。Workers は X-05）。人の準備（deploy-prep.md）は 2026-10-02 に完了。控えた値は `docs/deploy-values.local.md`（Git に入れない）。3 バケットに 1 組のキーなのでバックアップ用のキーを X-03 で分ける
 - 日次ジョブの ① DB バックアップ・⑦ 最小インスタンス数は未実装（⑥ 大会資料の後始末は C-02 で入れた）
 - 保存期間: `RETENTION_DAYS`（`daily.ts`）に `entry_audits`・`export_logs` がない。足すときは `app_job` に delete の GRANT が要る（`0012` は select・insert だけ）
 - E2E は CI に入れていない（L-05・A-29 で先送りしたまま。入れるか決める）
