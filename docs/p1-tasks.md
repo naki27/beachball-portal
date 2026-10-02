@@ -21,7 +21,7 @@ flowchart LR
   H02 --> X05[X-05 ドメインと資料の配信]
   X03 --> X04[X-04 監視と最小インスタンス]
   X03 --> H04[H-04 復元の訓練]
-  H02 --> H03[H-03 表示時間の実測]
+  X05 --> H03[H-03 表示時間の実測]
   X04 --> X06[X-06 公開前の総点検]
   X05 --> X06
   H04 --> X06
@@ -104,8 +104,8 @@ flowchart LR
 - 前提: H-02
 - 読む設計書: `11-1.md`、`05-9.md` の「配信の仕組み」の部分（計 約 6 KB）。ADR 0027
 - やること
-  - **本番のドメインを決める（ADR）**: 設計書は `entry.`、控えは `portal.`。パスキー（P1）の RP ID・`APP_BASE_URL`・メールのリンクに効くので、ここで確定する
-  - **Cloud Run にドメインをつなぐ**: `asia-southeast1` で Cloud Run のドメインマッピングが使えるか【要確認】。使えれば Wix の DNS に CNAME（`ghs.googlehosted.com`）と所有確認の TXT を入れる手順を書く。使えなければ、Firebase Hosting の転送（無料枠・独自ドメイン可）か、ロードバランサ（有料）かを決める（ADR）
+  - **本番のドメインは `portal.fukuoka-city-beachball.org`**（ADR 0028）
+  - **Cloud Run にドメインをつなぐ**（ADR 0028）: ドメインマッピング（`asia-southeast1` で使える・プレビュー）で始める。Wix の DNS に CNAME（`ghs.googlehosted.com`）と所有確認の TXT を入れる手順を書く。H-03 の実測で遅延が目標を壊すなら、Firebase Hosting に切り替える（Cookie を `__session` 1 つにまとめる・別の ADR）
   - **Workers**（ADR 0027）: `workers/public-files/`（TypeScript・`wrangler.toml` に公開用バケットのバインディング）。GET と HEAD だけ、オブジェクトのメタデータ（`Content-Type`・`Content-Disposition`・`Cache-Control`）をそのまま返す、なければ 404、一覧は返さない。人が手元の PC で `wrangler deploy` する手順を書き、`PUBLIC_FILES_BASE_URL` に `https://<名前>.<アカウント>.workers.dev` を入れる。ロゴも同じ道で配る
   - **Brevo**: ルートの `_dmarc` が未設定なら `p=none` で始める手順（§11.1）。テスト送信（H-05）の結果を `docs/ops.md` に書く
   - 設計書の `files.entry.…` の例は ADR 0027 に合わせて読み替える旨を `docs/ops.md` に書く（設計書は次の版で直す）
@@ -135,7 +135,7 @@ Claude Code はほとんど使わない。手順は X のタスクで `docs/ops.
 |---|---|---|---|
 | H-01 | Neon の控えを直す（「プロジェクト ID」が `br-…` のブランチの ID になっている。Settings のプロジェクト ID に）。ロールのパスワードを作り、`pnpm db:roles` を本番に流し、接続 URL を Secret Manager に入れる。Brevo の開封・クリックの計測を切る（X-01 でそうなった場合） | X-01 | `deploy-values.local.md` |
 | H-02 | `tools/gcp-bootstrap.sh` を実行 → Secret に値を入れる → GitHub の Environment `production` に Variables → **`feature/cd` を `main` に取り込む** → 初回のデプロイが緑・`*.run.app/api/health` が ok | X-02・H-01 | `deploy-values.local.md` |
-| H-03 | 表示時間の実測（§6.5.2）: 福岡のスマホ（4G）で、通常時とコールドスタート時（30 分以上あけて）を 3 回ずつ。目標は 1 秒以内・4 秒以内【仮】 | H-02 | `docs/ops.md` |
+| H-03 | 表示時間の実測（§6.5.2）: 福岡のスマホ（4G）で、通常時とコールドスタート時（30 分以上あけて）を 3 回ずつ。`*.run.app` と `portal.`（ドメインマッピング）の両方で測る（ADR 0028）。目標は 1 秒以内・4 秒以内【仮】 | H-02・X-05 | `docs/ops.md` |
 | H-04 | 復元の訓練（§6.5 補足・§13）: バックアップを手元で復号し、Neon のブランチに復元して件数を確かめる。終わったらブランチを消す | X-03 | `docs/ops.md` |
 | H-05 | テスト送信: 確認番号のメールを、docomo・au・SoftBank・Gmail・iCloud のアドレスに送り、届くか・迷惑メールに入るかを見る | X-01・H-02 | `docs/ops.md` |
 | H-06 | Workers をデプロイし、R2 のライフサイクルのルールを入れる | X-03・X-05 | `deploy-values.local.md` |
