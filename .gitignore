@@ -11,6 +11,9 @@ next-env.d.ts
 .env.*
 !.env.example
 
+# 公開リポジトリに載せない控え（docs/deploy-values.local.md など）
+*.local.md
+
 # ローカルのファイル保存先（STORAGE_DRIVER=local）
 .local-storage/
 
