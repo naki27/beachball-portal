@@ -72,9 +72,10 @@ gcloud artifacts repositories set-cleanup-policies "${REPOSITORY}" \
 
 # ---- 3. サービスアカウント（渡す先ごとに分ける・§6.3「使うサービスにだけ」）
 echo "== サービスアカウント"
+# サービスアカウントの ID は 6〜30 文字（"app" は短すぎるので web-app）
 declare -A ACCOUNTS=(
   [deployer]="GitHub Actions からのデプロイ"
-  [app]="Cloud Run のアプリ"
+  [web-app]="Cloud Run のアプリ"
   [job-mail]="メール送信のジョブ"
   [job-daily]="日次ジョブ"
   [migrate]="マイグレーションの Job"
@@ -97,7 +98,7 @@ add_project_role deployer roles/artifactregistry.writer
 # リビジョンの作成・トラフィックの切り替え・Job の実行（§6.6 の手順 2〜5）
 add_project_role deployer roles/run.admin
 # 「このサービスアカウントとして動かす」ために要る（アプリ・ジョブの実行アカウントを指定するため）
-for name in app job-mail job-daily migrate; do
+for name in web-app job-mail job-daily migrate; do
   gcloud iam service-accounts add-iam-policy-binding "$(sa_email "${name}")" \
     --member "serviceAccount:$(sa_email deployer)" --role roles/iam.serviceAccountUser >/dev/null
 done
@@ -133,17 +134,17 @@ gcloud iam service-accounts add-iam-policy-binding "$(sa_email deployer)" \
 echo "== Secret"
 # 「Secret の名前 : 読めるサービスアカウント（空白区切り）」。docs/ops.md §9 の表と同じ
 SECRETS=(
-  "DATABASE_URL:app"
+  "DATABASE_URL:web-app"
   "MIGRATION_DATABASE_URL:migrate"
   "JOB_DATABASE_URL:job-mail job-daily"
   "BACKUP_DATABASE_URL:job-daily"
-  "SESSION_SECRET:app"
-  "LOGIN_CODE_HMAC_KEY:app"
-  "MAIL_API_KEY:app job-mail"
-  "BREVO_WEBHOOK_TOKEN:app"
+  "SESSION_SECRET:web-app"
+  "LOGIN_CODE_HMAC_KEY:web-app"
+  "MAIL_API_KEY:web-app job-mail"
+  "BREVO_WEBHOOK_TOKEN:web-app"
   "BACKUP_ENCRYPTION_KEY:job-daily"
-  "R2_ACCESS_KEY_ID:app job-daily"
-  "R2_SECRET_ACCESS_KEY:app job-daily"
+  "R2_ACCESS_KEY_ID:web-app job-daily"
+  "R2_SECRET_ACCESS_KEY:web-app job-daily"
   "R2_BACKUP_ACCESS_KEY_ID:job-daily"
   "R2_BACKUP_SECRET_ACCESS_KEY:job-daily"
 )
@@ -170,7 +171,7 @@ cat <<INFO
   CLOUD_RUN_SERVICE       ${SERVICE}
   WIF_PROVIDER            ${POOL_ID}/providers/${PROVIDER}
   DEPLOYER_SERVICE_ACCOUNT $(sa_email deployer)
-  APP_SERVICE_ACCOUNT     $(sa_email app)
+  APP_SERVICE_ACCOUNT     $(sa_email web-app)
   MIGRATE_SERVICE_ACCOUNT $(sa_email migrate)
 
 次は docs/ops.md §11（Secret に値を入れる）→ §12（初回のデプロイ）。
