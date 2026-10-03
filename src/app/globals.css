@@ -172,7 +172,7 @@ h3 {
   animation: bb-grow var(--motion-slow) var(--ease-out) 1;
 }
 
-/* 節目（申込・申告の完了）だけの演出（ADR 0027・§4.5）。1 回だけで止まる */
+/* 節目（申込・申告の完了）だけの演出（ADR 0028・§4.5）。1 回だけで止まる */
 .bb-pop {
   animation: bb-pop var(--motion-celebrate) var(--ease-spring) 1 backwards;
 }
