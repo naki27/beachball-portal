@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // まとめたジョブの出力（pnpm build:jobs。ADR 0035）。人が書くものではない
+    "dist/**",
   ]),
 ]);
 

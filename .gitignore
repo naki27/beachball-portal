@@ -3,6 +3,8 @@ node_modules/
 .next/
 /out/
 /build/
+# まとめたジョブ（pnpm build:jobs。ADR 0035）
+dist/
 *.tsbuildinfo
 next-env.d.ts
 

@@ -1,0 +1,42 @@
+# 定期ジョブとマイグレーションのコンテナ（設計書 §6.5.1・§6.6・ADR 0035・X-02）。Cloud Run Jobs で動かす
+# 入っているのは、まとめた 1 ファイルずつのジョブ（dist/jobs/*.mjs）と PostgreSQL 16 のクライアント（X-03 の pg_dump 用）だけ
+#   node dist/jobs/migrate.mjs … マイグレーション ＋ 初期データ（§6.6 の手順 3）
+#   node dist/jobs/mail.mjs    … 送信待ちのメールを送る（数分おき）
+#   node dist/jobs/daily.mjs   … 日次の後始末（毎日 3:00 日本時間）
+# syntax=docker/dockerfile:1
+
+FROM node:24-bookworm-slim AS base
+RUN corepack enable
+
+FROM base AS deps
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+FROM base AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN pnpm build:jobs
+
+FROM node:24-bookworm-slim AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+# PostgreSQL 16 のクライアント（pg_dump）。Debian bookworm の標準は 15 なので PostgreSQL の公式 apt から入れる
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+ && install -d /usr/share/postgresql-common/pgdg \
+ && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+ && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
+    > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends postgresql-client-16 \
+ && apt-get purge -y curl gnupg \
+ && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/*
+# まとめたジョブと、マイグレーションの SQL（migrate.mjs が作業ディレクトリからの相対で読む）
+COPY --from=build --chown=node:node /app/dist/jobs ./dist/jobs
+COPY --chown=node:node src/db/migrations ./src/db/migrations
+USER node
+# Cloud Run Jobs 側で上書きする（tools/gcp-jobs.sh・X-03）
+CMD ["node", "dist/jobs/daily.mjs"]

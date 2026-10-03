@@ -55,6 +55,21 @@ const SECRET_MIN_LENGTH = 32;
 const SECRET_NAMES = ["SESSION_SECRET", "LOGIN_CODE_HMAC_KEY", "BREVO_WEBHOOK_TOKEN"];
 const PLACEHOLDER = "not-for-production";
 
+// 接続文字列のホスト名。形がおかしければ null
+function hostOf(url: string): string | null {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname ? hostname.replace(/^\[|\]$/g, "") : null;
+  } catch {
+    return null;
+  }
+}
+
+// 同じ機械の中・コンテナの中のホスト（TLS を求めない）。本番の DB は必ず `.` を含む名前になる
+function isLocalDatabaseHost(host: string): boolean {
+  return host === "localhost" || host === "127.0.0.1" || host === "::1" || !host.includes(".");
+}
+
 export type EnvCheck = {
   // これがあると起動できない
   problems: EnvProblem[];
@@ -95,7 +110,11 @@ export function checkProductionEnv(role: EnvRole, env: EnvRecord = process.env):
   for (const name of DATABASE_URL_NAMES) {
     const url = env[name];
     if (!url || !has(name)) continue;
-    if (!url.includes("sslmode=require")) add(name, "sslmode=require がない");
+    const host = hostOf(url);
+    if (host === null) add(name, "postgres:// の形になっていない");
+    // 同じ機械の中・コンテナの中（`localhost`・`db` など）への接続には求めない。
+    // インターネットを通る接続（Neon）だけが対象（§6.3）
+    else if (!isLocalDatabaseHost(host) && !url.includes("sslmode=require")) add(name, "sslmode=require がない");
   }
   // アプリはトランザクション単位のプール経由でつなぐ（§6.3。Neon は -pooler の付いたホスト）
   if (role === "app" && env.DATABASE_URL && !env.DATABASE_URL.includes("-pooler")) {

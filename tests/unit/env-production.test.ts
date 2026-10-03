@@ -47,9 +47,20 @@ describe("本番の環境変数（アプリ）", () => {
     expect(names(checkProductionEnv("app", { ...APP, ACCESS_LOG_DRIVER: "file" }).problems)).toEqual(["ACCESS_LOG_DRIVER"]);
   });
 
-  it("接続文字列に sslmode=require がなければ通さない", () => {
+  it("インターネットを通る接続に sslmode=require がなければ通さない", () => {
     const broken = { ...APP, DATABASE_URL: "postgres://app_user:pw@ep-x-pooler.example.tech/beach" };
     expect(checkProductionEnv("app", broken).problems).toEqual([{ name: "DATABASE_URL", reason: "sslmode=require がない" }]);
+  });
+
+  it("同じ機械・コンテナの中（localhost・db）には求めない（standalone をローカルで確かめるため）", () => {
+    for (const host of ["localhost", "127.0.0.1", "db"]) {
+      const local = { ...APP, DATABASE_URL: `postgres://app_user:pw@${host}:5432/beach` };
+      expect(checkProductionEnv("app", local).problems).toEqual([]);
+    }
+  });
+
+  it("postgres:// の形になっていなければ通さない", () => {
+    expect(names(checkProductionEnv("app", { ...APP, DATABASE_URL: "app_user@db/beach" }).problems)).toEqual(["DATABASE_URL"]);
   });
 
   it("プール経由に見えなければ注意だけ（止めない）", () => {

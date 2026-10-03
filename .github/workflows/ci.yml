@@ -1,11 +1,15 @@
-# CI（設計書 §6.6 の手順 1・§12.1）。pull request と main への push で lint → typecheck → test を流す
-# デプロイ（イメージの作成・マイグレーション・Cloud Run）はここに入れない（X-02 で別のワークフローにする）
+# CI（設計書 §6.6 の手順 1・§12.1）。pull request で lint → typecheck → test を流す
+# main への push では deploy.yml がこれを呼んでから先に進む（同じテストを 2 回流さないため）
 name: CI
 
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_call:
+    inputs:
+      docker_build:
+        description: "docker build を確かめるか（deploy.yml から呼ぶときは false。そちらで作るため）"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -76,3 +80,19 @@ jobs:
 
       # TZ=UTC と TZ=Asia/Tokyo の 2 回（package.json の test）
       - run: pnpm test
+
+      # ジョブは本番では 1 ファイルにまとめて動かす（ADR 0035）。まとめたものが実際に動くことを毎回確かめる
+      - name: まとめたジョブを動かす（migrate は 2 回・何度流してもよいこと）
+        run: |
+          pnpm build:jobs
+          node dist/jobs/migrate.mjs
+          node dist/jobs/migrate.mjs
+          node dist/jobs/mail.mjs
+          node dist/jobs/daily.mjs
+
+      # 本番のイメージが組み立てられること（コンテナの中では docker を使えないので、ここだけで確かめる）
+      - name: docker build（アプリ・ジョブ）
+        if: ${{ inputs.docker_build != false }}
+        run: |
+          docker build -t beachball-portal:ci .
+          docker build -f Dockerfile.jobs -t beachball-jobs:ci .

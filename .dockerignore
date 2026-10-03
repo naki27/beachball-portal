@@ -1,0 +1,39 @@
+# イメージに入れないもの（X-02）。秘密・ローカルのファイル・開発用のものは入れない
+.git
+.gitignore
+.github
+.devcontainer
+.claude
+
+# 依存とビルドの出力（コンテナの中で作り直す）
+node_modules
+.next
+dist
+*.tsbuildinfo
+
+# 秘密（本番の値は Cloud Run が環境変数で渡す・docs/ops.md §9）
+.env
+.env.*
+
+# 公開リポジトリに載せない控え
+*.local.md
+
+# ローカルのファイル保存先・ログ・テストの出力
+.local-storage
+logs
+test-results
+playwright-report
+coverage
+tests
+playwright.config.ts
+vitest.config.mts
+
+# 設計書・手順書は入れない。ただし画面が実行時に読む法務の文面だけは残す（§5.18）
+docs/**
+!docs/legal/
+!docs/legal/*.md
+
+# エディタ・OS
+.DS_Store
+Thumbs.db
+*.pem

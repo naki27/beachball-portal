@@ -505,3 +505,95 @@ pnpm storage:check
 
 - Neon の管理用ロールで `CREATE ROLE` ができるかは H-01 で確かめる。できなければ Neon の画面でロールを作り、`db:roles` は属性とパスワードの更新だけに使う
 - 表ごとの権限と RLS はマイグレーションが付ける（`migrate` の Job）。`db:roles` は入り口の権限だけ
+
+## 11. Secret に値を入れる（X-02）
+
+`tools/gcp-bootstrap.sh` は Secret の**器だけ**を作る。値は人が入れる。**標準入力から入れる**（コマンドの履歴に残さない）。
+
+```bash
+# 改行を付けない（printf。echo は改行が入る）
+printf '%s' '（値）' | gcloud secrets versions add DATABASE_URL --data-file=- --project=（プロジェクト ID）
+
+# ファイルから（バックアップの公開鍵など）
+gcloud secrets versions add BACKUP_ENCRYPTION_KEY --data-file=./backup-public-key.txt --project=（プロジェクト ID）
+```
+
+- 入れる Secret の一覧と、どのサービスが読むかは §9 の表。**アプリにマイグレーション用・バックアップ用の値を渡さない**
+- 値を替えるときは新しいバージョンを足すだけ（`:latest` を指しているので次のデプロイから効く）。古いバージョンは消さずに `disable` する
+- 入れた値は人のパスワード管理と `docs/deploy-values.local.md`（Git に入れない）に控える
+
+### GitHub の Environment「production」に入れるもの
+
+| 種類 | 名前 |
+|---|---|
+| Variables（識別子） | `GCP_PROJECT_ID` `GCP_REGION` `GCP_REPOSITORY` `CLOUD_RUN_SERVICE` `WIF_PROVIDER` `DEPLOYER_SERVICE_ACCOUNT` `APP_SERVICE_ACCOUNT` `MIGRATE_SERVICE_ACCOUNT` |
+| Variables（アプリの設定） | `APP_BASE_URL` `TERMS_VERSION` `MAIL_FROM` `CONTACT_TO` `R2_ACCOUNT_ID` `R2_BUCKET` `R2_PUBLIC_BUCKET` `PUBLIC_FILES_BASE_URL` |
+| Secrets | `SUPER_ADMIN_EMAILS`（運営管理者のアドレス。ログに出ないよう Secret にする） |
+
+`tools/gcp-bootstrap.sh` は、終わったときに入れる値を並べて出す。**リポジトリには書かない**（公開リポジトリのため）。
+
+## 12. デプロイとロールバック（X-02・設計書 §6.6）
+
+`main` に push すると `.github/workflows/deploy.yml` が動く。鍵ファイルは使わない（Workload Identity Federation。**このリポジトリの `main` だけ**が入れる）。
+
+| 手順 | 中身 | 失敗したら |
+|---|---|---|
+| 1 | テスト（`ci.yml` を呼ぶ。lint・typecheck・test・まとめたジョブ・`docker build`） | 何も起きない |
+| 2 | イメージを作って Artifact Registry へ（タグはコミットの SHA） | 何も起きない |
+| 3 | `migrate` の Job（マイグレーション ＋ 初期データ）を実行して待つ | リビジョンは作られない |
+| 4 | Cloud Run に新しいリビジョン（最小 0・最大 4・未認証の呼び出しを許可） | 直前のリビジョンのまま |
+| 5 | `/api/health` が `{"ok":true}` か | **直前のリビジョンにトラフィックを戻す** |
+
+- **マイグレーションは「前のバージョンのアプリでも動く」形にする**（§6.6）。手順 3 と 4 の間は古いアプリが動いている
+- 手で戻すとき:
+
+```bash
+gcloud run revisions list --service=（サービス名）--region=（リージョン）--project=（プロジェクト ID）
+gcloud run services update-traffic （サービス名）--to-revisions=（戻す先）=100 --region=（リージョン）--project=（プロジェクト ID）
+```
+
+### 初回のデプロイ（H-02）
+
+1. `tools/gcp-bootstrap.sh` を実行（§9 の表のとおりに Secret の器ができる）
+2. Secret に値を入れる（§11）。**`DATABASE_URL`・`MIGRATION_DATABASE_URL`・`SESSION_SECRET`・`LOGIN_CODE_HMAC_KEY`・`MAIL_API_KEY`・`R2_ACCESS_KEY_ID`・`R2_SECRET_ACCESS_KEY` は 1 つでも空だとデプロイが失敗する**（空の Secret は Cloud Run が受け取れない）
+3. GitHub の Environment「production」に Variables と Secrets を入れる（§11）
+4. `main` に push → 緑になり、`https://（サービス名）-…run.app/api/health` が `{"ok":true}`
+5. `BREVO_WEBHOOK_TOKEN`（Y-06）・`BACKUP_DATABASE_URL`・`R2_BACKUP_*`（X-03）は、そのタスクのときに `deploy.yml` へ足す。
+   **値の入っていない Secret を渡すとデプロイが落ちる**ので、器だけ作って渡さない状態にしてある
+
+### 定期ジョブ
+
+ジョブ用のイメージ（`Dockerfile.jobs`）には、まとめた 1 ファイルずつのジョブ（ADR 0035）と PostgreSQL 16 のクライアントが入っている。
+
+```
+node dist/jobs/migrate.mjs   # マイグレーション ＋ 初期データ（deploy.yml が毎回流す）
+node dist/jobs/mail.mjs      # 送信待ちのメールを送る（数分おき）
+node dist/jobs/daily.mjs     # 日次の後始末（毎日 3:00 日本時間）
+```
+
+`job-mail` と `job-daily` の Cloud Run Jobs と Cloud Scheduler は X-03（`tools/gcp-jobs.sh`）で作る。
+
+### コンテナの中身をローカルで確かめる
+
+`docker` は Dev Container の中では使えないので、`docker build` は CI でだけ確かめる。中身は standalone で確かめられる。
+
+```bash
+pnpm build
+cp -r .next/static .next/standalone/.next/
+cd .next/standalone
+PORT=3100 DATABASE_URL="postgres://app_user:app_user@db:5432/beach" \
+  APP_BASE_URL="https://localhost:3100" SESSION_SECRET="（32 文字以上）" LOGIN_CODE_HMAC_KEY="（32 文字以上）" \
+  TERMS_VERSION=2027-01-31 MAIL_PROVIDER=brevo MAIL_API_KEY=dummy MAIL_FROM=noreply@localhost \
+  CONTACT_TO=contact@localhost ACCESS_LOG_DRIVER=stdout STORAGE_DRIVER=r2 R2_ACCOUNT_ID=dummy \
+  R2_BUCKET=dummy R2_PUBLIC_BUCKET=dummy R2_ACCESS_KEY_ID=dummy R2_SECRET_ACCESS_KEY=dummy \
+  PUBLIC_FILES_BASE_URL=https://example.invalid node server.js
+```
+
+- `server.js` は中で `NODE_ENV=production` にするので、**§9 の検査がそのまま効く**（足りないと名前を出して終了コード 1）。
+  上の値は確かめ用。`DATABASE_URL` が同じ機械の中（`db`・`localhost`）なら `sslmode=require` は求められない
+- 止めるときは `pgrep -af next-server` で PID を見て `kill`（プロセスの名前は `next-server` になる。`pkill -f server.js` はエディタの補助プロセスまで止めるので使わない）
+- **`.next/standalone` には `src/`・`tests/`・`logs/` など動かすのに要らないものも入る**。
+  `proxy.ts` が操作ログを書く先が実行時に決まるため、Next がリポジトリ全体を「必要」と見なすせい。
+  `Dockerfile` が消し、`.dockerignore` でも入らないようにしている（**どちらも消さない**。`logs/` には IP と User-Agent が入る）
+- `pg` が使う `pg-protocol` は、Next が `package.json` だけを写して本体を入れないため、
+  `next.config.ts` の `outputFileTracingIncludes` で明示的に入れている（入れないと DB につなげず `/api/health` が 503 になる）

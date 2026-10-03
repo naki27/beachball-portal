@@ -3,12 +3,16 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: **X-01（本番用の設定）**。起動時の環境変数の検査・Brevo の送信・送信数 8 割の警告・R2 のバックアップ用キーの分離・`pnpm storage:check`。**Phase 1a・1b・1c・1d・U・K は完了**
-- 次のタスク: **X-02**（コンテナ・migrate の Job・デプロイの GitHub Actions）。X・H・Y・P のタスクは `docs/p1-tasks.md`（人の準備 `docs/deploy-prep.md` は 2026-10-02 に完了）
+- 最後に終わったタスク: **X-02（コンテナ・migrate の Job・デプロイ）**。X-01（本番用の設定）も完了。**Phase 1a・1b・1c・1d・U・K は完了**
+- 次のタスク: **H-01 → H-02**（人の作業。Neon のロール・Secret の値・初回デプロイ。手順は `docs/ops.md` §10〜§12）。
+  Claude Code 側で先に進められるのは **Y-01**（保存期間に 2 表を足す）・**Y-03**〜**Y-05**。X・H・Y・P は `docs/p1-tasks.md`
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## 残っている申し送り
 ### 本番の前に（X 系・運用）
+- **X-02 でやったこと**: `output: "standalone"` ＋ `Dockerfile`／`Dockerfile.jobs`（PostgreSQL 16 クライアント入り）／`.dockerignore`、
+  `src/db/scripts/migrate.ts`（drizzle-orm の `migrate()` ＋ seed）、`pnpm build:jobs`（esbuild・ADR 0035）、
+  `tools/gcp-bootstrap.sh`、`.github/workflows/deploy.yml`、`ci.yml` に「まとめたジョブを動かす」と `docker build`。手順は `docs/ops.md` §11・§12
 - **X-01 でやったこと**: 起動時の環境変数の検査（`src/instrumentation.ts`→`src/lib/env/production.ts`。役割は app / job-mail / job-daily / migrate）、Brevo の `MailSender`（`src/lib/mail/brevo.ts`）、差出人名と Reply-To（`mailBranding()`）、送信数 8 割の警告（`src/lib/mail/daily-limit.ts`）、バックアップ用バケットを別のキーに（`R2_BACKUP_ACCESS_KEY_ID`・ADR 0036）、`pnpm storage:check`。本番の一覧と手順は `docs/ops.md` §9・§10
 - **R2 は本物の R2 で未確認のまま**（キーがないため）。人が `.env.production.local` を用意して `pnpm storage:check` を流す（H-01）。Brevo の実送信も H-01・H-05。バックアップの鍵はローカルだと `.local-storage/backup-test-key.json`。控えた値は `docs/deploy-values.local.md`（Git に入れない）
 - 公開用ファイルの配信は **ADR 0033（Workers）**。`entry.` のサブドメイン委任は無料プランでは不可（D-4 は「任せられない」）。Workers は X-05
@@ -35,6 +39,11 @@
 - `bb-link` を使うときは `no-underline` を付けない（下線は `bb-link` が引く）。選手側に `loading.tsx` は置けない（403・404 が 200 になる・ADR 0029）
 - `processMailQueue` を呼ぶ DB テストは `mail.test.ts` だけ（送信待ちを取り合うため）。`mail_logs` の件数を数えるテストも同じ理由で足さない（`sentTodayWindow` を純粋関数で見る）。`purgeFromTrash` を呼ぶテストは後始末で `deletion_logs` を先に消す
 - **`next build` では `register()`（instrumentation）は動かない**ので、本番の値がなくてもビルドは通る。検査が走るのは `next start` のあと（足りなければ名前だけ出して終了コード 1）
+- **standalone の落とし穴 2 つ**（`docs/ops.md` §12 の末尾）: ① `proxy.ts` の操作ログの書き込み先が実行時に決まるので Next がリポジトリ全体を
+  「実行時に必要」と見なし、`src/`・`tests/`・`logs/` まで `.next/standalone` に入る（`outputFileTracingExcludes` は proxy の分には効かない。
+  `Dockerfile` と `.dockerignore` の両方で消す）。② `pg` が使う `pg-protocol` は `package.json` だけが写り**本体が入らない**ので
+  `outputFileTracingIncludes` で明示する（入れないと全画面 500・`/api/health` が 503）
+- standalone をローカルで止めるときは `pgrep -af next-server` で PID を見て `kill`。**`pkill -f server.js` はエディタの補助プロセスまで止める**
 - `0011` の列を指定した `ON DELETE SET NULL` 3 か所は手で直した（drizzle は出せない・ADR 0019）。`0016` は drizzle の出力から `0014` で手で足した分を除いた。作り直すときも同じ
 - 一時保存は画面を移る直前に `saveNow`。drizzle のエラー文は引数（宛先など）を含むので `sanitizeError()` か `cause.code` だけを出す。`"use client"` の部品から `node:` を使うモジュール（`publish.ts` など）を import しない
 - コンテナを作り直したら `bash .devcontainer/post-create.sh`。`pkill -f` の検索語が自分のコマンドに含まれないよう変数で組み立てる

@@ -1,0 +1,119 @@
+# 本番へのデプロイ（設計書 §6.6・X-02）。main への push で動く
+# 手順: 1 テスト → 2 イメージ → 3 マイグレーションの Job → 4 Cloud Run のリビジョン → 5 /api/health（失敗なら直前のリビジョンへ戻す）
+# 識別子はこのファイルに書かない。GitHub の Environment「production」の Variables / Secrets から読む（docs/ops.md §11）
+# 鍵ファイルは使わない（Workload Identity Federation。このリポジトリの main からだけ入れる）
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# 同時に 2 つデプロイしない（古いほうは止めない。途中で止めるとリビジョンが中途半端になる）
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  # 1. テスト（ci.yml をそのまま呼ぶ。lint・typecheck・test・まとめたジョブの確認）
+  test:
+    uses: ./.github/workflows/ci.yml
+    with:
+      # イメージはこのあと作るので、CI では作らない
+      docker_build: false
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+
+    permissions:
+      contents: read
+      # Workload Identity Federation に使う OIDC のトークン
+      id-token: write
+
+    env:
+      REGION: ${{ vars.GCP_REGION }}
+      SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+      IMAGE_BASE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_REPOSITORY }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: イメージの置き場所にログインする
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      # 2. イメージを作って置く（タグはコミットの SHA。いつでも同じものに戻せる）
+      - name: イメージを作る
+        run: |
+          docker build -t "${IMAGE_BASE}/app:${GITHUB_SHA}" .
+          docker build -f Dockerfile.jobs -t "${IMAGE_BASE}/jobs:${GITHUB_SHA}" .
+          docker push "${IMAGE_BASE}/app:${GITHUB_SHA}"
+          docker push "${IMAGE_BASE}/jobs:${GITHUB_SHA}"
+
+      # 戻す先を先に覚えておく（初回は空）
+      - name: いま動いているリビジョンを覚える
+        id: current
+        run: |
+          revision="$(gcloud run services describe "${SERVICE}" --region "${REGION}" \
+            --format='value(status.traffic[0].revisionName)' 2>/dev/null || true)"
+          echo "revision=${revision}" >> "$GITHUB_OUTPUT"
+          echo "戻す先: ${revision:-（なし。初回）}"
+
+      # 3. マイグレーション（＋初期データ）。MIGRATION_DATABASE_URL はこの Job だけが読める
+      #    カンマを含む値（SUPER_ADMIN_EMAILS）があるので、区切りを ^|^ にする
+      - name: マイグレーションの Job を流す
+        run: |
+          gcloud run jobs deploy migrate \
+            --image "${IMAGE_BASE}/jobs:${GITHUB_SHA}" \
+            --region "${REGION}" \
+            --service-account "${{ vars.MIGRATE_SERVICE_ACCOUNT }}" \
+            --command node --args dist/jobs/migrate.mjs \
+            --set-secrets MIGRATION_DATABASE_URL=MIGRATION_DATABASE_URL:latest \
+            --set-env-vars "^|^NODE_ENV=production|SUPER_ADMIN_EMAILS=${{ secrets.SUPER_ADMIN_EMAILS }}" \
+            --max-retries 0 \
+            --task-timeout 10m \
+            --execute-now \
+            --wait
+
+      # 4. 新しいリビジョンを作る（§6.5.1・§6.5.2。最小 0・最大 4・未認証の呼び出しを許可）
+      - name: Cloud Run にデプロイする
+        run: |
+          gcloud run deploy "${SERVICE}" \
+            --image "${IMAGE_BASE}/app:${GITHUB_SHA}" \
+            --region "${REGION}" \
+            --service-account "${{ vars.APP_SERVICE_ACCOUNT }}" \
+            --allow-unauthenticated \
+            --port 8080 \
+            --cpu 1 --memory 512Mi --concurrency 80 --timeout 60 \
+            --min-instances 0 --max-instances 4 \
+            --set-secrets "DATABASE_URL=DATABASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest,LOGIN_CODE_HMAC_KEY=LOGIN_CODE_HMAC_KEY:latest,MAIL_API_KEY=MAIL_API_KEY:latest,R2_ACCESS_KEY_ID=R2_ACCESS_KEY_ID:latest,R2_SECRET_ACCESS_KEY=R2_SECRET_ACCESS_KEY:latest" \
+            --set-env-vars "^|^NODE_ENV=production|APP_BASE_URL=${{ vars.APP_BASE_URL }}|TERMS_VERSION=${{ vars.TERMS_VERSION }}|MAIL_PROVIDER=brevo|MAIL_FROM=${{ vars.MAIL_FROM }}|CONTACT_TO=${{ vars.CONTACT_TO }}|ACCESS_LOG_DRIVER=stdout|STORAGE_DRIVER=r2|R2_ACCOUNT_ID=${{ vars.R2_ACCOUNT_ID }}|R2_BUCKET=${{ vars.R2_BUCKET }}|R2_PUBLIC_BUCKET=${{ vars.R2_PUBLIC_BUCKET }}|PUBLIC_FILES_BASE_URL=${{ vars.PUBLIC_FILES_BASE_URL }}|DB_POOL_MAX=5"
+
+      # 5. 動作確認。ここで落ちたら次の step が直前のリビジョンへ戻す
+      - name: /api/health を確かめる
+        id: health
+        run: |
+          url="$(gcloud run services describe "${SERVICE}" --region "${REGION}" --format='value(status.url)')"
+          echo "URL: ${url}"
+          # コールドスタートの分だけ待つ（§6.5.2）
+          body="$(curl -fsS --retry 5 --retry-delay 5 --retry-all-errors --max-time 30 "${url}/api/health")"
+          echo "応答: ${body}"
+          case "${body}" in
+            *'"ok":true'*) echo "ok" ;;
+            *) echo "/api/health が ok を返しませんでした" >&2; exit 1 ;;
+          esac
+
+      - name: 失敗したら直前のリビジョンへ戻す
+        if: failure() && steps.current.outputs.revision != ''
+        run: |
+          echo "${{ steps.current.outputs.revision }} に戻します"
+          gcloud run services update-traffic "${SERVICE}" --region "${REGION}" \
+            --to-revisions "${{ steps.current.outputs.revision }}=100"
