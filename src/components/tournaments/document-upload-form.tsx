@@ -1,101 +1,127 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
+import type { DocumentType } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { ActionBar, Card } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
-import { DOC_MAX_BYTES, type DocumentField, parseDocumentInput } from "@/lib/documents/document-input";
-import {
-  type DocumentApiBody,
-  DocumentDraftFields,
-  type DocumentDraft,
-  EMPTY_DOCUMENT_DRAFT,
-} from "./document-fields";
+import { TextField } from "@/components/ui/text-field";
+import { useHydrated } from "@/hooks/use-hydrated";
+import { DOCUMENT_TYPES, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_BYTES_TEXT, TITLE_MAX } from "@/lib/documents/document-input";
+import { DOCUMENT_FILE_CLASS, DOCUMENT_PRIVACY_NOTE, DOCUMENT_SELECT_CLASS } from "./document-fields";
 
-// 大会資料を追加するページ（設計書 §5.9・§4.3「一覧と登録はページを分ける」）
-// 追加できたら一覧へ戻り、足した行が強調される（?added=…）
+type DocumentApiBody = { document?: { id?: string }; error?: { message?: string; field?: string } };
+
+// 大会資料を追加するページ（設計書 §5.9・§4.3「一覧と登録はページを分ける」）。PDF だけ
 export function DocumentUploadForm({ slug, tournamentId }: { slug: string; tournamentId: string }) {
   const router = useRouter();
+  const hydrated = useHydrated();
   const listUrl = `/${slug}/admin/tournaments/${tournamentId}/documents`;
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [draft, setDraft] = useState<DocumentDraft>(EMPTY_DOCUMENT_DRAFT);
-  const [errors, setErrors] = useState<Partial<Record<DocumentField, string>>>({});
+  const [file, setFile] = useState<File | null>(null);
+  const [docType, setDocType] = useState<DocumentType>("大会冊子");
+  const [title, setTitle] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  async function upload(): Promise<void> {
+  function choose(next: File | null) {
+    setFile(next);
+    setErrors((e) => ({ ...e, file: "" }));
+    // タイトルが空ならファイル名（拡張子なし）を入れておく
+    if (next && !title.trim()) setTitle(next.name.replace(/\.pdf$/i, "").slice(0, TITLE_MAX));
+  }
+
+  async function submit(): Promise<void> {
     if (pending) return;
-    setErrors({});
+    const next: Record<string, string> = {};
+    if (!file) next.file = "ファイルを選んでください";
+    else if (file.size > MAX_DOCUMENT_BYTES) next.file = `ファイルの大きさは ${MAX_DOCUMENT_BYTES_TEXT} までです`;
+    if (!title.trim()) next.title = "タイトルを入力してください";
+    setErrors(next);
     setNotice(null);
-    const parsedInput = parseDocumentInput(draft);
-    if (!parsedInput.ok) {
-      setErrors({ [parsedInput.field]: parsedInput.message });
-      return;
-    }
-    const file = fileRef.current?.files?.[0];
-    if (!file) {
-      setErrors({ file: "PDF のファイル（.pdf）を選んでください" });
-      return;
-    }
-    if (file.size > DOC_MAX_BYTES) {
-      setErrors({ file: `ファイルは ${DOC_MAX_BYTES / 1024 / 1024} MB までです。小さくしてから選んでください` });
-      return;
-    }
+    if (Object.keys(next).length > 0 || !file) return;
+
+    setPending(true);
     const form = new FormData();
     form.set("file", file);
-    form.set("docType", draft.docType);
-    form.set("title", draft.title);
-    form.set("isPublic", draft.isPublic ? "true" : "false");
-    form.set("sortOrder", draft.sortOrder);
-    setPending(true);
+    form.set("docType", docType);
+    form.set("title", title.trim());
+    form.set("isPublic", isPublic ? "true" : "false");
     try {
-      // multipart のときは content-type をブラウザに付けさせる（境界の文字列が必要）
-      const response = await fetch(`/api/${slug}/admin/tournaments/${tournamentId}/documents`, {
-        method: "POST",
-        body: form,
-      });
+      const response = await fetch(`/api/${slug}/admin/tournaments/${tournamentId}/documents`, { method: "POST", body: form });
+      // 本文は 1 回しか読めないので、成功と失敗の両方をここから取る
       const body = (await response.json().catch(() => null)) as DocumentApiBody | null;
       if (response.ok) {
-        router.push(`${listUrl}?added=${encodeURIComponent(body?.documentId ?? "")}`);
+        router.push(`${listUrl}?added=${encodeURIComponent(body?.document?.id ?? "")}#documents`);
         return;
       }
-      if (body?.error?.field) setErrors({ [body.error.field]: body.error.message ?? "入力を確かめてください" });
-      setNotice(body?.error?.message ?? "保存できませんでした");
+      const message = body?.error?.message ?? "アップロードできませんでした";
+      if (body?.error?.field) setErrors({ [body.error.field]: message });
+      else setNotice(message);
     } catch {
-      setNotice("保存できませんでした。電波の状態を確かめてください");
+      setNotice("アップロードできませんでした。電波の状態を確かめてください");
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <Message kind="info" title="個人情報が含まれていないか確認してください">
-        公開した資料は、大会に関係のない人でも開けます。組み合わせ表などに載っている氏名は、そのまま公開されます。
-      </Message>
+    <div data-hydrated={hydrated || undefined} className="flex flex-col gap-4">
       {notice ? <Message kind="error" title={notice} /> : null}
-      <Card className="flex flex-col gap-3">
+      <Card className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="doc-file" className="font-semibold">
-            PDF のファイル
+          <label htmlFor="document-file" className="font-semibold">
+            PDF ファイル
           </label>
           <input
-            id="doc-file"
-            ref={fileRef}
+            id="document-file"
             type="file"
             accept="application/pdf,.pdf"
+            onChange={(e) => choose(e.target.files?.[0] ?? null)}
+            aria-describedby="document-file-hint"
             aria-invalid={errors.file ? true : undefined}
-            className={`min-h-12 w-full rounded-md border bg-background px-3 py-2 text-base ${errors.file ? "border-2 border-danger" : "border-border-strong"}`}
+            className={DOCUMENT_FILE_CLASS}
           />
-          <p className="text-sm text-muted">PDF だけ・{DOC_MAX_BYTES / 1024 / 1024} MB まで</p>
+          <p id="document-file-hint" className="text-sm text-muted">
+            PDF だけ。1 ファイル {MAX_DOCUMENT_BYTES_TEXT} まで
+          </p>
           {errors.file ? <p className="text-sm font-semibold text-danger">{errors.file}</p> : null}
         </div>
-        <DocumentDraftFields draft={draft} setDraft={setDraft} errors={errors} idPrefix="new" />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="document-type" className="font-semibold">
+            種別
+          </label>
+          <select id="document-type" value={docType} onChange={(e) => setDocType(e.target.value as DocumentType)} className={DOCUMENT_SELECT_CLASS}>
+            {DOCUMENT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
+        <TextField
+          id="document-title"
+          label="タイトル"
+          value={title}
+          maxLength={TITLE_MAX}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setErrors((prev) => ({ ...prev, title: "" }));
+          }}
+          error={errors.title || undefined}
+          hint="大会ページに出る名前（例: 第10回 春季大会 大会冊子）"
+        />
+        <label className="flex min-h-12 items-center gap-3">
+          <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="size-5" />
+          <span>公開する（大会のページから誰でも開けます）</span>
+        </label>
+        <p className="rounded-md border border-border bg-info-surface px-4 py-3 text-sm">{DOCUMENT_PRIVACY_NOTE}</p>
       </Card>
       <ActionBar>
-        <Button pending={pending} pendingLabel="アップロードしています…" onClick={() => void upload()} fullWidth>
-          追加する
+        <Button pending={pending} pendingLabel="アップロードしています…" onClick={() => void submit()} fullWidth>
+          アップロードする
         </Button>
         <Button variant="secondary" onClick={() => router.push(listUrl)} fullWidth>
           やめる

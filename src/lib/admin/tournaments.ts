@@ -14,9 +14,8 @@ import {
   type Tournament,
 } from "@/lib/repo/tournaments";
 import { clearCategoryDeadlines } from "@/lib/repo/tournament-categories";
-import { syncTournamentDocuments, unpublishTournament } from "@/lib/documents/publish";
-import { getStorage } from "@/lib/storage";
-import type { StorageAdapter } from "@/lib/storage/types";
+import { syncTournamentDocuments } from "@/lib/documents/publish";
+import { getStorage, type StorageAdapter } from "@/lib/storage";
 import { TeamError } from "@/lib/teams/errors";
 import { parseTournamentInput, type TournamentInput } from "@/lib/tournaments/tournament-input";
 import { authorizeAssociationAdmin } from "./access";
@@ -108,7 +107,7 @@ export async function editTournament(
   associationId: string,
   tournamentId: string,
   raw: Record<string, unknown>,
-  storage: StorageAdapter = getStorage(),
+  options: { storage?: StorageAdapter } = {},
 ): Promise<Tournament> {
   if (!isUuid(tournamentId)) throw new TeamError(404, "大会が見つかりません");
   const parsed = parseTournamentInput(raw);
@@ -126,8 +125,8 @@ export async function editTournament(
       await assertConsistentWithCategories(tx, associationId, tournamentId, parsed.value);
       const updated = await updateTournament(tx, associationId, tournamentId, parsed.value);
       if (!updated) throw new TeamError(404, "大会が見つかりません");
-      // 大会を draft に戻したら資料を公開用から下ろし、draft から出したら公開中の資料を置く（§5.9）
-      if (current.status !== updated.status) await syncTournamentDocuments(tx, storage, associationId, updated);
+      // 準備中 ⇄ 公開で、大会資料の公開用ファイルを置く／取り下げる（§5.9）
+      if (current.status !== updated.status) await syncTournamentDocuments(tx, options.storage ?? getStorage(), associationId, tournamentId);
       return updated;
     },
     { userId: principal.userId },
@@ -140,7 +139,7 @@ export async function deleteTournament(
   principal: Principal & { userId: string },
   associationId: string,
   tournamentId: string,
-  storage: StorageAdapter = getStorage(),
+  options: { storage?: StorageAdapter } = {},
 ): Promise<void> {
   if (!isUuid(tournamentId)) throw new TeamError(404, "大会が見つかりません");
   await withTenantOn(
@@ -150,8 +149,8 @@ export async function deleteTournament(
       await authorizeAssociationAdmin(tx, principal, associationId);
       const deleted = await softDeleteTournament(tx, associationId, tournamentId, principal.userId);
       if (!deleted) throw new TeamError(404, "大会が見つかりません");
-      // 削除した大会の資料は公開用から下ろす（§5.9）
-      await unpublishTournament(tx, storage, associationId, tournamentId);
+      // 削除した大会の資料は公開用から取り下げる（§5.9）
+      await syncTournamentDocuments(tx, options.storage ?? getStorage(), associationId, tournamentId);
     },
     { userId: principal.userId },
   );

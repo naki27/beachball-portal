@@ -1,127 +1,94 @@
+import { randomBytes } from "node:crypto";
 import type { Tx } from "@/db/tenant";
-import type { TournamentStatus } from "@/db/schema";
-import {
-  clearPublicKeys,
-  listTournamentDocuments,
-  type TournamentDocument,
-  updateTournamentDocument,
-} from "@/lib/repo/tournament-documents";
+import { listDocuments, type TournamentDocument, updateDocument } from "@/lib/repo/tournament-documents";
+import { findTournament } from "@/lib/repo/tournaments";
 import type { StorageAdapter } from "@/lib/storage/types";
-import { contentDisposition, newDocumentPublicKey } from "./keys";
+import { PDF_CONTENT_TYPE, PUBLIC_CACHE_SECONDS } from "./document-input";
 
-// 公開用バケットへの出し入れ（設計書 §5.9「配信の仕組み」）。**判定と同期はここだけ**
-//   公開用に置く条件 = 資料が公開中（is_public）× 大会が draft でない × どちらも削除されていない
-//   非公開にした・削除した・大会を draft に戻した → 公開用から消す（public_key を NULL に戻す）
-//   ファイルを差し替えた → **新しい名前**で置き、古いファイルは消す（古い URL は開けなくなる）
-// Cloudflare のキャッシュは短め（1 時間【仮】）。非公開にしてから最長その時間は開けることを管理画面に書く
+// 大会資料の公開用ファイルの出し入れ（設計書 §5.9「配信の仕組み」・ADR 0026）
+// 公開中の資料だけを公開用バケットに置き、非公開にした・削除した・大会を draft に戻したら公開用から消す
+// 公開用の名前は推測されにくいランダムな名前。差し替えたら新しい名前にする（古い URL は開けなくなる）
+//
+// 呼ぶ場所: 資料の追加・編集・差し替え・削除、大会の編集（状態）・削除・復元、削除済みデータの復元、日次ジョブ
+// いずれも withTenant のトランザクションの中。ストレージの操作の順番は「消える方向に安全」に揃える:
+//   置く … 先に公開用へ置いてから行に名前を入れる（行の更新が戻れば、名前のないファイルが残るだけ → 日次ジョブが消す）
+//   消す … 先に行の名前を消してからファイルを消す（消せなければ行ごと戻るので、行とファイルが食い違わない）
 
-export const PUBLIC_CACHE_SECONDS = 3600;
+export const PUBLIC_DOCUMENT_PREFIX = "documents/";
 
-export function shouldBePublic(document: { isPublic: boolean }, tournament: { status: TournamentStatus; deletedAt?: Date | null }): boolean {
-  return document.isPublic && tournament.status !== "draft" && !tournament.deletedAt;
+export function newPublicKey(): string {
+  return `${PUBLIC_DOCUMENT_PREFIX}${randomBytes(16).toString("hex")}.pdf`;
 }
 
-function publicPutOptions(title: string) {
-  return {
-    contentType: "application/pdf",
-    contentDisposition: contentDisposition(title),
-    cacheControl: `public, max-age=${PUBLIC_CACHE_SECONDS}`,
-  };
+// ブラウザ内で開き、保存するときはタイトルの名前になる（§5.9）。ヘッダは ASCII だけにするので UTF-8 の値は percent-encoding
+export function contentDispositionFor(title: string): string {
+  const base = title.replace(/[\\/:*?"<>|\r\n\t]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "document";
+  return `inline; filename*=UTF-8''${encodeURIComponent(`${base}.pdf`)}`;
 }
 
-export type PublishResult = { publicKey: string | null; changed: boolean };
-
-// 1 件の資料を、いまあるべき状態に合わせる。DB の public_key も更新する
-// 置くとき: 先に公開用へ PUT → DB を更新（DB に名前だけ入って中身がない状態を作らない）
-// 下ろすとき: 先に DB を更新 → 公開用から削除（消えたのに DB からは開けると言い続ける状態を作らない）
-export async function syncDocumentPublication(
-  tx: Tx,
-  storage: StorageAdapter,
-  associationId: string,
-  tournament: { status: TournamentStatus; deletedAt?: Date | null },
-  document: TournamentDocument,
-): Promise<PublishResult> {
-  const target = shouldBePublic(document, tournament);
-  if (target === (document.publicKey !== null)) return { publicKey: document.publicKey, changed: false };
-
-  if (target) {
-    const body = await storage.get("private", document.storageKey);
-    // 原本がないときは公開しない（次の同期でまた試す）
-    if (!body) return { publicKey: null, changed: false };
-    const publicKey = newDocumentPublicKey();
-    await storage.put("public", publicKey, body, publicPutOptions(document.title));
-    await updateTournamentDocument(tx, associationId, document.id, {
-      docType: document.docType,
-      title: document.title,
-      isPublic: document.isPublic,
-      sortOrder: document.sortOrder,
-      publicKey,
-    });
-    return { publicKey, changed: true };
-  }
-
-  const old = document.publicKey;
-  await updateTournamentDocument(tx, associationId, document.id, {
-    docType: document.docType,
-    title: document.title,
-    isPublic: document.isPublic,
-    sortOrder: document.sortOrder,
-    publicKey: null,
-  });
-  if (old) await storage.remove("public", old);
-  return { publicKey: null, changed: true };
+// 公開してよい条件: 資料が「公開」で削除されておらず、大会が準備中（draft）でも削除済みでもない
+export function shouldBePublic(
+  document: { isPublic: boolean; deletedAt: Date | null },
+  tournament: { status: string; deletedAt: Date | null } | null,
+): boolean {
+  if (!tournament || tournament.deletedAt) return false;
+  if (tournament.status === "draft") return false;
+  return document.isPublic && document.deletedAt === null;
 }
 
-// ファイルの差し替え。公開中なら新しい名前で置き直す（古い URL は開けなくなる・§5.9）
-export async function republishWithNewFile(
-  tx: Tx,
-  storage: StorageAdapter,
-  associationId: string,
-  tournament: { status: TournamentStatus; deletedAt?: Date | null },
-  document: TournamentDocument,
-): Promise<PublishResult> {
-  const old = document.publicKey;
-  if (!shouldBePublic(document, tournament)) {
-    if (old) {
-      await updateTournamentDocument(tx, associationId, document.id, {
-        docType: document.docType,
-        title: document.title,
-        isPublic: document.isPublic,
-        sortOrder: document.sortOrder,
-        publicKey: null,
-      });
-      await storage.remove("public", old);
-    }
-    return { publicKey: null, changed: old !== null };
-  }
-  const result = await syncDocumentPublication(tx, storage, associationId, tournament, { ...document, publicKey: null });
-  if (old && old !== result.publicKey) await storage.remove("public", old);
-  return { publicKey: result.publicKey, changed: true };
-}
+export type SyncResult = {
+  published: number;
+  withdrawn: number;
+  // 保管用のファイルが見つからず公開できなかった数（行はそのまま。ログに件数だけ出す）
+  missing: number;
+};
 
-// 大会を draft に戻した・大会を削除した → その大会の資料をまとめて公開用から下ろす
-export async function unpublishTournament(
-  tx: Tx,
-  storage: StorageAdapter,
-  associationId: string,
-  tournamentId: string,
-): Promise<number> {
-  const keys = await clearPublicKeys(tx, associationId, tournamentId);
-  for (const key of keys) await storage.remove("public", key);
-  return keys.length;
-}
-
-// 大会の状態が変わったとき（draft ⇄ open など）に、その大会の資料をまとめてあるべき状態に合わせる
+// 1 つの大会の資料を、あるべき状態に揃える。renew に入れた資料は、公開中でも新しい名前で置き直す（差し替え）
 export async function syncTournamentDocuments(
   tx: Tx,
   storage: StorageAdapter,
   associationId: string,
-  tournament: { id: string; status: TournamentStatus; deletedAt?: Date | null },
-): Promise<number> {
-  let changed = 0;
-  for (const document of await listTournamentDocuments(tx, associationId, tournament.id)) {
-    const result = await syncDocumentPublication(tx, storage, associationId, tournament, document);
-    if (result.changed) changed += 1;
+  tournamentId: string,
+  options: { renew?: readonly string[] } = {},
+): Promise<SyncResult> {
+  const result: SyncResult = { published: 0, withdrawn: 0, missing: 0 };
+  const documents = await listDocuments(tx, associationId, tournamentId, { includeDeleted: true });
+  if (documents.length === 0) return result;
+  const tournament = await findTournament(tx, associationId, tournamentId, { includeDeleted: true });
+  const renew = new Set(options.renew ?? []);
+
+  for (const document of documents) {
+    if (shouldBePublic(document, tournament)) {
+      if (document.publicKey && !renew.has(document.id)) continue;
+      const body = await storage.get("private", document.storageKey);
+      if (!body) {
+        result.missing += 1;
+        continue;
+      }
+      const key = newPublicKey();
+      await storage.put("public", key, body, {
+        contentType: PDF_CONTENT_TYPE,
+        contentDisposition: contentDispositionFor(document.title),
+        cacheControl: `public, max-age=${PUBLIC_CACHE_SECONDS}`,
+      });
+      await updateDocument(tx, associationId, document.id, { publicKey: key }, { includeDeleted: true });
+      // 差し替え: 新しい名前を置いてから古い名前を消す（消せなくても、古いほうは日次ジョブが消す）
+      if (document.publicKey) await storage.remove("public", document.publicKey);
+      result.published += 1;
+    } else if (document.publicKey) {
+      await updateDocument(tx, associationId, document.id, { publicKey: null }, { includeDeleted: true });
+      await storage.remove("public", document.publicKey);
+      result.withdrawn += 1;
+    }
   }
-  return changed;
+  return result;
+}
+
+// 資料のファイルを保管用・公開用の両方から消す（物理削除の直前・§5.16）。行は呼ぶ側が消す
+export async function removeDocumentFiles(tx: Tx, storage: StorageAdapter, associationId: string, document: TournamentDocument): Promise<void> {
+  if (document.publicKey) {
+    await updateDocument(tx, associationId, document.id, { publicKey: null }, { includeDeleted: true });
+    await storage.remove("public", document.publicKey);
+  }
+  await storage.remove("private", document.storageKey);
 }

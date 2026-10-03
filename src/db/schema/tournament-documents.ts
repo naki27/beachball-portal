@@ -1,13 +1,12 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, foreignKey, index, integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, foreignKey, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tournaments } from "./tournaments";
 import { users } from "./users";
 
 export type DocumentType = "大会冊子" | "要項" | "組み合わせ" | "結果" | "その他";
 
-// 大会資料（§5.9・付録 A tournament_documents）。PDF だけ。保管用（原本）と公開用の 2 つの置き場を持つ
-//   storage_key … 保管用バケットのキー（非公開。消さない限り残る）
-//   public_key  … 公開用バケットのキー。**公開中だけ入る**。推測されにくいランダムな名前で、差し替えたら新しい名前になる
+// 大会資料（§5.9・付録 A）。原本は保管用（非公開）のバケットに置き、公開中の資料だけ公開用にコピーする（public_key・C-02）
+// 形式は PDF だけ。中身（選手名が載った組み合わせ表など）は協会の判断で公開されるので、システムでは検査しない
 export const tournamentDocuments = pgTable(
   "tournament_documents",
   {
@@ -16,9 +15,9 @@ export const tournamentDocuments = pgTable(
     tournamentId: uuid().notNull(),
     docType: text().$type<DocumentType>().notNull(),
     title: text().notNull(),
-    storageKey: text().notNull(),
-    publicKey: text(),
-    contentType: text().notNull(),
+    storageKey: text().notNull(), // 保管用バケット（非公開）のキー
+    publicKey: text(), // 公開用バケットのキー。公開中だけ入る。推測されにくいランダムな名前（§5.9）
+    contentType: text().notNull(), // PDF のみ（§5.9）
     sizeBytes: integer().notNull(),
     isPublic: boolean().notNull().default(true),
     sortOrder: integer().notNull().default(0),
@@ -28,15 +27,12 @@ export const tournamentDocuments = pgTable(
     deletedBy: uuid().references(() => users.id),
   },
   (t) => [
-    unique("tournament_documents_association_id_id_unique").on(t.associationId, t.id),
     check("tournament_documents_doc_type_check", sql`${t.docType} in ('大会冊子', '要項', '組み合わせ', '結果', 'その他')`),
     check("tournament_documents_content_type_check", sql`${t.contentType} = 'application/pdf'`),
-    check("tournament_documents_size_check", sql`${t.sizeBytes} > 0`),
     foreignKey({
       name: "tournament_documents_tournament_fk",
       columns: [t.associationId, t.tournamentId],
       foreignColumns: [tournaments.associationId, tournaments.id],
     }).onDelete("cascade"),
-    index("tournament_documents_tournament_idx").on(t.associationId, t.tournamentId, t.sortOrder),
   ],
 );

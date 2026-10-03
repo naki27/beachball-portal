@@ -10,9 +10,9 @@ export type StorageBucket = "private" | "public" | "backup";
 
 export type PutOptions = {
   contentType?: string;
-  // 公開用のファイルに付ける（§5.9）。ブラウザ内で開き、保存時は分かりやすい名前にする
+  // 公開用のファイルに付ける（ブラウザ内で開き、保存時の名前を決める・§5.9）
   contentDisposition?: string;
-  // Cloudflare のキャッシュの期間（短め・§5.9）
+  // 公開用のファイルのキャッシュの長さ（Cloudflare・§5.9）
   cacheControl?: string;
 };
 

@@ -1,178 +1,127 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb, createDb } from "@/db/client";
 import { requireEnv } from "@/db/env";
-import { associations, members, membershipPeriods, memberships, teams, users } from "@/db/schema";
-import type { MembershipSource, MembershipStatus } from "@/db/schema/memberships";
+import { members, membershipPeriods, memberships } from "@/db/schema";
+import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
 import { withTenantOn } from "@/db/tenant";
-import { ANONYMOUS } from "@/lib/authz";
 import { isMember, membershipDisplay, membershipDisplays } from "@/lib/membership";
-import { addPlayer } from "@/lib/teams/roster";
-import { registerTeam } from "@/lib/teams/teams";
+import { normalizeName } from "@/lib/normalize";
 
-// 会員判定（設計書 §5.12・付録 F・D-01）の DB を読む版。表そのものの試験は tests/unit/membership.test.ts
+// 会員判定（設計書 §5.12・付録 F・D-01）。DB の行から isMember / membershipDisplay を確かめる
+// 年度は他のテストと重ならないよう、ありえない年（2990 年代）を使う
 const owner = createDb(requireEnv("MIGRATION_DATABASE_URL"), { max: 1 });
 const app = createDb(requireEnv("DATABASE_URL"), { max: 1 });
 
+const S = SAWARA_ASSOCIATION_ID;
 const random = () => Math.random().toString(36).slice(2, 8);
 const tag = `会員${random()}`;
+const Y = 2991; // 今年度（受付あり）
+const NO_DATA_YEAR = 2995; // 受付も取り込みもない年度
 
-// 2027 年度の受付は日本時間 2027-04-01 0:00〜2027-06-30 23:59:59.999
-const OPENS = new Date("2027-03-31T15:00:00Z");
-const CLOSES = new Date("2027-06-30T14:59:59.999Z");
-const DURING = new Date("2027-05-10T00:00:00Z");
-const AFTER = new Date("2027-07-01T00:00:00Z");
+const CLOSES_AT = new Date("2991-06-30T14:59:59.999Z"); // 日本時間 6/30 23:59:59
+const DURING = new Date("2991-05-10T00:00:00Z");
+const AFTER = new Date("2991-07-01T00:00:00Z");
 
-let A = "";
-let repId = "";
-// 人物（members.id）
-let keep = ""; // 昨年度も今年度も協会員
-let renew = ""; // 昨年度は協会員・今年度はまだ申告なし
-let applied = ""; // 今年度は申告済み（確認待ち）
-let declined = ""; // 今年度は「更新しない」
-let fresh = ""; // 昨年度も今年度もデータなし
+const ids: Record<string, string> = {};
+
+async function person(name: string): Promise<string> {
+  const [row] = await withTenantOn(owner, S, (tx) =>
+    tx
+      .insert(members)
+      .values({ associationId: S, name: `${tag} ${name}`, birthDate: "1990-01-01", sex: "male", nameNormalized: normalizeName(`${tag} ${name}`) })
+      .returning({ id: members.id }),
+  );
+  return row.id;
+}
 
 beforeAll(async () => {
-  const [user] = await owner
-    .insert(users)
-    .values({ email: `mb-rep-${random()}@example.com`, emailVerifiedAt: new Date() })
-    .returning({ id: users.id });
-  repId = user.id;
-  const [association] = await owner
-    .insert(associations)
-    .values({ name: `${tag} 協会`, slug: `mb-${random()}` })
-    .returning({ id: associations.id });
-  A = association.id;
-
-  const team = await registerTeam(app, A, repId, {
-    name: `${tag} チーム`,
-    kana: null,
-    contactEmail: null,
-    contactPhone: null,
-    membershipRenewalTarget: true,
+  ids.approved = await person("承認済み");
+  ids.applied = await person("申告済み");
+  ids.declined = await person("更新しない");
+  ids.lastYear = await person("昨年度だけ");
+  ids.none = await person("行なし");
+  await withTenantOn(owner, S, async (tx) => {
+    await tx.insert(membershipPeriods).values({ associationId: S, year: Y, opensAt: new Date("2991-04-01T00:00:00Z"), closesAt: CLOSES_AT });
+    await tx.insert(memberships).values([
+      { associationId: S, memberId: ids.approved, year: Y, status: "approved" },
+      { associationId: S, memberId: ids.approved, year: Y - 1, status: "approved" },
+      { associationId: S, memberId: ids.applied, year: Y, status: "applied" },
+      { associationId: S, memberId: ids.declined, year: Y, status: "declined" },
+      { associationId: S, memberId: ids.declined, year: Y - 1, status: "approved" },
+      { associationId: S, memberId: ids.lastYear, year: Y - 1, status: "approved" },
+      // 受付のない年度に approved があっても、表示は no_data（判定はする）
+      { associationId: S, memberId: ids.approved, year: NO_DATA_YEAR, status: "approved" },
+    ]);
   });
-
-  const as = { ...ANONYMOUS, userId: repId, sessionState: "active" as const };
-  const add = async (name: string): Promise<string> => {
-    const added = await addPlayer(app, as, A, team.id, { name, kana: "", birthDate: "1990-05-05", sex: "male" });
-    return added.memberId;
-  };
-  keep = await add(`${tag} 継続`);
-  renew = await add(`${tag} 未申告`);
-  applied = await add(`${tag} 申告済`);
-  declined = await add(`${tag} 更新しない`);
-  fresh = await add(`${tag} 新顔`);
 });
 
-async function setStatus(memberId: string, year: number, status: MembershipStatus, source: MembershipSource = "renewal"): Promise<void> {
-  await withTenantOn(owner, A, (tx) => tx.insert(memberships).values({ associationId: A, memberId, year, status, source }));
-}
-
-async function openPeriod(year: number): Promise<void> {
-  await withTenantOn(owner, A, (tx) =>
-    tx.insert(membershipPeriods).values({ associationId: A, year, opensAt: OPENS, closesAt: CLOSES }),
-  );
-}
-
-async function clearPeriods(): Promise<void> {
-  await withTenantOn(owner, A, (tx) => tx.delete(membershipPeriods).where(eq(membershipPeriods.associationId, A)));
-}
-
 afterAll(async () => {
-  await withTenantOn(owner, A, async (tx) => {
-    await tx.delete(memberships).where(eq(memberships.associationId, A));
-    await tx.delete(membershipPeriods).where(eq(membershipPeriods.associationId, A));
-    await tx.delete(teams).where(eq(teams.associationId, A));
-    await tx.delete(members).where(eq(members.associationId, A));
+  await withTenantOn(owner, S, async (tx) => {
+    await tx.delete(memberships).where(and(eq(memberships.associationId, S), inArray(memberships.memberId, Object.values(ids))));
+    await tx.delete(membershipPeriods).where(and(eq(membershipPeriods.associationId, S), eq(membershipPeriods.year, Y)));
+    await tx.delete(members).where(and(eq(members.associationId, S), inArray(members.id, Object.values(ids))));
   });
-  await owner.delete(associations).where(inArray(associations.id, [A]));
-  await owner.delete(users).where(inArray(users.id, [repId]));
   await closeDb(owner);
   await closeDb(app);
 });
 
-describe("isMember（年度を渡さないと呼べない）", () => {
-  it("前年度の approved は、新年度では会員ではない", async () => {
-    await setStatus(keep, 2026, "approved");
-    await withTenantOn(app, A, async (tx) => {
-      expect(await isMember(tx, A, keep, 2026)).toBe(true);
-      expect(await isMember(tx, A, keep, 2027)).toBe(false);
+describe("isMember（年度を渡す・approved だけ）", () => {
+  it("今年度 approved は会員。applied・declined・行なしは会員でない", async () => {
+    await withTenantOn(app, S, async (tx) => {
+      expect(await isMember(tx, S, ids.approved, Y)).toBe(true);
+      expect(await isMember(tx, S, ids.applied, Y)).toBe(false);
+      expect(await isMember(tx, S, ids.declined, Y)).toBe(false);
+      expect(await isMember(tx, S, ids.none, Y)).toBe(false);
     });
   });
 
-  it("applied はまだ会員ではない", async () => {
-    await setStatus(applied, 2027, "applied");
-    await withTenantOn(app, A, async (tx) => {
-      expect(await isMember(tx, A, applied, 2027)).toBe(false);
-    });
-  });
-
-  it("declined・行なしは会員ではない", async () => {
-    await setStatus(declined, 2027, "declined");
-    await withTenantOn(app, A, async (tx) => {
-      expect(await isMember(tx, A, declined, 2027)).toBe(false);
-      expect(await isMember(tx, A, fresh, 2027)).toBe(false);
+  it("前年度 approved の人は新年度では会員でない（年度をまたぐと切り替わる）", async () => {
+    await withTenantOn(app, S, async (tx) => {
+      expect(await isMember(tx, S, ids.lastYear, Y - 1)).toBe(true);
+      expect(await isMember(tx, S, ids.lastYear, Y)).toBe(false);
     });
   });
 });
 
-describe("membershipDisplay", () => {
-  it("受付も取り込みもない年度は no_data", async () => {
-    await withTenantOn(app, A, async (tx) => {
-      expect(await membershipDisplay(tx, A, keep, 2027, DURING)).toBe("no_data");
-      // 昨年度（2026）は 2026 の受付も取り込みもないので、approved でも no_data
-      expect(await membershipDisplay(tx, A, keep, 2026, DURING)).toBe("no_data");
+describe("membershipDisplay（表示のしかた・§5.12）", () => {
+  it("受付期間中: approved → member、applied → pending、昨年度 approved で今年度なし → renewal_pending、declined → not_member", async () => {
+    await withTenantOn(app, S, async (tx) => {
+      expect(await membershipDisplay(tx, S, ids.approved, Y, DURING)).toBe("member");
+      expect(await membershipDisplay(tx, S, ids.applied, Y, DURING)).toBe("pending");
+      expect(await membershipDisplay(tx, S, ids.lastYear, Y, DURING)).toBe("renewal_pending");
+      expect(await membershipDisplay(tx, S, ids.declined, Y, DURING)).toBe("not_member");
+      expect(await membershipDisplay(tx, S, ids.none, Y, DURING)).toBe("not_member");
+      // renewal_pending でも isMember は false
+      expect(await isMember(tx, S, ids.lastYear, Y)).toBe(false);
     });
   });
 
-  it("取り込みのデータがあれば、受付がなくても区分を出す", async () => {
-    await setStatus(renew, 2026, "approved", "import");
-    await withTenantOn(app, A, async (tx) => {
-      expect(await membershipDisplay(tx, A, keep, 2026, DURING)).toBe("member");
-      expect(await membershipDisplay(tx, A, fresh, 2026, DURING)).toBe("not_member");
+  it("締切後は昨年度の会員も not_member", async () => {
+    await withTenantOn(app, S, async (tx) => {
+      expect(await membershipDisplay(tx, S, ids.lastYear, Y, AFTER)).toBe("not_member");
+      expect(await membershipDisplay(tx, S, ids.approved, Y, AFTER)).toBe("member");
     });
   });
 
-  it("受付期間中は、昨年度の会員で今年度の申告がまだなら renewal_pending", async () => {
-    await openPeriod(2027);
-    await withTenantOn(app, A, async (tx) => {
-      expect(await membershipDisplay(tx, A, renew, 2027, DURING)).toBe("renewal_pending");
-      expect(await membershipDisplay(tx, A, applied, 2027, DURING)).toBe("pending");
-      expect(await membershipDisplay(tx, A, declined, 2027, DURING)).toBe("not_member");
-      // 昨年度も会員でない人は「更新の受付中」にしない
-      expect(await membershipDisplay(tx, A, fresh, 2027, DURING)).toBe("not_member");
+  it("受付も取り込みもない年度は no_data（approved の行があっても）", async () => {
+    await withTenantOn(app, S, async (tx) => {
+      expect(await membershipDisplay(tx, S, ids.approved, NO_DATA_YEAR, DURING)).toBe("no_data");
+      expect(await membershipDisplay(tx, S, ids.none, NO_DATA_YEAR, DURING)).toBe("no_data");
+      // 判定そのものは行のとおり
+      expect(await isMember(tx, S, ids.approved, NO_DATA_YEAR)).toBe(true);
     });
   });
 
-  it("締切を過ぎたら not_member", async () => {
-    await withTenantOn(app, A, async (tx) => {
-      expect(await membershipDisplay(tx, A, renew, 2027, AFTER)).toBe("not_member");
-      expect(await membershipDisplay(tx, A, renew, 2027, CLOSES)).toBe("renewal_pending");
-    });
-  });
-
-  it("今年度も承認されれば member", async () => {
-    await setStatus(keep, 2027, "approved");
-    await withTenantOn(app, A, async (tx) => {
-      expect(await membershipDisplay(tx, A, keep, 2027, DURING)).toBe("member");
-      expect(await membershipDisplay(tx, A, keep, 2027, AFTER)).toBe("member");
-    });
-  });
-
-  it("まとめて引いても 1 人ずつと同じ区分になる", async () => {
-    const ids = [keep, renew, applied, declined, fresh];
-    await withTenantOn(app, A, async (tx) => {
-      const map = await membershipDisplays(tx, A, ids, 2027, DURING);
-      expect([...map.values()]).toEqual(["member", "renewal_pending", "pending", "not_member", "not_member"]);
-      for (const id of ids) expect(map.get(id)).toBe(await membershipDisplay(tx, A, id, 2027, DURING));
-    });
-  });
-
-  it("受付を消すと、まとめて引いたときも no_data になる", async () => {
-    await clearPeriods();
-    await withTenantOn(app, A, async (tx) => {
-      const map = await membershipDisplays(tx, A, [keep, fresh], 2027, DURING);
-      expect([...map.values()]).toEqual(["no_data", "no_data"]);
+  it("まとめて読んでも 1 人ずつと同じ結果", async () => {
+    await withTenantOn(app, S, async (tx) => {
+      const all = await membershipDisplays(tx, S, Object.values(ids), Y, DURING);
+      expect(all.get(ids.approved)).toBe("member");
+      expect(all.get(ids.applied)).toBe("pending");
+      expect(all.get(ids.lastYear)).toBe("renewal_pending");
+      expect(all.get(ids.declined)).toBe("not_member");
+      expect(all.get(ids.none)).toBe("not_member");
+      expect(await membershipDisplays(tx, S, [], Y, DURING)).toEqual(new Map());
     });
   });
 });

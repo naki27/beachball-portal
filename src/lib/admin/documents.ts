@@ -1,201 +1,198 @@
+import { randomUUID } from "node:crypto";
 import type { Db } from "@/db/client";
-import { type Tx, withTenantOn } from "@/db/tenant";
+import { withTenantOn } from "@/db/tenant";
 import type { Principal } from "@/lib/authz";
-import { checkPdf, type DocumentInput, parseDocumentInput } from "@/lib/documents/document-input";
-import { documentStorageKey } from "@/lib/documents/keys";
-import { republishWithNewFile, syncDocumentPublication } from "@/lib/documents/publish";
+import { checkPdfUpload, PDF_CONTENT_TYPE, parseDocumentInput } from "@/lib/documents/document-input";
+import { shouldBePublic, syncTournamentDocuments } from "@/lib/documents/publish";
 import { isUuid } from "@/lib/ids";
 import {
-  findTournamentDocument,
-  insertTournamentDocument,
-  listTournamentDocuments,
-  softDeleteTournamentDocument,
+  findDocument,
+  insertDocument,
+  listDocuments,
+  nextSortOrder,
+  softDeleteDocument,
   type TournamentDocument,
-  updateTournamentDocument,
-  updateTournamentDocumentSize,
+  updateDocument,
 } from "@/lib/repo/tournament-documents";
 import { findTournament, type Tournament } from "@/lib/repo/tournaments";
-import { getStorage } from "@/lib/storage";
-import type { StorageAdapter } from "@/lib/storage/types";
+import { getStorage, type StorageAdapter } from "@/lib/storage";
 import { TeamError } from "@/lib/teams/errors";
 import { authorizeAssociationAdmin } from "./access";
 
-// 大会資料の管理（設計書 §5.9・C-01・C-02）。テナント管理者だけ（§3.2 manageTournaments）
-// アップロードはアプリを経由する: 大きさ・Content-Type・先頭の `%PDF-` を検証してから保管用に置く
-// 公開用への出し入れは src/lib/documents/publish.ts が 1 か所で決める（ここでは呼ぶだけ）
+// 大会資料の管理（設計書 §5.9）。テナント管理者（と切り替えて入った運営管理者）だけ（§3.2 manageTournaments）
+// アップロードはアプリを経由し、大きさ・Content-Type・先頭の %PDF- を確かめてから保管用（非公開）のバケットに置く
+// 公開用への反映（置く・取り下げる）は、行を変えたあと同じトランザクションで publish.ts の sync に任せる
 
-export type AdminDocumentsView = { tournament: Tournament; documents: TournamentDocument[] };
+export type AdminDocument = TournamentDocument & {
+  // いま公開用に置かれているか（「公開」でも、大会が準備中の間は置かれない）
+  published: boolean;
+};
+export type AdminDocumentsView = { tournament: Tournament; documents: AdminDocument[] };
 
-export type UploadedFile = { name: string; contentType: string; bytes: Uint8Array };
+type Options = { storage?: StorageAdapter };
+type Admin = Principal & { userId: string };
 
-type Actor = Principal & { userId: string };
+// 保管用バケットのキー。協会 → 大会 → 資料の順に分ける（後始末で大会ごとに消せるように）。差し替えても同じ名前に上書きする
+export function documentStorageKey(associationId: string, tournamentId: string, documentId: string): string {
+  return `documents/${associationId}/${tournamentId}/${documentId}.pdf`;
+}
 
-async function loadTournament(tx: Tx, associationId: string, tournamentId: string): Promise<Tournament> {
+export async function getDocumentsForAdmin(db: Db, principal: Admin, associationId: string, tournamentId: string): Promise<AdminDocumentsView> {
   if (!isUuid(tournamentId)) throw new TeamError(404, "大会が見つかりません");
-  const tournament = await findTournament(tx, associationId, tournamentId);
-  if (!tournament) throw new TeamError(404, "大会が見つかりません");
-  return tournament;
-}
-
-async function loadDocument(tx: Tx, associationId: string, tournamentId: string, documentId: string): Promise<TournamentDocument> {
-  if (!isUuid(documentId)) throw new TeamError(404, "資料が見つかりません");
-  const document = await findTournamentDocument(tx, associationId, tournamentId, documentId);
-  if (!document) throw new TeamError(404, "資料が見つかりません");
-  return document;
-}
-
-export async function getDocumentsForAdmin(
-  db: Db,
-  principal: Actor,
-  associationId: string,
-  tournamentId: string,
-): Promise<AdminDocumentsView> {
   return withTenantOn(
     db,
     associationId,
     async (tx) => {
       await authorizeAssociationAdmin(tx, principal, associationId);
-      const tournament = await loadTournament(tx, associationId, tournamentId);
-      return { tournament, documents: await listTournamentDocuments(tx, associationId, tournament.id) };
+      const tournament = await findTournament(tx, associationId, tournamentId);
+      if (!tournament) throw new TeamError(404, "大会が見つかりません");
+      const documents = await listDocuments(tx, associationId, tournamentId);
+      return { tournament, documents: documents.map((d) => ({ ...d, published: shouldBePublic(d, tournament) && d.publicKey !== null })) };
     },
     { userId: principal.userId },
   );
 }
 
-function parsed(raw: Record<string, unknown>): DocumentInput {
-  const result = parseDocumentInput(raw);
-  if (!result.ok) throw new TeamError(400, result.message, { field: result.field });
-  return result.value;
-}
+export type DocumentUpload = { contentType: string; bytes: Uint8Array };
 
-function checked(file: UploadedFile): void {
-  const check = checkPdf(file);
+function checkUpload(upload: DocumentUpload): void {
+  const check = checkPdfUpload({ size: upload.bytes.byteLength, contentType: upload.contentType, head: upload.bytes.subarray(0, 8) });
   if (!check.ok) throw new TeamError(400, check.message, { field: "file" });
 }
 
-export type UploadDocumentResult = { documentId: string; published: boolean };
-
 export async function uploadDocument(
   db: Db,
-  principal: Actor,
+  principal: Admin,
   associationId: string,
   tournamentId: string,
+  upload: DocumentUpload,
   raw: Record<string, unknown>,
-  file: UploadedFile,
-  storage: StorageAdapter = getStorage(),
-): Promise<UploadDocumentResult> {
-  const input = parsed(raw);
-  checked(file);
-  const documentId = crypto.randomUUID();
-  const storageKey = documentStorageKey(associationId, tournamentId, documentId);
+  options: Options = {},
+): Promise<TournamentDocument> {
+  if (!isUuid(tournamentId)) throw new TeamError(404, "大会が見つかりません");
+  const parsed = parseDocumentInput(raw);
+  if (!parsed.ok) throw new TeamError(400, parsed.message, { field: parsed.field });
+  checkUpload(upload);
+  const storage = options.storage ?? getStorage();
 
   return withTenantOn(
     db,
     associationId,
     async (tx) => {
       await authorizeAssociationAdmin(tx, principal, associationId);
-      const tournament = await loadTournament(tx, associationId, tournamentId);
-      // 先に原本を置く（DB の行だけ増えて中身がない状態を作らない）
-      await storage.put("private", storageKey, file.bytes, { contentType: "application/pdf" });
-      await insertTournamentDocument(tx, associationId, {
-        id: documentId,
-        tournamentId: tournament.id,
-        docType: input.docType,
-        title: input.title,
+      const tournament = await findTournament(tx, associationId, tournamentId);
+      if (!tournament) throw new TeamError(404, "大会が見つかりません");
+      const id = randomUUID();
+      const storageKey = documentStorageKey(associationId, tournamentId, id);
+      const document = await insertDocument(tx, associationId, {
+        id,
+        tournamentId,
+        docType: parsed.value.docType,
+        title: parsed.value.title,
         storageKey,
-        publicKey: null,
-        sizeBytes: file.bytes.length,
-        isPublic: input.isPublic,
-        sortOrder: input.sortOrder,
+        contentType: PDF_CONTENT_TYPE,
+        sizeBytes: upload.bytes.byteLength,
+        isPublic: parsed.value.isPublic,
+        sortOrder: parsed.value.sortOrder ?? (await nextSortOrder(tx, associationId, tournamentId)),
         uploadedBy: principal.userId,
       });
-      const document = await loadDocument(tx, associationId, tournamentId, documentId);
-      const published = await syncDocumentPublication(tx, storage, associationId, tournament, document);
-      return { documentId, published: published.publicKey !== null };
+      // 行を入れてからファイルを置く。置けなければトランザクションごと戻る（行だけが残らない）
+      await storage.put("private", storageKey, upload.bytes, { contentType: PDF_CONTENT_TYPE });
+      await syncTournamentDocuments(tx, storage, associationId, tournamentId);
+      return (await findDocument(tx, associationId, tournamentId, id)) ?? document;
     },
     { userId: principal.userId },
   );
 }
 
+// 種別・タイトル・公開／非公開・並び順の変更。公開用の名前（URL）はタイトルを変えても変えない（共有済みのリンクを壊さない）
 export async function editDocument(
   db: Db,
-  principal: Actor,
+  principal: Admin,
   associationId: string,
   tournamentId: string,
   documentId: string,
   raw: Record<string, unknown>,
-  storage: StorageAdapter = getStorage(),
-): Promise<void> {
-  if (!isUuid(documentId)) throw new TeamError(404, "資料が見つかりません");
-  const input = parsed(raw);
+  options: Options = {},
+): Promise<TournamentDocument> {
+  if (!isUuid(tournamentId) || !isUuid(documentId)) throw new TeamError(404, "資料が見つかりません");
+  const parsed = parseDocumentInput(raw);
+  if (!parsed.ok) throw new TeamError(400, parsed.message, { field: parsed.field });
+  const storage = options.storage ?? getStorage();
 
-  await withTenantOn(
+  return withTenantOn(
     db,
     associationId,
     async (tx) => {
       await authorizeAssociationAdmin(tx, principal, associationId);
-      const tournament = await loadTournament(tx, associationId, tournamentId);
-      const document = await loadDocument(tx, associationId, tournamentId, documentId);
-      const ok = await updateTournamentDocument(tx, associationId, documentId, { ...input, publicKey: document.publicKey });
-      if (!ok) throw new TeamError(404, "資料が見つかりません");
-      // 公開／非公開を変えたときは公開用に出し入れする。タイトルだけ変えたときは置き直さない
-      // （すでに配った URL を変えないため。保存時の名前は次に差し替えたときに新しくなる）
-      await syncDocumentPublication(tx, storage, associationId, tournament, { ...document, ...input });
+      const current = await findDocument(tx, associationId, tournamentId, documentId);
+      if (!current) throw new TeamError(404, "資料が見つかりません");
+      const updated = await updateDocument(tx, associationId, documentId, {
+        docType: parsed.value.docType,
+        title: parsed.value.title,
+        isPublic: parsed.value.isPublic,
+        sortOrder: parsed.value.sortOrder ?? current.sortOrder,
+      });
+      if (!updated) throw new TeamError(404, "資料が見つかりません");
+      await syncTournamentDocuments(tx, storage, associationId, tournamentId);
+      return (await findDocument(tx, associationId, tournamentId, documentId)) ?? updated;
     },
     { userId: principal.userId },
   );
 }
 
-// ファイルの差し替え（§5.9「差し替えたときは新しい名前にする」）。種別・タイトル・並び順は変えない
+// ファイルの差し替え（§5.9）。保管用は同じ名前に上書きし、公開中なら公開用は新しい名前で置き直す（古い URL は開けなくなる）
 export async function replaceDocumentFile(
   db: Db,
-  principal: Actor,
+  principal: Admin,
   associationId: string,
   tournamentId: string,
   documentId: string,
-  file: UploadedFile,
-  storage: StorageAdapter = getStorage(),
-): Promise<void> {
-  if (!isUuid(documentId)) throw new TeamError(404, "資料が見つかりません");
-  checked(file);
+  upload: DocumentUpload,
+  options: Options = {},
+): Promise<TournamentDocument> {
+  if (!isUuid(tournamentId) || !isUuid(documentId)) throw new TeamError(404, "資料が見つかりません");
+  checkUpload(upload);
+  const storage = options.storage ?? getStorage();
 
-  await withTenantOn(
+  return withTenantOn(
     db,
     associationId,
     async (tx) => {
       await authorizeAssociationAdmin(tx, principal, associationId);
-      const tournament = await loadTournament(tx, associationId, tournamentId);
-      const document = await loadDocument(tx, associationId, tournamentId, documentId);
-      // 原本は同じ名前で上書きする（保管用は推測されても開けない）
-      await storage.put("private", document.storageKey, file.bytes, { contentType: "application/pdf" });
-      await updateTournamentDocumentSize(tx, associationId, documentId, file.bytes.length);
-      await republishWithNewFile(tx, storage, associationId, tournament, { ...document, sizeBytes: file.bytes.length });
+      const current = await findDocument(tx, associationId, tournamentId, documentId);
+      if (!current) throw new TeamError(404, "資料が見つかりません");
+      await updateDocument(tx, associationId, documentId, { sizeBytes: upload.bytes.byteLength });
+      await storage.put("private", current.storageKey, upload.bytes, { contentType: PDF_CONTENT_TYPE });
+      await syncTournamentDocuments(tx, storage, associationId, tournamentId, { renew: [documentId] });
+      const updated = await findDocument(tx, associationId, tournamentId, documentId);
+      if (!updated) throw new TeamError(404, "資料が見つかりません");
+      return updated;
     },
     { userId: principal.userId },
   );
 }
 
-// 資料の削除（論理削除）。公開用からは消し、保管用の原本は残す（物理削除の後始末で消す・§5.19）
-export async function removeDocument(
+// 論理削除（§5.16）。公開用からは同時に消える。保管用のファイルは「削除済みデータ」から完全に削除するまで残す
+export async function deleteDocument(
   db: Db,
-  principal: Actor,
+  principal: Admin,
   associationId: string,
   tournamentId: string,
   documentId: string,
-  storage: StorageAdapter = getStorage(),
+  options: Options = {},
 ): Promise<void> {
-  if (!isUuid(documentId)) throw new TeamError(404, "資料が見つかりません");
+  if (!isUuid(tournamentId) || !isUuid(documentId)) throw new TeamError(404, "資料が見つかりません");
+  const storage = options.storage ?? getStorage();
   await withTenantOn(
     db,
     associationId,
     async (tx) => {
       await authorizeAssociationAdmin(tx, principal, associationId);
-      await loadTournament(tx, associationId, tournamentId);
-      const document = await loadDocument(tx, associationId, tournamentId, documentId);
-      // 先に DB から消す（消えたのに公開ページから開けると言い続ける状態を作らない）
-      const ok = await softDeleteTournamentDocument(tx, associationId, documentId, principal.userId);
-      if (!ok) throw new TeamError(404, "資料が見つかりません");
-      if (document.publicKey) await storage.remove("public", document.publicKey);
+      const current = await findDocument(tx, associationId, tournamentId, documentId);
+      if (!current) throw new TeamError(404, "資料が見つかりません");
+      await softDeleteDocument(tx, associationId, documentId, principal.userId);
+      await syncTournamentDocuments(tx, storage, associationId, tournamentId);
     },
     { userId: principal.userId },
   );

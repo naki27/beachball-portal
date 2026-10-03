@@ -2,40 +2,31 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb, createDb } from "@/db/client";
 import { requireEnv } from "@/db/env";
-import {
-  associationAdmins,
-  associations,
-  mailLogs,
-  members,
-  membershipDeclarations,
-  membershipPeriods,
-  memberships,
-  teams,
-  users,
-} from "@/db/schema";
+import { associationAdmins, mailLogs, members, membershipDeclarations, membershipPeriods, memberships, teams, users } from "@/db/schema";
+import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
 import { withTenantOn } from "@/db/tenant";
-import { approveDeclarations, declareForTeamAsAdmin, getRenewalStatusForAdmin, openRenewalPeriod } from "@/lib/admin/memberships";
+import { approveMemberships, getMembershipYearForAdmin } from "@/lib/admin/membership-approval";
 import { ANONYMOUS, type Principal } from "@/lib/authz";
-import { composeMail } from "@/lib/mail/templates";
-import { isMember } from "@/lib/membership";
-import { getDeclarationForm, submitDeclaration } from "@/lib/memberships/declaration";
-import { addPlayer } from "@/lib/teams/roster";
+import { endOfDayTokyo, startOfDayTokyo } from "@/lib/date";
+import { getDeclarationView, submitDeclaration } from "@/lib/memberships/declaration";
+import { listMembershipRows } from "@/lib/repo/memberships";
 import { TeamError } from "@/lib/teams/errors";
+import { addPlayer, getRoster } from "@/lib/teams/roster";
 import { registerTeam } from "@/lib/teams/teams";
 
-// 承認と追加の申告（設計書 §5.12 の受け入れ条件・D-04）
+// 承認と追加の申告（設計書 §5.12 の受け入れ条件・D-04）。年度は 2093（受付 2091・申告 2092・判定 2991 と分ける）
 const owner = createDb(requireEnv("MIGRATION_DATABASE_URL"), { max: 1 });
 const app = createDb(requireEnv("DATABASE_URL"), { max: 1 });
 
+const S = SAWARA_ASSOCIATION_ID;
 const random = () => Math.random().toString(36).slice(2, 8);
 const tag = `承認${random()}`;
-
+const Y = 2093;
 const as = (userId: string): Principal & { userId: string } => ({ ...ANONYMOUS, userId, sessionState: "active" });
 
-// 受付は日本時間 2027-04-01〜2027-06-30。追加の申告は締切後〜年度末（2028-03-31）まで
-const DURING = new Date("2027-05-10T00:00:00Z");
-const AFTER = new Date("2027-08-01T00:00:00Z");
-const NEXT_YEAR = new Date("2028-05-01T00:00:00Z");
+const OPEN = new Date("2093-05-10T00:00:00Z");
+const CLOSED = new Date("2093-08-01T00:00:00Z"); // 締切後・年度内（早良区協会は 4 月開始 → 年度末は 2094-03-31）
+const NEXT_YEAR = new Date("2094-04-15T00:00:00Z"); // 年度末を過ぎた
 
 async function statusOf(run: () => Promise<unknown>): Promise<"ok" | number> {
   try {
@@ -47,202 +38,147 @@ async function statusOf(run: () => Promise<unknown>): Promise<"ok" | number> {
   }
 }
 
-let A = "";
 let adminId = "";
 let repId = "";
-let teamId = "";
-let lateTeamId = ""; // 未申告のまま締切を過ぎるチーム
-let keep = "";
-let extra = "";
-let lateMember = "";
+let repEmail = "";
+let teamA = "";
+let teamB = "";
+let teamC = ""; // 対象でないチーム
+const m: Record<"a1" | "a2" | "b1", string> = { a1: "", a2: "", b1: "" };
+
+const rowsOf = () => withTenantOn(app, S, (tx) => listMembershipRows(tx, S, Object.values(m), [Y]));
+const statusIn = (rows: Awaited<ReturnType<typeof rowsOf>>, memberId: string) => rows.get(memberId)?.get(Y)?.status ?? null;
+const sourceIn = (rows: Awaited<ReturnType<typeof rowsOf>>, memberId: string) => rows.get(memberId)?.get(Y)?.source ?? null;
+const mailsTo = async (type: string) =>
+  (await owner.select({ mailType: mailLogs.mailType }).from(mailLogs).where(eq(mailLogs.toEmail, repEmail))).filter((x) => x.mailType === type).length;
+const setAutoApprove = (value: boolean) =>
+  withTenantOn(owner, S, (tx) => tx.update(membershipPeriods).set({ autoApprove: value }).where(and(eq(membershipPeriods.associationId, S), eq(membershipPeriods.year, Y))));
 
 beforeAll(async () => {
-  const made = await owner
-    .insert(users)
-    .values([
-      { email: `ap-admin-${random()}@example.com`, emailVerifiedAt: new Date() },
-      { email: `ap-rep-${random()}@example.com`, emailVerifiedAt: new Date() },
-    ])
-    .returning({ id: users.id });
-  [adminId, repId] = made.map((u) => u.id);
-
-  const [association] = await owner
-    .insert(associations)
-    .values({ name: `${tag} 協会`, slug: `ap-${random()}` })
-    .returning({ id: associations.id });
-  A = association.id;
-  await withTenantOn(owner, A, (tx) => tx.insert(associationAdmins).values({ associationId: A, userId: adminId }));
-
-  const base = { kana: null, contactEmail: null, contactPhone: null, membershipRenewalTarget: true };
-  teamId = (await registerTeam(app, A, repId, { ...base, name: `${tag} 早い組` })).id;
-  lateTeamId = (await registerTeam(app, A, repId, { ...base, name: `${tag} 遅い組` })).id;
-
-  const add = async (team: string, name: string, birthDate: string): Promise<string> => {
-    const added = await addPlayer(app, as(repId), A, team, { name: `${tag} ${name}`, kana: "", birthDate, sex: "male" });
-    return added.memberId;
-  };
-  keep = await add(teamId, "継続", "1988-01-02");
-  extra = await add(teamId, "途中入部", "1999-09-09");
-  lateMember = await add(lateTeamId, "遅れた人", "1990-10-10");
-
-  await openRenewalPeriod(app, as(adminId), A, { year: 2027, opensDate: "2027-04-01", closesDate: "2027-06-30" });
+  const [admin] = await owner.insert(users).values({ email: `ma-admin-${random()}@example.com`, emailVerifiedAt: new Date() }).returning({ id: users.id });
+  adminId = admin.id;
+  repEmail = `ma-rep-${random()}@example.com`;
+  const [rep] = await owner.insert(users).values({ email: repEmail, emailVerifiedAt: new Date() }).returning({ id: users.id });
+  repId = rep.id;
+  await withTenantOn(owner, S, (tx) => tx.insert(associationAdmins).values({ associationId: S, userId: adminId }));
+  const base = { kana: null, contactEmail: null, contactPhone: null };
+  teamA = (await registerTeam(app, S, repId, { ...base, name: `${tag} A`, membershipRenewalTarget: true })).id;
+  teamB = (await registerTeam(app, S, repId, { ...base, name: `${tag} B`, membershipRenewalTarget: true })).id;
+  teamC = (await registerTeam(app, S, repId, { ...base, name: `${tag} C 寄せ集め`, membershipRenewalTarget: false })).id;
+  m.a1 = (await addPlayer(app, as(repId), S, teamA, { name: `${tag} a1`, kana: "", birthDate: "1990-01-01", sex: "male" })).memberId;
+  m.a2 = (await addPlayer(app, as(repId), S, teamA, { name: `${tag} a2`, kana: "", birthDate: "1991-01-01", sex: "female" })).memberId;
+  m.b1 = (await addPlayer(app, as(repId), S, teamB, { name: `${tag} b1`, kana: "", birthDate: "1992-01-01", sex: "male" })).memberId;
+  await withTenantOn(owner, S, (tx) =>
+    tx.insert(membershipPeriods).values({
+      associationId: S,
+      year: Y,
+      opensAt: startOfDayTokyo({ year: Y, month: 4, day: 1 }),
+      closesAt: endOfDayTokyo({ year: Y, month: 6, day: 30 }),
+      autoApprove: false,
+    }),
+  );
 });
 
 afterAll(async () => {
-  await withTenantOn(owner, A, async (tx) => {
-    await tx.delete(memberships).where(eq(memberships.associationId, A));
-    await tx.delete(membershipDeclarations).where(eq(membershipDeclarations.associationId, A));
-    await tx.delete(membershipPeriods).where(eq(membershipPeriods.associationId, A));
-    await tx.delete(teams).where(eq(teams.associationId, A));
-    await tx.delete(members).where(eq(members.associationId, A));
-    await tx.delete(associationAdmins).where(eq(associationAdmins.associationId, A));
+  await withTenantOn(owner, S, async (tx) => {
+    await tx.delete(memberships).where(and(eq(memberships.associationId, S), inArray(memberships.memberId, Object.values(m))));
+    await tx.delete(membershipDeclarations).where(and(eq(membershipDeclarations.associationId, S), inArray(membershipDeclarations.teamId, [teamA, teamB, teamC])));
+    await tx.delete(membershipPeriods).where(and(eq(membershipPeriods.associationId, S), eq(membershipPeriods.year, Y)));
+    await tx.delete(teams).where(and(eq(teams.associationId, S), eq(teams.createdBy, repId)));
+    await tx.delete(members).where(and(eq(members.associationId, S), inArray(members.id, Object.values(m))));
+    await tx.delete(associationAdmins).where(eq(associationAdmins.userId, adminId));
   });
-  await owner.delete(mailLogs).where(eq(mailLogs.associationId, A));
-  await owner.delete(associations).where(inArray(associations.id, [A]));
+  await owner.delete(mailLogs).where(eq(mailLogs.toEmail, repEmail));
   await owner.delete(users).where(inArray(users.id, [adminId, repId]));
   await closeDb(owner);
   await closeDb(app);
 });
 
-const rowOf = async (memberId: string, year = 2027) => {
-  const [row] = await withTenantOn(owner, A, (tx) =>
-    tx
-      .select({ status: memberships.status, source: memberships.source, approvedBy: memberships.approvedBy })
-      .from(memberships)
-      .where(and(eq(memberships.associationId, A), eq(memberships.memberId, memberId), eq(memberships.year, year))),
-  );
-  return row ?? null;
-};
-
-describe("未申告の一覧と承認", () => {
-  it("対象のチームのうち、申告していないチームだけが未申告に出る", async () => {
-    await submitDeclaration(app, as(repId), A, teamId, { memberIds: [keep] }, DURING);
-    const status = await getRenewalStatusForAdmin(app, as(adminId), A, 2027, DURING);
-    expect(status.undeclared.map((t) => t.teamId)).toEqual([lateTeamId]);
-    expect(status.pending.map((t) => t.teamId)).toEqual([teamId]);
-    expect(status.pending[0].players.map((p) => p.name)).toEqual([`${tag} 継続`]);
-    expect(status.additional).toEqual([]);
-    expect(status.approvedCount).toBe(0);
+describe("未申告の一覧と一括承認（§5.12）", () => {
+  it("受付のない年度は 404、代表者は 403", async () => {
+    expect(await statusOf(() => getMembershipYearForAdmin(app, as(adminId), S, 1999, OPEN))).toBe(404);
+    expect(await statusOf(() => getMembershipYearForAdmin(app, as(repId), S, Y, OPEN))).toBe(403);
+    expect(await statusOf(() => approveMemberships(app, as(repId), S, Y, { scope: "renewal" }))).toBe(403);
   });
 
-  it("一括承認で approved になり、承認のメールが積まれる", async () => {
-    const result = await approveDeclarations(app, as(adminId), A, 2027, { memberIds: [keep] }, DURING);
-    expect(result.approved).toBe(1);
-    expect(await rowOf(keep)).toMatchObject({ status: "approved", approvedBy: adminId });
-    await withTenantOn(app, A, async (tx) => {
-      expect(await isMember(tx, A, keep, 2027)).toBe(true);
-    });
-    const status = await getRenewalStatusForAdmin(app, as(adminId), A, 2027, DURING);
-    expect(status.pending).toEqual([]);
-    expect(status.approvedCount).toBe(1);
+  it("未申告の一覧は対象チームだけ。申告すると消える", async () => {
+    let view = await getMembershipYearForAdmin(app, as(adminId), S, Y, OPEN);
+    const mine = (ids: { id: string }[]) => ids.map((t) => t.id).filter((id) => [teamA, teamB, teamC].includes(id)).sort();
+    expect(mine(view.undeclared)).toEqual([teamA, teamB].sort());
+    expect(mine(view.declared)).toEqual([]);
 
-    const queued = await owner
-      .select({ params: mailLogs.params })
-      .from(mailLogs)
-      .where(and(eq(mailLogs.associationId, A), eq(mailLogs.mailType, "membership_approved")));
-    expect(queued.length).toBe(1);
-    const mail = await withTenantOn(owner, A, (tx) =>
-      composeMail("membership_approved", queued[0].params as Record<string, unknown>, {
-        associationName: `${tag} 協会`,
-        associationSlug: "ap",
-        baseUrl: "http://localhost:3000",
-      }, tx),
-    );
-    expect(mail.subject).toContain("2027年度の協会員の登録が承認されました");
-    expect(mail.text).toContain(`${tag} 継続`);
-    expect(mail.text).not.toContain("1988");
+    await submitDeclaration(app, as(repId), S, teamA, { memberIds: [m.a1] }, OPEN);
+    await submitDeclaration(app, as(repId), S, teamB, { memberIds: [m.b1] }, OPEN);
+    view = await getMembershipYearForAdmin(app, as(adminId), S, Y, OPEN);
+    expect(mine(view.undeclared)).toEqual([]);
+    expect(mine(view.declared)).toEqual([teamA, teamB].sort());
+    expect(view.declared.find((t) => t.id === teamA)?.summary).toMatchObject({ applied: 1, approved: 0, declined: 0 });
+    expect(view.pendingRenewals).toBeGreaterThanOrEqual(2);
   });
 
-  it("すでに承認した人をもう一度承認しても増えない", async () => {
-    const result = await approveDeclarations(app, as(adminId), A, 2027, { memberIds: [keep] }, DURING);
-    expect(result.approved).toBe(0);
-  });
-
-  it("承認する人を選ばないと 400。代表者は承認できない（403）", async () => {
-    expect(await statusOf(() => approveDeclarations(app, as(adminId), A, 2027, { memberIds: [] }, DURING))).toBe(400);
-    expect(await statusOf(() => approveDeclarations(app, as(repId), A, 2027, { memberIds: [keep] }, DURING))).toBe(403);
-    expect(await statusOf(() => getRenewalStatusForAdmin(app, as(repId), A, 2027, DURING))).toBe(403);
+  it("一括承認で applied → approved になり、チームごとに承認のメールが積まれる。承認済みは変わらない", async () => {
+    const before = await mailsTo("membership_approved");
+    const result = await approveMemberships(app, as(adminId), S, Y, { scope: "renewal", teamIds: [teamA, teamB] });
+    expect(result).toEqual({ approved: 2, teams: 2 });
+    const rows = await rowsOf();
+    expect(statusIn(rows, m.a1)).toBe("approved");
+    expect(statusIn(rows, m.b1)).toBe("approved");
+    expect(statusIn(rows, m.a2)).toBeNull();
+    expect((await mailsTo("membership_approved")) - before).toBe(2);
+    // もう一度押しても何も変わらない
+    expect(await approveMemberships(app, as(adminId), S, Y, { scope: "renewal", teamIds: [teamA, teamB] })).toEqual({ approved: 0, teams: 0 });
+    expect(await statusOf(() => approveMemberships(app, as(adminId), S, Y, { scope: "x" }))).toBe(400);
   });
 });
 
-describe("追加の申告（締切後〜年度末）", () => {
-  it("締切後は代表者が会員を増やせる。承認待ち（source = additional）になる", async () => {
-    const form = await getDeclarationForm(app, as(repId), A, teamId, AFTER);
-    expect(form.mode).toBe("additional");
-    // すでに承認済みの人は外せない
-    expect(form.players.find((p) => p.memberId === keep)?.locked).toBe(true);
-    expect(form.players.find((p) => p.memberId === extra)?.locked).toBe(false);
+describe("追加の申告（§5.12「年度の途中の追加の申告」）", () => {
+  it("締切後〜年度末は追加の申告。承認を省く年度でも applied（source = additional）。外すことはできない", async () => {
+    await setAutoApprove(true);
+    const view = await getDeclarationView(app, as(repId), S, teamA, CLOSED);
+    expect(view.mode).toBe("additional");
+    expect(view.canSubmit).toBe(true);
+    expect(view.players.find((p) => p.memberId === m.a1)).toMatchObject({ checked: true, locked: true });
+    expect(view.players.find((p) => p.memberId === m.a2)).toMatchObject({ checked: false, locked: false });
 
-    const result = await submitDeclaration(app, as(repId), A, teamId, { memberIds: [keep, extra] }, AFTER);
-    expect(result.mode).toBe("additional");
-    expect(result).toMatchObject({ added: 1, removed: 0 });
-    expect(await rowOf(extra)).toMatchObject({ status: "applied", source: "additional" });
+    // a1 のチェックを外して a2 だけ送っても、a1 は外れない
+    const result = await submitDeclaration(app, as(repId), S, teamA, { memberIds: [m.a2] }, CLOSED);
+    expect(result).toMatchObject({ mode: "additional", applied: 1, approved: 0, declined: 0 });
+    const rows = await rowsOf();
+    expect(statusIn(rows, m.a1)).toBe("approved");
+    expect(statusIn(rows, m.a2)).toBe("applied");
+    expect(sourceIn(rows, m.a2)).toBe("additional");
+
+    // 運営の画面では「追加の申告」に分けて出る
+    const admin = await getMembershipYearForAdmin(app, as(adminId), S, Y, CLOSED);
+    const additional = admin.additional.find((a) => a.team.id === teamA);
+    expect(additional?.rows.map((r) => r.memberId)).toEqual([m.a2]);
+    expect(admin.declared.find((t) => t.id === teamA)?.summary.additionalApplied).toBe(1);
   });
 
-  it("追加の申告では外せない（チェックを外して送っても変わらない）", async () => {
-    const result = await submitDeclaration(app, as(repId), A, teamId, { memberIds: [] }, AFTER);
-    expect(result).toMatchObject({ added: 0, removed: 0 });
-    expect(await rowOf(keep)).toMatchObject({ status: "approved" });
-    expect(await rowOf(extra)).toMatchObject({ status: "applied" });
+  it("追加の申告を承認すると approved になり、メールが積まれる", async () => {
+    const before = await mailsTo("membership_approved");
+    const result = await approveMemberships(app, as(adminId), S, Y, { scope: "additional", teamIds: [teamA] });
+    expect(result).toEqual({ approved: 1, teams: 1 });
+    expect(statusIn(await rowsOf(), m.a2)).toBe("approved");
+    expect((await mailsTo("membership_approved")) - before).toBe(1);
+    expect((await getMembershipYearForAdmin(app, as(adminId), S, Y, CLOSED)).additional.find((a) => a.team.id === teamA)).toBeUndefined();
   });
 
-  it("運営の画面では追加の申告が分けて出る", async () => {
-    const status = await getRenewalStatusForAdmin(app, as(adminId), A, 2027, AFTER);
-    expect(status.pending).toEqual([]);
-    expect(status.additional.map((t) => t.players.map((p) => p.name))).toEqual([[`${tag} 途中入部`]]);
-    expect(status.state).toBe("closed");
+  it("年度末を過ぎると代表者は 409。テナント管理者は代理で送れる。対象でないチームは受付中でも 409", async () => {
+    expect((await getDeclarationView(app, as(repId), S, teamA, NEXT_YEAR)).mode).toBe("closed");
+    expect(await statusOf(() => submitDeclaration(app, as(repId), S, teamA, { memberIds: [m.a1, m.a2] }, NEXT_YEAR))).toBe(409);
+    expect((await getDeclarationView(app, as(adminId), S, teamA, NEXT_YEAR)).mode).toBe("renewal");
+    expect(await statusOf(() => submitDeclaration(app, as(adminId), S, teamA, { memberIds: [m.a1, m.a2] }, NEXT_YEAR))).toBe("ok");
+    expect(await statusOf(() => submitDeclaration(app, as(repId), S, teamC, { memberIds: [] }, OPEN))).toBe(409);
   });
 
-  it("承認を省く年度でも、追加の申告は承認待ちになる", async () => {
-    await withTenantOn(owner, A, (tx) =>
-      tx
-        .update(membershipPeriods)
-        .set({ autoApprove: true })
-        .where(and(eq(membershipPeriods.associationId, A), eq(membershipPeriods.year, 2027))),
-    );
-    await submitDeclaration(app, as(repId), A, lateTeamId, { memberIds: [lateMember] }, AFTER);
-    expect(await rowOf(lateMember)).toMatchObject({ status: "applied", source: "additional" });
-    await withTenantOn(owner, A, (tx) =>
-      tx
-        .update(membershipPeriods)
-        .set({ autoApprove: false })
-        .where(and(eq(membershipPeriods.associationId, A), eq(membershipPeriods.year, 2027))),
-    );
-  });
-
-  it("追加の申告も同じ入口で承認できる", async () => {
-    const result = await approveDeclarations(app, as(adminId), A, 2027, { memberIds: [extra, lateMember] }, AFTER);
-    expect(result.approved).toBe(2);
-    expect(await rowOf(extra)).toMatchObject({ status: "approved", source: "additional" });
-  });
-
-  it("年度が変わったら送れない（その年度の受付が始まっていないため 409）", async () => {
-    expect(await statusOf(() => getDeclarationForm(app, as(repId), A, teamId, NEXT_YEAR))).toBe(409);
-    expect(await statusOf(() => submitDeclaration(app, as(repId), A, teamId, { memberIds: [keep] }, NEXT_YEAR))).toBe(409);
-  });
-});
-
-describe("運営の代理の申告・修正", () => {
-  it("締切後でも代理で申告・修正できる（外すこともできる）", async () => {
-    const result = await declareForTeamAsAdmin(app, as(adminId), A, teamId, { memberIds: [keep] }, AFTER);
-    // 代理は受付期間中と同じ扱い。外した人は declined になる
-    expect(result.mode).toBe("renewal");
-    expect(result.removed).toBe(1);
-    expect(await rowOf(extra)).toMatchObject({ status: "declined" });
-    expect(await rowOf(keep)).toMatchObject({ status: "approved" });
-  });
-
-  it("代理なら、対象になっていないチームにも入力できる", async () => {
-    await withTenantOn(owner, A, (tx) => tx.update(teams).set({ membershipRenewalTarget: false }).where(eq(teams.id, lateTeamId)));
-    // 代表者は 409
-    expect(await statusOf(() => submitDeclaration(app, as(repId), A, lateTeamId, { memberIds: [lateMember] }, AFTER))).toBe(409);
-    // 運営の代理は通る
-    const result = await declareForTeamAsAdmin(app, as(adminId), A, lateTeamId, { memberIds: [lateMember] }, AFTER);
-    expect(result.unchanged).toBe(1);
-    await withTenantOn(owner, A, (tx) => tx.update(teams).set({ membershipRenewalTarget: true }).where(eq(teams.id, lateTeamId)));
-  });
-
-  it("代表者は代理の入口を使えない（403）", async () => {
-    expect(await statusOf(() => declareForTeamAsAdmin(app, as(repId), A, teamId, { memberIds: [keep] }, AFTER))).toBe(403);
+  it("選手一覧の「今年度」の区分は同じ判定を通る（§5.12「表示」・D-05）。代表者以上と本人にだけ", async () => {
+    const roster = await getRoster(app, as(repId), S, teamA, CLOSED);
+    expect(roster.membershipYear).toBe(Y);
+    expect(roster.items.find((i) => i.memberId === m.a1)?.membership).toBe(`協会員（${Y}年度）`);
+    expect(roster.items.find((i) => i.memberId === m.a2)?.membership).toBe(`協会員（${Y}年度）`);
+    // 受付も取り込みもない年度（Y+2 の日付で見る）は出さない
+    const later = await getRoster(app, as(repId), S, teamA, new Date(`${Y + 2}-05-01T00:00:00Z`));
+    expect(later.items.every((i) => i.membership === null)).toBe(true);
   });
 });

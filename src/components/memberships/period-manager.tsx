@@ -6,157 +6,160 @@ import { useState } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Badge, Card, EmptyState, Toolbar } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
-import { type PeriodField, parsePeriodInput } from "@/lib/memberships/period-input";
-import { type PeriodApiBody, type PeriodDraft, PeriodFields } from "./period-fields";
+import { useHydrated } from "@/hooks/use-hydrated";
+import type { PeriodState } from "@/lib/admin/membership-periods";
+import { fiscalYearLabel } from "@/lib/memberships/period-input";
+import { PeriodFields, periodClientErrors, type PeriodValues, readPeriodError } from "./period-fields";
 
-// 年度更新の受付の一覧（設計書 §5.12「受付開始」）。テナント管理者だけ
-// 受付を始めるのは別のページ（…/memberships/new・§4.3「一覧と登録はページを分ける」）
-// 画面には「来年度」「次年度」と書かず、年度の数字で書く（§4.4）
+// 年度更新の受付の一覧（設計書 §5.12「受付開始」）。受付を開始するのは別のページ（§4.3「一覧と登録はページを分ける」）
+// 期間・承認の設定の変更は、年度を変えられないので行の中で直す
 
-export type PeriodRow = {
+export type PeriodRowView = {
+  id: string;
   year: number;
-  // 「2027年度」
-  yearText: string;
-  opensDate: string; // YYYY-MM-DD（入力欄の値）
+  opensDate: string;
   closesDate: string;
-  autoApprove: boolean;
-  // 「4月1日（木）から」「6月30日（水）まで　あと5日」など
   periodText: string;
-  stateText: string;
+  autoApprove: boolean;
+  state: PeriodState;
   targetTeams: number;
   declaredTeams: number;
 };
 
-const STATE_TONE: Record<string, "brand" | "neutral"> = { 受付中: "brand" };
+const STATE_LABEL: Record<PeriodState, string> = { before: "受付前", open: "受付中", closed: "締切後" };
+const STATE_TONE: Record<PeriodState, "success" | "neutral"> = { before: "neutral", open: "success", closed: "neutral" };
 
 export function PeriodManager({
   slug,
   periods,
-  openedYear = null,
+  addedId = null,
 }: {
   slug: string;
-  periods: PeriodRow[];
-  // 受付を始めたばかりの年度。1 秒だけ強調する（§4.5「内容が変わった」）
-  openedYear?: number | null;
+  periods: PeriodRowView[];
+  addedId?: string | null;
 }) {
-  const router = useRouter();
-  const base = `/api/${slug}/admin/memberships`;
-  const [draft, setDraft] = useState<PeriodDraft>({ year: "", opensDate: "", closesDate: "", autoApprove: false });
-  const [editingYear, setEditingYear] = useState<number | null>(null);
-  const [errors, setErrors] = useState<Partial<Record<PeriodField, string>>>({});
-  const [notice, setNotice] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
-  const [pending, setPending] = useState<string | null>(null);
-
-  const opened = openedYear ? periods.find((row) => row.year === openedYear) : undefined;
-
-  async function save(year: number): Promise<void> {
-    if (pending) return;
-    setErrors({});
-    setNotice(null);
-    setDone(null);
-    const parsed = parsePeriodInput({ ...draft, year: String(year) });
-    if (!parsed.ok) {
-      setErrors({ [parsed.field]: parsed.message });
-      return;
-    }
-    setPending(`edit:${year}`);
-    try {
-      const response = await fetch(`${base}/${year}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(draft),
-      });
-      const parsedBody = (await response.json().catch(() => null)) as PeriodApiBody | null;
-      if (response.ok) {
-        setDone(`${year}年度の受付を保存しました`);
-        setEditingYear(null);
-        router.refresh();
-        return;
-      }
-      if (parsedBody?.error?.field) setErrors({ [parsedBody.error.field]: parsedBody.error.message ?? "入力を確かめてください" });
-      setNotice(parsedBody?.error?.message ?? "保存できませんでした");
-    } catch {
-      setNotice("保存できませんでした。電波の状態を確かめてください");
-    } finally {
-      setPending(null);
-    }
-  }
-
-  function startEdit(row: PeriodRow): void {
-    setErrors({});
-    setNotice(null);
-    setDone(null);
-    setEditingYear(row.year);
-    setDraft({ year: String(row.year), opensDate: row.opensDate, closesDate: row.closesDate, autoApprove: row.autoApprove });
-  }
+  const hydrated = useHydrated();
+  const newUrl = `/${slug}/admin/memberships/new`;
+  const added = addedId ? periods.find((row) => row.id === addedId) : undefined;
 
   return (
-    <div className="flex flex-col gap-4">
-      {opened ? <Message kind="success" title={`${opened.yearText}の受付を始めました`} /> : null}
-      {notice ? <Message kind="error" title={notice} /> : null}
-      {done ? <Message kind="success" title={done} /> : null}
+    <div data-hydrated={hydrated || undefined} className="flex flex-col gap-4">
+      {added ? <Message kind="success" title={`${fiscalYearLabel(added.year)}の受付を開始しました`} /> : null}
 
       {periods.length > 0 ? (
         <Toolbar>
-          <span className="text-sm font-semibold">受付を始めた年度 {periods.length} 件</span>
-          <Link href={`/${slug}/admin/memberships/new`} className={`${buttonClass("primary", false, "sm")} ml-auto`}>
-            受付を始める
+          <span className="text-sm font-semibold">{periods.length} 件</span>
+          <Link href={newUrl} className={`${buttonClass("primary", false, "sm")} ml-auto`}>
+            受付を開始する
           </Link>
         </Toolbar>
       ) : null}
 
       {periods.length === 0 ? (
         <EmptyState
-          title="まだ受付を始めた年度はありません"
-          description="受付を始めると、協会員の登録をするチームの代表者に案内が出ます。"
+          title="まだ受付を開始した年度はありません"
+          description="受付を開始すると、対象チームの代表者に案内が出ます。"
           action={
-            <Link href={`/${slug}/admin/memberships/new`} className={buttonClass()}>
-              受付を始める
+            <Link href={newUrl} className={buttonClass()}>
+              受付を開始する
             </Link>
           }
         />
       ) : (
-        <ul className="bb-stagger grid gap-3 md:grid-cols-2">
-          {periods.map((row) => (
-            <li key={row.year}>
-              <Card hoverable className={`flex h-full flex-col gap-2 ${row.year === openedYear ? "bb-highlight" : ""}`}>
-                {editingYear === row.year ? (
-                  <>
-                    <p className="font-bold">{row.yearText}の受付</p>
-                    <PeriodFields draft={draft} setDraft={setDraft} errors={errors} idPrefix={`edit-${row.year}`} showYear={false} />
-                    <div className="flex flex-wrap gap-2">
-                      <Button pending={pending === `edit:${row.year}`} pendingLabel="保存しています…" onClick={() => void save(row.year)}>
-                        保存する
-                      </Button>
-                      <Button variant="secondary" onClick={() => setEditingYear(null)}>
-                        やめる
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="text-lg font-bold">{row.yearText}</span>
-                      <Badge tone={STATE_TONE[row.stateText] ?? "neutral"}>{row.stateText}</Badge>
-                    </div>
-                    <p className="text-sm">{row.periodText}</p>
-                    <p className="text-sm text-muted">
-                      協会員の登録をするチーム {row.targetTeams} 組のうち、申告が届いているのは {row.declaredTeams} 組
-                      {row.autoApprove ? "・承認を省く設定です" : ""}
-                    </p>
-                    <div className="mt-auto pt-2">
-                      <Button variant="secondary" size="sm" onClick={() => startEdit(row)}>
-                        受付の期間を直す
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </Card>
+        <ul className="bb-stagger flex flex-col gap-3">
+          {periods.map((period) => (
+            <li key={period.id}>
+              <PeriodRow slug={slug} period={period} highlighted={period.id === addedId} />
             </li>
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+function PeriodRow({ slug, period, highlighted }: { slug: string; period: PeriodRowView; highlighted: boolean }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [values, setValues] = useState<PeriodValues>({
+    year: String(period.year),
+    opensDate: period.opensDate,
+    closesDate: period.closesDate,
+    autoApprove: period.autoApprove,
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [pending, setPending] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  function cancel() {
+    setValues({ year: String(period.year), opensDate: period.opensDate, closesDate: period.closesDate, autoApprove: period.autoApprove });
+    setErrors({});
+    setFailure(null);
+    setEditing(false);
+  }
+
+  async function save() {
+    if (pending) return;
+    const next = periodClientErrors(values);
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+    setPending(true);
+    setFailure(null);
+    try {
+      const response = await fetch(`/api/${slug}/admin/memberships/periods/${period.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ year: period.year, opensDate: values.opensDate, closesDate: values.closesDate, autoApprove: values.autoApprove }),
+      });
+      if (!response.ok) {
+        const error = await readPeriodError(response, "保存できませんでした");
+        if (error.field) setErrors({ [error.field]: error.message });
+        else setFailure(error.message);
+        return;
+      }
+      setEditing(false);
+      router.refresh();
+    } catch {
+      setFailure("保存できませんでした。電波の状態を確かめてください");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Card className={`flex flex-col gap-2 ${highlighted ? "bb-highlight" : ""}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-lg font-bold">{fiscalYearLabel(period.year)}</p>
+        <Badge tone={STATE_TONE[period.state]}>{STATE_LABEL[period.state]}</Badge>
+      </div>
+      <p className="text-sm">受付期間: {period.periodText}</p>
+      <p className="text-sm">承認: {period.autoApprove ? "省く（申告をそのまま協会員にする）" : "運営が確認して承認する"}</p>
+      <p className="text-sm text-muted">
+        対象チーム {period.targetTeams} のうち申告済み {period.declaredTeams}
+      </p>
+      <p className="text-sm">
+        <Link href={`/${slug}/admin/memberships/${period.year}`} className="bb-link font-semibold text-primary">
+          申告の状況を見る（未申告・承認）
+        </Link>
+      </p>
+      {failure ? <p className="text-sm font-semibold text-danger">{failure}</p> : null}
+      {editing ? (
+        <div className="flex flex-col gap-3 border-t border-border pt-3">
+          <PeriodFields idPrefix={`period-${period.id}`} values={values} errors={errors} onChange={setValues} yearLocked />
+          <div className="flex flex-wrap gap-2">
+            <Button className="min-h-10" onClick={save} pending={pending} pendingLabel="保存しています…">
+              保存する
+            </Button>
+            <Button variant="secondary" className="min-h-10" onClick={cancel} disabled={pending}>
+              やめる
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="secondary" className="min-h-10 self-start" onClick={() => setEditing(true)}>
+          期間・承認の設定を変える
+        </Button>
+      )}
+    </Card>
   );
 }

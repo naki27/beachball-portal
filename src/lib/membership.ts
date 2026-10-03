@@ -1,46 +1,59 @@
-import type { MembershipStatus } from "@/db/schema/memberships";
+import type { MembershipStatus } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
-import { fiscalYear, type PlainDate, todayInTokyo } from "@/lib/date";
-import {
-  findMembership,
-  findMembershipPeriod,
-  hasImportedMemberships,
-  listMembershipStatuses,
-  type MembershipPeriod,
-} from "@/lib/repo/memberships";
+import { fiscalYear, type PlainDate } from "@/lib/date";
+import { findMembershipPeriod, hasImportedMemberships, listMembershipRows } from "@/lib/repo/memberships";
 
-// 会員判定はここ 1 か所（設計書 §5.12・付録 F）。ほかの場所で status を直に見て「会員かどうか」を決めない
-//
-// **年度を渡さずに呼べない形にする**（§5.12 受け入れ条件）。会員資格は年度で切り替わり、
-// 前年度の `approved` は今年度の会員ではない。年度は開始年（2026 年度 = 2026/4〜2027/3）で、
-// 開始月は協会ごと（`associations.fiscal_year_start_month`）
-//
-// 表示（membershipDisplay）は isMember の結果を変えない。「更新の受付中（昨年度は協会員）」は表示だけの区分
+// 会員判定（設計書 §5.12・付録 F）。協会員かどうかを決めるのはこのファイルだけ
+// **年度を渡さずに呼べない**（引数を省略できない形）。年度は開始年（2026 年度 = 2026/4〜2027/3）で、
+// 「今日の年度」は fiscalYearOf(todayInTokyo(), association.fiscalYearStartMonth)、申込一覧は大会の開催日の年度で判定する
+// withTenant の tx の中で呼ぶ（協会をまたいで読まない）
 
-// 年度（開始年）。日付の計算そのものは date.ts が唯一の実装（付録 F の fiscalYearOf はこの名前で呼べるようにしたもの）
+// 年度の計算は date.ts の fiscalYear が唯一の実装。ここは付録 F の名前で呼べるようにするだけ
 export function fiscalYearOf(date: PlainDate, startMonth: number): number {
   return fiscalYear(date, startMonth);
 }
 
-// 「今年度」。今日は todayInTokyo() だけから取る（§7.0）
-export function currentFiscalYear(startMonth: number, now: Date = new Date()): number {
-  return fiscalYearOf(todayInTokyo(now), startMonth);
+// 年度の末日（4 月開始なら翌年 3 月 31 日）。追加の申告はこの日まで送れる（§5.12「年度の途中の追加の申告」）
+export function fiscalYearEndOf(year: number, startMonth: number): PlainDate {
+  // 翌年度の開始日の前日 = 開始月の前月の末日（Date.UTC の日 0 は前月の末日）
+  const last = new Date(Date.UTC(year + 1, startMonth - 1, 0));
+  return { year: last.getUTCFullYear(), month: last.getUTCMonth() + 1, day: last.getUTCDate() };
 }
 
-// 申込一覧・CSV の会員区分は**大会の開催日が属する年度**で判定する（§5.12「表示」）。開催日が未定なら今日の年度
-export function fiscalYearForTournament(eventDate: PlainDate | null, startMonth: number, now: Date = new Date()): number {
-  return fiscalYearOf(eventDate ?? todayInTokyo(now), startMonth);
-}
-
-//   member:          その年度の協会員（approved）
-//   pending:         申告済みで運営の確認待ち（applied）。**まだ会員ではない**
-//   renewal_pending: 受付期間中（締切前）で、昨年度は approved、今年度の行がまだない
-//   not_member:      協会員ではない（declined・行なし・受付の締切後）
-//   no_data:         その年度のデータがない（受付も取り込みもない）→ 画面に出さない・CSV は空欄
+// 画面・CSV の表示用（§5.12・§4.4）。isMember の結果は変えず、表示のしかただけを決める
+//   member:          その年度に approved
+//   pending:         applied（運営の確認待ち）
+//   renewal_pending: 受付期間中（締切前）で、昨年度は approved、今年度の行がまだない →「更新の受付中（昨年度は協会員）」
+//   not_member:      それ以外（declined・expired・行なし）
+//   no_data:         その年度の受付も取り込みもない → 画面には出さない。CSV は空欄
 export type MembershipDisplay = "member" | "pending" | "renewal_pending" | "not_member" | "no_data";
 
-// 画面の文言（§4.4 の対応表）。no_data は出さない（null）
-export function membershipDisplayText(display: MembershipDisplay, year: number): string | null {
+type StatusRow = { status: MembershipStatus } | null | undefined;
+
+// 判定の材料（読んだ行を渡す。純粋関数なので画面・CSV・テストで同じ結果になる）
+export type MembershipFacts = {
+  period: { closesAt: Date } | null;
+  imported: boolean;
+  row: StatusRow;
+  lastYearRow: StatusRow;
+};
+
+export function isApproved(row: StatusRow): boolean {
+  return row?.status === "approved";
+}
+
+export function membershipDisplayOf(facts: MembershipFacts, now: Date): MembershipDisplay {
+  if (!facts.period && !facts.imported) return "no_data";
+  if (facts.row?.status === "approved") return "member";
+  if (facts.row?.status === "applied") return "pending";
+  if (!facts.row && facts.period && now.getTime() <= facts.period.closesAt.getTime() && isApproved(facts.lastYearRow)) {
+    return "renewal_pending";
+  }
+  return "not_member";
+}
+
+// 画面の言い方（§4.4 の対応表）。no_data は出さない（null）
+export function membershipDisplayLabel(display: MembershipDisplay, year: number): string | null {
   switch (display) {
     case "member":
       return `協会員（${year}年度）`;
@@ -55,79 +68,18 @@ export function membershipDisplayText(display: MembershipDisplay, year: number):
   }
 }
 
-// CSV の「協会員区分」の値（§5.5(f)）。データのない年度は空欄（列は残す）
-export function membershipCsvText(display: MembershipDisplay): string {
-  switch (display) {
-    case "member":
-      return "協会員";
-    case "pending":
-      return "確認待ち";
-    case "renewal_pending":
-      return "更新の受付中";
-    case "not_member":
-      return "非会員";
-    case "no_data":
-      return "";
-  }
-}
-
-// 判定に必要な事実。DB から読む部分と判定を分けて、表（付録 F）そのものを試験できるようにする
-export type MembershipFacts = {
-  // その年度の行（なければ null）
-  current: MembershipStatus | null;
-  // 前年度の行（なければ null）
-  previous: MembershipStatus | null;
-  // その年度の受付（なければ null）
-  period: { closesAt: Date } | null;
-  // その年度に取り込みのデータがあるか
-  imported: boolean;
-};
-
-// 会員かどうか（付録 F の isMember）。approved だけが会員。applied はまだ会員ではない
-export function isMemberStatus(status: MembershipStatus | null): boolean {
-  return status === "approved";
-}
-
-// 表示の区分（付録 F の membershipDisplay）。事実 → 区分の対応はここだけ
-export function decideMembershipDisplay(facts: MembershipFacts, now: Date): MembershipDisplay {
-  if (!facts.period && !facts.imported) return "no_data";
-  if (facts.current === "approved") return "member";
-  if (facts.current === "applied") return "pending";
-  // 受付期間中（締切前）で今年度の行がなく、昨年度が協会員なら「更新の受付中」
-  if (facts.current === null && facts.period && now <= facts.period.closesAt && facts.previous === "approved") {
-    return "renewal_pending";
-  }
-  return "not_member";
-}
-
-// ここから下は DB を読む版（年度を省略できない）
-
+// その年度の協会員か（approved だけ。applied はまだ会員ではない・前年度の approved は今年度の会員ではない）
 export async function isMember(tx: Tx, associationId: string, memberId: string, year: number): Promise<boolean> {
-  const row = await findMembership(tx, associationId, memberId, year);
-  return isMemberStatus(row?.status ?? null);
+  const rows = await listMembershipRows(tx, associationId, [memberId], [year]);
+  return isApproved(rows.get(memberId)?.get(year));
 }
 
-export async function membershipDisplay(
-  tx: Tx,
-  associationId: string,
-  memberId: string,
-  year: number,
-  now: Date,
-): Promise<MembershipDisplay> {
-  const [period, imported, current] = await Promise.all([
-    findMembershipPeriod(tx, associationId, year),
-    hasImportedMemberships(tx, associationId, year),
-    findMembership(tx, associationId, memberId, year),
-  ]);
-  // 前年度は「更新の受付中」の判定に使うときだけ読む
-  const previous = current === null && period ? await findMembership(tx, associationId, memberId, year - 1) : null;
-  return decideMembershipDisplay(
-    { current: current?.status ?? null, previous: previous?.status ?? null, period, imported },
-    now,
-  );
+export async function membershipDisplay(tx: Tx, associationId: string, memberId: string, year: number, now: Date): Promise<MembershipDisplay> {
+  const displays = await membershipDisplays(tx, associationId, [memberId], year, now);
+  return displays.get(memberId) ?? "no_data";
 }
 
-// 一覧・CSV 用（1 人ずつ問い合わせない）。渡した人物ごとの区分を返す
+// 何人分もまとめて（申込一覧・チーム管理の画面）。読むのは受付 1 行・取り込みの有無・2 年度分の行だけ
 export async function membershipDisplays(
   tx: Tx,
   associationId: string,
@@ -135,46 +87,20 @@ export async function membershipDisplays(
   year: number,
   now: Date,
 ): Promise<Map<string, MembershipDisplay>> {
-  const [period, imported] = await Promise.all([
-    findMembershipPeriod(tx, associationId, year),
-    hasImportedMemberships(tx, associationId, year),
-  ]);
   const result = new Map<string, MembershipDisplay>();
-  if (!period && !imported) {
-    for (const memberId of memberIds) result.set(memberId, "no_data");
-    return result;
-  }
-  const current = await listMembershipStatuses(tx, associationId, year, memberIds);
-  // 今年度の行がない人だけ、前年度を見る（「更新の受付中」の判定）
-  const missing = memberIds.filter((memberId) => !current.has(memberId));
-  const previous: Map<string, MembershipStatus> =
-    period && missing.length > 0 ? await listMembershipStatuses(tx, associationId, year - 1, missing) : new Map();
+  if (memberIds.length === 0) return result;
+  const period = await findMembershipPeriod(tx, associationId, year);
+  const imported = await hasImportedMemberships(tx, associationId, year);
+  const rows = await listMembershipRows(tx, associationId, memberIds, [year, year - 1]);
   for (const memberId of memberIds) {
+    const byYear = rows.get(memberId);
     result.set(
       memberId,
-      decideMembershipDisplay(
-        { current: current.get(memberId) ?? null, previous: previous.get(memberId) ?? null, period, imported },
+      membershipDisplayOf(
+        { period: period ? { closesAt: period.closesAt } : null, imported, row: byYear?.get(year), lastYearRow: byYear?.get(year - 1) },
         now,
       ),
     );
   }
   return result;
-}
-
-// その年度の受付の状態（D-02 以降で使う）。受付がなければ null
-export type RenewalState = "not_started" | "open" | "closed";
-
-export function renewalState(period: MembershipPeriod | null, now: Date): RenewalState | null {
-  if (!period) return null;
-  if (now < period.opensAt) return "not_started";
-  return now <= period.closesAt ? "open" : "closed";
-}
-
-// 渡した人物のうち、その年度の協会員（approved）だけ（申込の「協会員だけを表示」・サジェストの絞り込み・§5.5）
-// status を直に見る場所を増やさないため、画面・API はこれを通す
-export async function listMembers(tx: Tx, associationId: string, year: number, memberIds: readonly string[]): Promise<Set<string>> {
-  const statuses = await listMembershipStatuses(tx, associationId, year, memberIds);
-  const members = new Set<string>();
-  for (const [memberId, status] of statuses) if (isMemberStatus(status)) members.add(memberId);
-  return members;
 }

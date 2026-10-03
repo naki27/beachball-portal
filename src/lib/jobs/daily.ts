@@ -15,11 +15,11 @@ import { enqueueMail } from "@/lib/mail/outbox";
 import { listAllAssociations } from "@/lib/repo/associations";
 import { getStorage } from "@/lib/storage";
 import type { StorageAdapter } from "@/lib/storage/types";
-import { cleanUpDocumentFiles } from "./document-cleanup";
+import { cleanupDocuments } from "./document-cleanup";
 import { backupClosedTournamentEntries } from "./entry-backup";
 
 // 日次ジョブ（設計書 §6.5.1 の定期ジョブの表 ②③④⑤）。app_job（JOB_DATABASE_URL）で動かす
-// ① DB バックアップ（pg_dump）・⑦ 最小インスタンス数は後のタスク
+// ⑥ の大会資料の後始末は document-cleanup.ts。① DB バックアップ（pg_dump）・⑦ 最小インスタンス数は後のタスク（X-03・X-04）
 // 協会に属する表はかならず withTenantOn で協会ごとに処理する（§5.14）。ログには件数だけを出す（氏名・メールアドレスは出さない）
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -45,9 +45,6 @@ export type DailyJobResult = {
   loginCodes: number;
   sessions: number;
   rateLimits: number;
-  // 迷子になった大会資料のファイルの後始末（⑥・§5.9）
-  removedPublicFiles: number;
-  removedPrivateFiles: number;
   // 期限切れの招待を expired にした件数（④）
   expiredTeamInvitations: number;
   expiredAdminInvitations: number;
@@ -56,6 +53,11 @@ export type DailyJobResult = {
   purgedAdminInvitations: number;
   purgedMailLogs: number;
   purgedAdminAccessLogs: number;
+  // 大会資料の後始末（⑥・§5.9）: 公開の整合と、消し忘れたファイル
+  documentsPublished: number;
+  documentsWithdrawn: number;
+  documentsMissing: number;
+  documentFilesRemoved: number;
 };
 
 export type DailyJobOptions = {
@@ -162,14 +164,16 @@ export async function runDailyJob(db: Db, options: DailyJobOptions = {}): Promis
     ...(await purgeExpiredAuth(db, now)),
     backedUpTournaments: 0,
     skippedBackups: 0,
-    removedPublicFiles: 0,
-    removedPrivateFiles: 0,
     expiredTeamInvitations: 0,
     expiredAdminInvitations: 0,
     purgedTeamInvitations: 0,
     purgedAdminInvitations: 0,
     purgedMailLogs: 0,
     purgedAdminAccessLogs: 0,
+    documentsPublished: 0,
+    documentsWithdrawn: 0,
+    documentsMissing: 0,
+    documentFilesRemoved: 0,
   };
 
   const invitationCutoff = daysAgo(now, RETENTION_DAYS.invitations);
@@ -196,10 +200,12 @@ export async function runDailyJob(db: Db, options: DailyJobOptions = {}): Promis
   result.backedUpTournaments = backup.tournaments;
   result.skippedBackups = backup.skipped;
 
-  // ⑥ 大会資料の迷子のファイルの後始末（§5.9）
-  const cleaned = await cleanUpDocumentFiles(db, storage);
-  result.removedPublicFiles = cleaned.publicRemoved;
-  result.removedPrivateFiles = cleaned.privateRemoved;
+  // ⑥ 大会資料の公開の整合と、消し忘れたファイルの後始末（§5.9）
+  const documents = await cleanupDocuments(db, storage);
+  result.documentsPublished = documents.published;
+  result.documentsWithdrawn = documents.withdrawn;
+  result.documentsMissing = documents.missing;
+  result.documentFilesRemoved = documents.removedPrivate + documents.removedPublic;
 
   return result;
 }
@@ -213,6 +219,6 @@ export function formatDailyJobResult(result: DailyJobResult): string {
     `期限切れの招待 チーム ${result.expiredTeamInvitations} 件 / 協会の管理者 ${result.expiredAdminInvitations} 件`,
     `保存期間切れ 招待 ${result.purgedTeamInvitations + result.purgedAdminInvitations} 件 / 送信記録 ${result.purgedMailLogs} 件 / 操作記録 ${result.purgedAdminAccessLogs} 件`,
     `申込一覧のバックアップ ${result.backedUpTournaments} 大会${result.skippedBackups > 0 ? `（${result.skippedBackups} 大会は作れず）` : ""}`,
-    `資料の後始末 公開用 ${result.removedPublicFiles} 件 / 保管用 ${result.removedPrivateFiles} 件`,
+    `大会資料 公開 ${result.documentsPublished} 件 / 取り下げ ${result.documentsWithdrawn} 件 / 消し忘れ ${result.documentFilesRemoved} 件${result.documentsMissing > 0 ? `（${result.documentsMissing} 件は保管用がなく公開できず）` : ""}`,
   ].join("、");
 }

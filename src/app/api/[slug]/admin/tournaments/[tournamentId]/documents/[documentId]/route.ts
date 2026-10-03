@@ -1,59 +1,53 @@
 import { getDb } from "@/db/client";
-import { editDocument, removeDocument, replaceDocumentFile } from "@/lib/admin/documents";
+import { deleteDocument, editDocument, replaceDocumentFile } from "@/lib/admin/documents";
 import { jsonError } from "@/lib/api/errors";
-import { readFormData, readJson } from "@/lib/api/request";
+import { readJson } from "@/lib/api/request";
 import { requireTenantUser, teamErrorResponse } from "@/lib/api/tenant";
-import { DOC_MAX_BYTES } from "@/lib/documents/document-input";
+import { MAX_DOCUMENT_BYTES, MAX_DOCUMENT_BYTES_TEXT } from "@/lib/documents/document-input";
 
 type Props = { params: Promise<{ slug: string; tournamentId: string; documentId: string }> };
 
-// PATCH — 資料の種別・タイトル・公開／非公開・並び順（設計書 §5.9）。テナント管理者だけ
+// PATCH /api/[slug]/admin/tournaments/[tournamentId]/documents/[documentId] — 種別・タイトル・公開／非公開・並び順（設計書 §5.9）
+// テナント管理者だけ。公開用への反映は同じトランザクションで行う
 export async function PATCH(request: Request, { params }: Props): Promise<Response> {
   const { slug, tournamentId, documentId } = await params;
   const gate = await requireTenantUser(request, slug);
   if (gate instanceof Response) return gate;
   const body = await readJson(request);
-  if (!body) return jsonError(400, "資料のタイトルを入力してください", { field: "title" });
+  if (!body) return jsonError(400, "タイトルを入力してください", { field: "title" });
   try {
-    await editDocument(getDb(), gate.principal, gate.association.id, tournamentId, documentId, body);
-    return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
+    const document = await editDocument(getDb(), gate.principal, gate.association.id, tournamentId, documentId, body);
+    return Response.json({ ok: true, document: { id: document.id } }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return teamErrorResponse(error);
   }
 }
 
-// PUT — ファイルの差し替え（設計書 §5.9）。公開中なら新しい名前で置き直すので、公開用の URL が変わる
+// PUT … — ファイルの差し替え（multipart の file だけ）。公開中なら公開用の URL が変わる（§5.9）
 export async function PUT(request: Request, { params }: Props): Promise<Response> {
   const { slug, tournamentId, documentId } = await params;
   const gate = await requireTenantUser(request, slug);
   if (gate instanceof Response) return gate;
-
-  const form = await readFormData(request, DOC_MAX_BYTES);
-  if (form === "too_large") {
-    return jsonError(400, `ファイルは ${DOC_MAX_BYTES / 1024 / 1024} MB までです。小さくしてから選んでください`, { field: "file" });
-  }
+  const form = await request.formData().catch(() => null);
   const file = form?.get("file");
-  if (!(file instanceof File)) return jsonError(400, "差し替えるファイルを選んでください", { field: "file" });
-
+  if (!(file instanceof File) || file.size === 0) return jsonError(400, "ファイルを選んでください", { field: "file" });
+  if (file.size > MAX_DOCUMENT_BYTES) return jsonError(400, `ファイルの大きさは ${MAX_DOCUMENT_BYTES_TEXT} までです`, { field: "file" });
+  const bytes = new Uint8Array(await file.arrayBuffer());
   try {
-    await replaceDocumentFile(getDb(), gate.principal, gate.association.id, tournamentId, documentId, {
-      name: file.name,
-      contentType: file.type,
-      bytes: new Uint8Array(await file.arrayBuffer()),
-    });
-    return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
+    const document = await replaceDocumentFile(getDb(), gate.principal, gate.association.id, tournamentId, documentId, { contentType: file.type, bytes });
+    return Response.json({ ok: true, document: { id: document.id } }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return teamErrorResponse(error);
   }
 }
 
-// DELETE — 資料を削除する（論理削除）。公開用からも下ろす
+// DELETE … — 論理削除（§5.16）。公開用からは同時に消える。完全に削除するのは /admin/trash から
 export async function DELETE(request: Request, { params }: Props): Promise<Response> {
   const { slug, tournamentId, documentId } = await params;
   const gate = await requireTenantUser(request, slug);
   if (gate instanceof Response) return gate;
   try {
-    await removeDocument(getDb(), gate.principal, gate.association.id, tournamentId, documentId);
+    await deleteDocument(getDb(), gate.principal, gate.association.id, tournamentId, documentId);
     return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return teamErrorResponse(error);

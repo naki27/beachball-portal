@@ -1,8 +1,7 @@
 import type { Db } from "@/db/client";
 import { withTenantOn } from "@/db/tenant";
 import { buildEntriesCsv } from "@/lib/admin/entries";
-import { diffDays, formatPlainDate, todayInTokyo } from "@/lib/date";
-import { fiscalYearForTournament } from "@/lib/membership";
+import { diffDays, fiscalYear, formatPlainDate, todayInTokyo } from "@/lib/date";
 import { tournamentEntryState } from "@/lib/deadline";
 import { findAssociationById, listAllAssociations } from "@/lib/repo/associations";
 import { listTournamentCategories } from "@/lib/repo/tournament-categories";
@@ -45,11 +44,10 @@ export async function backupClosedTournamentEntries(
         if (tournamentEntryState(tournament, categories, now) !== "closed") continue;
         // 開催日の翌日まで。開催日が未定の大会は締切を過ぎたあともしばらく作り続ける（日数は同じ規則で数える）
         if (tournament.eventDate && diffDays(tournament.eventDate, today) > 1) continue;
-        // 協会員区分は大会の開催日の年度で判定する（§5.12「表示」）
-        const year = fiscalYearForTournament(tournament.eventDate, startMonth, now);
+        const year = fiscalYear(tournament.eventDate ?? today, startMonth);
         // 1 つの大会で失敗しても、ほかの大会のバックアップは作る（消された直後などはここで飛ばす）
         try {
-          const csv = await buildEntriesCsv(tx, association.id, tournament.id, year, { includeBirthDate: false, now });
+          const csv = await buildEntriesCsv(tx, association.id, tournament.id, year, { includeBirthDate: false });
           if (csv.rowCount === 0) continue; // 申込のない大会は作らない
           found.push({ tournamentId: tournament.id, body: csv.body, rowCount: csv.rowCount });
         } catch {

@@ -104,7 +104,7 @@ export default async function AdminEntriesPage({ params }: Props) {
                   <li key={player.position} className="text-sm">
                     {player.position}. {player.name}
                     <span className="ml-2 text-muted">
-                      {[player.age !== null ? `${player.age}歳` : "", SEX_LABEL[player.sex], player.membershipLabel ?? ""]
+                      {[player.age !== null ? `${player.age}歳` : "", SEX_LABEL[player.sex], player.membership]
                         .filter(Boolean)
                         .join("・")}
                     </span>

@@ -3,10 +3,10 @@ import type { MemberSex, RefereeGrade } from "@/db/schema";
 import { withTenantOn } from "@/db/tenant";
 import { ageAt } from "@/lib/age";
 import { can, type Principal } from "@/lib/authz";
-import { parsePlainDate, type PlainDate, todayInTokyo } from "@/lib/date";
+import { fiscalYear, parsePlainDate, type PlainDate, todayInTokyo } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
 import { matchKeysOf, resolveMember } from "@/lib/matching";
-import { currentFiscalYear, membershipDisplays, membershipDisplayText } from "@/lib/membership";
+import { membershipDisplayLabel, membershipDisplays } from "@/lib/membership";
 import { findAssociationById } from "@/lib/repo/associations";
 import { updateMemberPerson, updateMemberReferee } from "@/lib/repo/members";
 import { listTeamInvitations } from "@/lib/repo/team-invitations";
@@ -29,6 +29,7 @@ import { parsePlayerInput, type PlayerInput } from "./player-input";
 // 見せる範囲は §3.2: 選手にはほかの人の生年月日・年齢・性別を返さない（本人の分は返す）
 
 // 外してから元に戻せる時間（§5.11・30 分【仮】）
+
 export const UNDO_LEAVE_WINDOW_MS = 30 * 60 * 1000;
 
 export type Personal = { birthDate: string; age: number; sex: MemberSex };
@@ -57,14 +58,16 @@ export type RosterItem = {
   referee: Referee;
   // 代表者以上にだけ入る
   account: AccountState | null;
-  // 今年度の協会員の状態の文言（§5.12「表示」）。代表者以上と本人だけ。データのない年度は null
-  membershipLabel: string | null;
+  // 今年度の協会員区分の言い方（§5.12「表示」・§4.4）。代表者以上と本人にだけ入る。受付も取り込みもない年度は null
+  membership: string | null;
 };
 
 export type Roster = {
   team: Pick<Team, "id" | "name" | "kind" | "status">;
   // 代表者以上（追加・修正・外すができる）
   canManage: boolean;
+  // 「今年度」の年度（協会の年度開始月で、今日の年度）
+  membershipYear: number;
   items: RosterItem[];
   // 見ている人が 30 分以内に外した行（「外しました［元に戻す］」）
   recentlyLeft: { teamMemberId: string; name: string; leftAt: string }[];
@@ -87,7 +90,7 @@ export async function getRoster(
   teamId: string,
   now: Date = new Date(),
 ): Promise<Roster> {
-  // 年度の開始月は協会ごと（associations はテナントに属さないので withTenant の外で読む・§5.14）
+  // 「今年度」は協会の年度開始月で決める（§5.12）。associations はテナントに属さないので withTenant の外で読む（§5.14）
   const startMonth = (await findAssociationById(db, associationId))?.fiscalYearStartMonth ?? 4;
   return withTenantOn(
     db,
@@ -98,13 +101,12 @@ export async function getRoster(
       const today = todayInTokyo(now);
       const rows = await listActiveRoster(tx, associationId, teamId);
       const invitations = canManage ? await listTeamInvitations(tx, associationId, teamId, ["pending", "expired"]) : [];
-      // 今年度の協会員の状態（§5.12「表示」）。協会員かどうかは §3.2 viewMembershipStatus の範囲でだけ出す
-      const year = currentFiscalYear(startMonth, now);
+      const membershipYear = fiscalYear(today, startMonth);
       const displays = await membershipDisplays(
         tx,
         associationId,
-        rows.map((row) => row.memberId),
-        year,
+        rows.map((r) => r.memberId),
+        membershipYear,
         now,
       );
       const items = rows.map((row): RosterItem => {
@@ -119,8 +121,9 @@ export async function getRoster(
           isSelf,
           personal: showPersonal ? personalOf(row, today) : null,
           referee: { grade: row.refereeGrade, no: showPersonal ? row.refereeNo : null },
-          membershipLabel: can(role, "viewMembershipStatus", { self: isSelf })
-            ? membershipDisplayText(displays.get(row.memberId) ?? "no_data", year)
+          // 協会員かどうかは代表者以上と本人にだけ（§3.2 viewMembershipStatus）。受付も取り込みもない年度は出さない
+          membership: can(role, "viewMembershipStatus", { self: isSelf })
+            ? membershipDisplayLabel(displays.get(row.memberId) ?? "no_data", membershipYear)
             : null,
           account: canManage
             ? {
@@ -142,7 +145,7 @@ export async function getRoster(
             (row) => ({ teamMemberId: row.teamMemberId, name: row.name, leftAt: (row.leftAt as Date).toISOString() }),
           )
         : [];
-      return { team: { id: team.id, name: team.name, kind: team.kind, status: team.status }, canManage, items, recentlyLeft };
+      return { team: { id: team.id, name: team.name, kind: team.kind, status: team.status }, canManage, membershipYear, items, recentlyLeft };
     },
     { userId: principal.userId },
   );

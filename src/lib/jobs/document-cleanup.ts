@@ -1,45 +1,54 @@
 import type { Db } from "@/db/client";
 import { withTenantOn } from "@/db/tenant";
-import { DOCUMENT_PREFIX } from "@/lib/documents/keys";
+import { PUBLIC_DOCUMENT_PREFIX, syncTournamentDocuments } from "@/lib/documents/publish";
 import { listAllAssociations } from "@/lib/repo/associations";
-import { listLivePublicKeys, listStorageKeys } from "@/lib/repo/tournament-documents";
+import { listDocumentIds, listPublicKeys } from "@/lib/repo/tournament-documents";
+import { listTournamentIds } from "@/lib/repo/tournaments";
 import type { StorageAdapter } from "@/lib/storage/types";
 
-// 日次ジョブ ⑥「R2 の後始末」（設計書 §6.5.1・§5.9）。大会を完全に削除したあとなど、
-// **DB のどの行からも指されていないファイル**（迷子のファイル）を保存先から消す。
-//   公開用 … public_key に入っていないもの
-//   保管用 … storage_key に入っていないもの（行が丸ごと消えたもの。論理削除済みの行は残すので消さない）
-//
-// 順番が大事: **先に保存先の一覧を取り、あとで DB を読む**。逆にすると、
-// DB を読んだ直後に置かれたファイルを「迷子」と判定して消してしまう
+// 日次ジョブ ⑥ 大会資料の後始末（設計書 §5.9・§6.5.1）。app_job で動かす
+// 1. 公開の整合: 公開すべきなのに公開用にない・公開すべきでないのに公開用にある資料を直す（途中で失敗した操作の取り残し）
+// 2. 保管用の消し忘れ: 行が物理削除された（大会ごと消えたときを含む）のに残っているファイルを消す
+// 3. 公開用の消し忘れ: どの行からも指されていないファイルを消す（置いたあとに行の更新が戻った分など）
+// 夜間に動く前提。置いている最中の資料と重なると消してしまうことがあるが、次に公開の整合が直す
 
-export type DocumentCleanupResult = { publicRemoved: number; privateRemoved: number };
+export type DocumentCleanupResult = {
+  published: number;
+  withdrawn: number;
+  missing: number;
+  removedPrivate: number;
+  removedPublic: number;
+};
 
-export async function cleanUpDocumentFiles(db: Db, storage: StorageAdapter): Promise<DocumentCleanupResult> {
-  const prefix = `${DOCUMENT_PREFIX}/`;
-  const publicKeys = await storage.list("public", prefix);
-  const privateKeys = await storage.list("private", prefix);
+const PRIVATE_PREFIX = "documents/";
 
-  // 公開用のバケットは協会をまたいで 1 つなので、すべての協会の分を集めてから比べる
-  const livePublic = new Set<string>();
-  const livePrivate = new Set<string>();
+export async function cleanupDocuments(db: Db, storage: StorageAdapter): Promise<DocumentCleanupResult> {
+  const result: DocumentCleanupResult = { published: 0, withdrawn: 0, missing: 0, removedPrivate: 0, removedPublic: 0 };
+  const referencedPublicKeys = new Set<string>();
+
   for (const association of await listAllAssociations(db)) {
     await withTenantOn(db, association.id, async (tx) => {
-      for (const key of await listLivePublicKeys(tx, association.id)) livePublic.add(key);
-      for (const key of await listStorageKeys(tx, association.id)) livePrivate.add(key);
+      for (const tournamentId of await listTournamentIds(tx, association.id)) {
+        const synced = await syncTournamentDocuments(tx, storage, association.id, tournamentId);
+        result.published += synced.published;
+        result.withdrawn += synced.withdrawn;
+        result.missing += synced.missing;
+      }
+      const ids = new Set(await listDocumentIds(tx, association.id));
+      for (const key of await storage.list("private", `${PRIVATE_PREFIX}${association.id}/`)) {
+        const id = key.split("/").pop()?.replace(/\.pdf$/, "") ?? "";
+        if (ids.has(id)) continue;
+        await storage.remove("private", key);
+        result.removedPrivate += 1;
+      }
+      for (const key of await listPublicKeys(tx, association.id)) referencedPublicKeys.add(key);
     });
   }
 
-  const result: DocumentCleanupResult = { publicRemoved: 0, privateRemoved: 0 };
-  for (const key of publicKeys) {
-    if (livePublic.has(key)) continue;
+  for (const key of await storage.list("public", PUBLIC_DOCUMENT_PREFIX)) {
+    if (referencedPublicKeys.has(key)) continue;
     await storage.remove("public", key);
-    result.publicRemoved += 1;
-  }
-  for (const key of privateKeys) {
-    if (livePrivate.has(key)) continue;
-    await storage.remove("private", key);
-    result.privateRemoved += 1;
+    result.removedPublic += 1;
   }
   return result;
 }

@@ -9,7 +9,7 @@ import { withTenant } from "@/db/tenant";
 import { can } from "@/lib/authz";
 import { parsePlainDate } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
-import { loadRenewalNotices, renewalNoticeText } from "@/lib/memberships/renewal-notice";
+import { getTeamRenewalNotice, renewalHref, renewalNoticeText } from "@/lib/memberships/renewal-notice";
 import { requireAssociation } from "@/lib/page/require-association";
 import { requireTeam } from "@/lib/page/require-team";
 import { pageErrorFrom } from "@/lib/page/team-errors";
@@ -41,7 +41,14 @@ export default async function TeamPage({ params, searchParams }: Props) {
   const canEdit = can(role, "editTeam");
   // 年度更新の案内（協会員の登録をするチームの代表者だけ・受付期間中だけ・§5.12）
   const now = new Date();
-  const notice = canEdit ? (await loadRenewalNotices(principal, association.id, now)).find((row) => row.teamId === team.id) : undefined;
+  const notice = canEdit ? await getTeamRenewalNotice(getDb(), association.id, team, now) : null;
+  const renewalBanner = notice ? (
+    <Message kind={notice.declared ? "success" : "info"} title={renewalNoticeText(notice, now)}>
+      <Link href={renewalHref(association.slug, team.id)} className="bb-link font-semibold text-primary">
+        {notice.declared ? `${notice.year}年度の申告を見直す` : `${notice.year}年度も登録する人を選ぶ`}
+      </Link>
+    </Message>
+  ) : null;
 
   if (team.kind === "individual") {
     const roster = await getRoster(getDb(), { ...principal, userId: principal.userId as string }, association.id, teamId).catch(pageErrorFrom);
@@ -51,6 +58,7 @@ export default async function TeamPage({ params, searchParams }: Props) {
       <PageMain>
         {created === "1" ? <Message kind="success" title="個人で登録しました" /> : null}
         {updated === "1" ? <Message kind="success" title="登録情報を保存しました" /> : null}
+        {renewalBanner}
         <PageHeader title="あなたの登録情報" />
         {me ? (
           <Card className="flex flex-col gap-1">
@@ -97,13 +105,7 @@ export default async function TeamPage({ params, searchParams }: Props) {
         }
       />
 
-      {notice ? (
-        <Message kind={notice.declared ? "success" : "info"} title={renewalNoticeText(notice, now)}>
-          <Link href={`/${association.slug}/teams/${team.id}/membership`} className="bb-link font-semibold text-primary">
-            {notice.declared ? `${notice.year}年度の申告を見直す` : `${notice.year}年度も登録する人を選ぶ`}
-          </Link>
-        </Message>
-      ) : null}
+      {renewalBanner}
 
       <Section id="team-info" title="チーム情報">
         <DescriptionList>

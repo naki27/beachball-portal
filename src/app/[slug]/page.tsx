@@ -7,10 +7,11 @@ import { PageHeader, PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { entryTodos, listMyEntries } from "@/lib/entries/my-entries";
-import { loadRenewalNotices, renewalNoticeText } from "@/lib/memberships/renewal-notice";
+import { listRenewalNotices, renewalTodos } from "@/lib/memberships/renewal-notice";
 import { loadAdminTeams, loadIndividualRegistration } from "@/lib/page/my-associations";
 import { requireAssociation } from "@/lib/page/require-association";
-import { listRecentDocumentsForPublic, listTournamentsForPublic } from "@/lib/public/tournaments";
+import { listRecentDocumentsForPublic } from "@/lib/public/documents";
+import { listTournamentsForPublic } from "@/lib/public/tournaments";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -28,26 +29,21 @@ export default async function AssociationTop({ params }: Props) {
   // ログイン中の人のやること（自分が代表を務めるチーム・個人登録について・§5.17）
   let todos: TodoItem[] = [];
   if (principal.userId) {
-    const [entries, adminTeams, individual] = await Promise.all([
+    const [entries, adminTeams, individual, renewal] = await Promise.all([
       listMyEntries(getDb(), principal, association.id),
       loadAdminTeams(principal, association.id),
       loadIndividualRegistration(principal, association.id),
+      listRenewalNotices(getDb(), principal, association.id, now),
     ]);
-    todos = entryTodos(
-      association.slug,
-      tournaments.open.map((t) => ({ id: t.id, name: t.name })),
-      entries.managed,
-      adminTeams.length > 0 || individual !== null,
-    );
-    // 年度更新の案内（対象のチームの代表者だけ・受付期間中だけ・§5.12）
-    const notices = await loadRenewalNotices(principal, association.id, now);
+    // 年度更新の案内（対象のチームの代表者だけ・受付期間中だけ・§5.12）→ 申込の分
     todos = [
-      ...notices.map((notice) => ({
-        key: `renewal-${notice.year}-${notice.teamId}`,
-        text: `${notice.teamName}: ${renewalNoticeText(notice, now)}`,
-        href: `/${association.slug}/teams/${notice.teamId}/membership`,
-      })),
-      ...todos,
+      ...renewalTodos(association.slug, renewal, now),
+      ...entryTodos(
+        association.slug,
+        tournaments.open.map((t) => ({ id: t.id, name: t.name })),
+        entries.managed,
+        adminTeams.length > 0 || individual !== null,
+      ),
     ];
   }
 

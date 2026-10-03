@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DocumentList } from "@/components/tournaments/document-list";
+import { DocumentLink } from "@/components/tournaments/document-link";
 import { buttonClass } from "@/components/ui/button";
 import { Badge, Card, DescriptionList, DescriptionRow, EmptyState, PageHeader, PageMain, Section } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { formatDateWithWeekday } from "@/lib/date";
+import { formatBytes } from "@/lib/documents/document-input";
 import { requireAssociation } from "@/lib/page/require-association";
 import { pageErrorFrom } from "@/lib/page/team-errors";
-import { getTournamentForPublic, listDocumentsForPublic } from "@/lib/public/tournaments";
+import { getTournamentForPublic } from "@/lib/public/tournaments";
 import { ageReferenceText } from "@/lib/tournaments/category-text";
 import { type DeadlineTone, deadlineText, deadlineTone } from "@/lib/tournaments/deadline-text";
 
@@ -34,7 +35,6 @@ export default async function TournamentPage({ params }: Props) {
   const now = new Date();
   const tournament = await getTournamentForPublic(getDb(), association.id, tournamentId, now).catch(pageErrorFrom);
   // 公開されている資料（§5.9）。押すとアプリの URL 経由で公開用の URL へ転送される
-  const documents = await listDocumentsForPublic(getDb(), association.id, tournament.id);
   const principal = await getPrincipal();
   const mixedDeadlines = tournament.categories.some((c) => c.overridesDeadline);
   const entryHref = `/${association.slug}/tournaments/${tournament.id}/entry`;
@@ -118,12 +118,22 @@ export default async function TournamentPage({ params }: Props) {
             )}
           </Section>
 
-          <DocumentList
-            documents={documents.map((document) => ({
-              ...document,
-              href: `/${association.slug}/tournaments/${tournament.id}/documents/${document.id}`,
-            }))}
-          />
+          {/* 大会資料（§5.9）。公開中の PDF だけ。リンク先はアプリの URL（期限なし・共有してよい）で、公開用のファイルへ転送する */}
+          {tournament.documents.length > 0 ? (
+            <Section id="documents" title="大会資料">
+              <ul className="flex flex-col gap-2">
+                {tournament.documents.map((document) => (
+                  <li key={document.id}>
+                    <DocumentLink
+                      href={`/${association.slug}/tournaments/${tournament.id}/documents/${document.id}`}
+                      title={document.title}
+                      meta={`${document.docType}・PDF ${formatBytes(document.sizeBytes)}・新しいタブで開きます`}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          ) : null}
         </div>
       </div>
     </PageMain>

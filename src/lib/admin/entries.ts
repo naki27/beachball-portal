@@ -1,6 +1,6 @@
 import type { Db } from "@/db/client";
 import { type Tx, withTenantOn } from "@/db/tenant";
-import { formatDateTimeTokyo, todayInTokyo } from "@/lib/date";
+import { formatDateTimeTokyo, fiscalYear, todayInTokyo } from "@/lib/date";
 import { toCsv } from "@/lib/export/csv";
 import { isUuid } from "@/lib/ids";
 import type { Principal } from "@/lib/authz";
@@ -15,7 +15,8 @@ import {
   softDeleteEntry,
 } from "@/lib/repo/entries";
 import { insertExportLog } from "@/lib/repo/export-logs";
-import { fiscalYearForTournament, membershipCsvText, membershipDisplays, membershipDisplayText } from "@/lib/membership";
+import { membershipDisplayLabel, membershipDisplays } from "@/lib/membership";
+import { findMembershipPeriod, hasImportedMemberships } from "@/lib/repo/memberships";
 import { findTournament, type Tournament } from "@/lib/repo/tournaments";
 import { TeamError } from "@/lib/teams/errors";
 import { SEX_LABEL } from "@/lib/teams/player-input";
@@ -32,8 +33,7 @@ export type AdminEntryPlayerView = {
   age: number | null;
   sex: "male" | "female";
   birthDate: string | null;
-  membership: string; // CSV の協会員区分（データのない年度は空欄・§5.12）
-  membershipLabel: string | null; // 画面の文言（§4.4）。データのない年度は出さない
+  membership: string; // 協会員区分（その年度のデータがなければ空欄）
 };
 
 export type AdminEntryView = AdminEntryRow & { players: AdminEntryPlayerView[] };
@@ -47,6 +47,7 @@ export type AdminEntriesView = {
   hasMembershipData: boolean;
 };
 
+// 協会員区分（§5.12・§4.4）。判定と言い方は src/lib/membership.ts（開催日の年度で判定。受付も取り込みもない年度は空欄）
 async function readEntries(
   tx: Tx,
   associationId: string,
@@ -63,9 +64,14 @@ async function readEntries(
     listEntryPlayersForTournament(tx, associationId, tournamentId),
   ]);
   const memberIds = playerRows.map((player) => player.memberId).filter((id): id is string => id !== null);
-  // 協会員区分は membership.ts の対応表を通す（「更新の受付中（昨年度は協会員）」を含む・§5.12「表示」）
-  const displays = await membershipDisplays(tx, associationId, memberIds, year, now);
-  const hasMembershipData = [...displays.values()].some((display) => display !== "no_data");
+  // その年度の受付か取り込みがあるときだけ区分を出す（§5.12 v0.9.2）。人物に結びついていない選手は「協会員ではない」
+  const hasMembershipData = (await findMembershipPeriod(tx, associationId, year)) !== null || (await hasImportedMemberships(tx, associationId, year));
+  const displays = hasMembershipData ? await membershipDisplays(tx, associationId, memberIds, year, now) : new Map<string, never>();
+  const membershipTextOf = (memberId: string | null): string => {
+    if (!hasMembershipData) return "";
+    const display = memberId ? (displays.get(memberId) ?? "not_member") : "not_member";
+    return membershipDisplayLabel(display, year) ?? "";
+  };
 
   const byEntry = new Map<string, AdminEntryPlayerView[]>();
   for (const player of playerRows) {
@@ -77,9 +83,7 @@ async function readEntries(
       age: player.ageAtEvent,
       sex: player.sex,
       birthDate: player.birthDate,
-      // 人物に結びついていない選手（手入力のまま）は区分を出せないので空欄
-      membership: player.memberId ? membershipCsvText(displays.get(player.memberId) ?? "no_data") : "",
-      membershipLabel: player.memberId ? membershipDisplayText(displays.get(player.memberId) ?? "no_data", year) : null,
+      membership: membershipTextOf(player.memberId),
     });
     byEntry.set(player.entryId, list);
   }
@@ -107,8 +111,7 @@ export async function getAdminEntries(
       if (!isUuid(tournamentId)) throw new TeamError(404, "大会が見つかりません");
       const tournament = await findTournament(tx, associationId, tournamentId);
       if (!tournament) throw new TeamError(404, "大会が見つかりません");
-      // 協会員区分は**大会の開催日が属する年度**で判定する（§5.12「表示」）
-      const year = fiscalYearForTournament(tournament.eventDate, startMonth, now);
+      const year = fiscalYear(tournament.eventDate ?? todayInTokyo(now), startMonth);
       const { rows, hasMembershipData } = await readEntries(tx, associationId, tournamentId, year, now);
 
       const counts = new Map<string, { categoryId: string; label: string; count: number }>();
@@ -161,9 +164,11 @@ export async function buildEntriesCsv(
   associationId: string,
   tournamentId: string,
   year: number,
-  options: { includeBirthDate: boolean; now?: Date },
+  options: { includeBirthDate: boolean },
+  // 協会員区分の「更新の受付中」の判定に使う（日次ジョブのバックアップは実行時刻でよい）
+  now: Date = new Date(),
 ): Promise<{ body: string; rowCount: number }> {
-  const { rows } = await readEntries(tx, associationId, tournamentId, year, options.now ?? new Date());
+  const { rows } = await readEntries(tx, associationId, tournamentId, year, now);
   const header = options.includeBirthDate ? [...BASE_COLUMNS, "生年月日"] : [...BASE_COLUMNS];
   const lines: (string | number | null)[][] = [header];
   for (const entry of rows) {
@@ -224,8 +229,8 @@ export async function exportEntriesCsv(
       if (!isUuid(tournamentId)) throw new TeamError(404, "大会が見つかりません");
       const tournament = await findTournament(tx, associationId, tournamentId);
       if (!tournament) throw new TeamError(404, "大会が見つかりません");
-      const year = fiscalYearForTournament(tournament.eventDate, startMonth, now);
-      const { body, rowCount } = await buildEntriesCsv(tx, associationId, tournamentId, year, { ...options, now });
+      const year = fiscalYear(tournament.eventDate ?? todayInTokyo(now), startMonth);
+      const { body, rowCount } = await buildEntriesCsv(tx, associationId, tournamentId, year, options, now);
 
       await insertExportLog(tx, associationId, {
         userId: principal.userId,

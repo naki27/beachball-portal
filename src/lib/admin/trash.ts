@@ -14,6 +14,7 @@ import {
   teamMembers,
   teams,
   tournamentCategories,
+  tournamentDocuments,
   tournaments,
   users,
 } from "@/db/schema";
@@ -21,12 +22,12 @@ import { type Tx, withTenantOn } from "@/db/tenant";
 import type { Principal } from "@/lib/authz";
 import { subjectLabel } from "@/lib/contact-subjects";
 import { formatDateWithWeekday, todayInTokyo } from "@/lib/date";
+import { formatBytes } from "@/lib/documents/document-input";
+import { removeDocumentFiles, syncTournamentDocuments } from "@/lib/documents/publish";
 import { isUuid } from "@/lib/ids";
-import { syncTournamentDocuments } from "@/lib/documents/publish";
-import { listKeysForTournament } from "@/lib/repo/tournament-documents";
 import { countEntriesForTeam } from "@/lib/repo/entries";
-import { getStorage } from "@/lib/storage";
-import type { StorageAdapter } from "@/lib/storage/types";
+import { deleteDocumentRow, findDocument, listDocuments } from "@/lib/repo/tournament-documents";
+import { getStorage, type StorageAdapter } from "@/lib/storage";
 import { TeamError } from "@/lib/teams/errors";
 import { authorizeAssociationAdmin } from "./access";
 import { DELETED_NAME, PURGE_REASON_LABEL, type PurgeReasonKind } from "./purge-reasons";
@@ -45,6 +46,7 @@ export const TRASH_TABLE_KEYS = [
   "members",
   "tournaments",
   "tournament_categories",
+  "tournament_documents",
   "entries",
   "contact_messages",
 ] as const;
@@ -78,9 +80,9 @@ type TrashDefinition = {
   list: (tx: Tx, associationId: string) => Promise<TrashItem[]>;
   // 件数
   countDeleted: (tx: Tx, associationId: string) => Promise<number>;
-  // 復元。できなければ TeamError。storage は大会資料を公開用に戻すために渡す（§5.9）
+  // 復元。できなければ TeamError。storage は大会資料の公開用を置き直すため（大会・資料だけが使う）
   restore: (tx: Tx, associationId: string, id: string, storage: StorageAdapter) => Promise<void>;
-  // 物理削除。一緒に消えた件数を返す。storage は大会資料のファイルを消すために渡す（消し損ねは日次ジョブ ⑥ が拾う・§5.16）
+  // 物理削除。一緒に消えた件数を返す。storage は大会資料のファイルを消すため（大会・資料だけが使う）
   purge: (tx: Tx, associationId: string, id: string, now: Date, reasonKind: PurgeReasonKind, storage: StorageAdapter) => Promise<number>;
 };
 
@@ -467,10 +469,10 @@ const tournamentsDefinition: TrashDefinition = {
       .update(tournaments)
       .set({ deletedAt: null, deletedBy: null, updatedAt: new Date() })
       .where(and(eq(tournaments.associationId, associationId), eq(tournaments.id, id), isNotNull(tournaments.deletedAt)))
-      .returning({ id: tournaments.id, status: tournaments.status });
+      .returning({ id: tournaments.id });
     if (rows.length === 0) throw new TeamError(404, "大会が見つかりません");
-    // 削除したときに公開用から下ろした資料を、元の状態に戻す（§5.9）
-    await syncTournamentDocuments(tx, storage, associationId, rows[0]);
+    // 公開中の大会なら、資料を公開用に置き直す（§5.9）
+    await syncTournamentDocuments(tx, storage, associationId, id);
   },
   purge: async (tx, associationId, id, _now, _reasonKind, storage) => {
     const [row] = await tx
@@ -492,16 +494,81 @@ const tournamentsDefinition: TrashDefinition = {
         .where(and(eq(tournamentCategories.associationId, associationId), eq(tournamentCategories.tournamentId, id))),
       tx.select({ n: count() }).from(entries).where(and(eq(entries.associationId, associationId), eq(entries.tournamentId, id))),
     ]);
+    // 大会資料のファイルは行が cascade で消える前に、保管用・公開用の両方から消す（§5.9・§5.16）
+    const documents = await listDocuments(tx, associationId, id, { includeDeleted: true });
+    for (const document of documents) await removeDocumentFiles(tx, storage, associationId, document);
     // 問い合わせは残し、大会・申込との紐づけだけ外す（§5.16 の表）
     await detachContacts(tx, associationId, entryIds, id);
-    // 資料のファイルもここで消す。消し損ねても DB から指されなくなるので、日次ジョブ ⑥ が拾う（§5.16）
-    const keys = await listKeysForTournament(tx, associationId, id);
     await tx.delete(tournaments).where(and(eq(tournaments.associationId, associationId), eq(tournaments.id, id)));
-    for (const key of keys) {
-      await storage.remove("private", key.storageKey).catch(() => undefined);
-      if (key.publicKey) await storage.remove("public", key.publicKey).catch(() => undefined);
-    }
-    return cascaded;
+    return cascaded + documents.length;
+  },
+};
+
+const tournamentDocumentsDefinition: TrashDefinition = {
+  key: "tournament_documents",
+  label: "大会資料",
+  countDeleted: async (tx, associationId) => {
+    const [row] = await tx
+      .select({ n: count() })
+      .from(tournamentDocuments)
+      .where(and(eq(tournamentDocuments.associationId, associationId), isNotNull(tournamentDocuments.deletedAt)));
+    return row?.n ?? 0;
+  },
+  list: async (tx, associationId) => {
+    const rows = await tx
+      .select({
+        id: tournamentDocuments.id,
+        title: tournamentDocuments.title,
+        docType: tournamentDocuments.docType,
+        sizeBytes: tournamentDocuments.sizeBytes,
+        tournamentName: tournaments.name,
+        tournamentDeletedAt: tournaments.deletedAt,
+        deletedAt: tournamentDocuments.deletedAt,
+        deletedByName: users.displayName,
+        deletedByEmail: users.email,
+      })
+      .from(tournamentDocuments)
+      .innerJoin(tournaments, and(eq(tournaments.associationId, associationId), eq(tournaments.id, tournamentDocuments.tournamentId)))
+      .leftJoin(users, eq(users.id, tournamentDocuments.deletedBy))
+      .where(and(eq(tournamentDocuments.associationId, associationId), isNotNull(tournamentDocuments.deletedAt)))
+      .orderBy(desc(tournamentDocuments.deletedAt));
+    return rows.map((row) => ({
+      id: row.id,
+      title: `${row.title}（${row.tournamentName}）`,
+      detail: `${row.docType}・PDF ${formatBytes(row.sizeBytes)}`,
+      deletedAt: row.deletedAt as Date,
+      deletedByName: deletedByName(row),
+      restoreBlockedBy: row.tournamentDeletedAt ? "大会が削除されています。先に大会を復元してください" : null,
+      cascade: "PDF のファイルも消えます（元に戻せません）",
+    }));
+  },
+  restore: async (tx, associationId, id, storage) => {
+    const [row] = await tx
+      .select({ tournamentId: tournamentDocuments.tournamentId, tournamentDeletedAt: tournaments.deletedAt })
+      .from(tournamentDocuments)
+      .innerJoin(tournaments, and(eq(tournaments.associationId, associationId), eq(tournaments.id, tournamentDocuments.tournamentId)))
+      .where(and(eq(tournamentDocuments.associationId, associationId), eq(tournamentDocuments.id, id), isNotNull(tournamentDocuments.deletedAt)))
+      .limit(1);
+    if (!row) throw new TeamError(404, "資料が見つかりません");
+    if (row.tournamentDeletedAt) throw new TeamError(409, "大会が削除されています。先に大会を復元してください");
+    await tx
+      .update(tournamentDocuments)
+      .set({ deletedAt: null, deletedBy: null })
+      .where(and(eq(tournamentDocuments.associationId, associationId), eq(tournamentDocuments.id, id)));
+    // 「公開」の資料なら公開用に置き直す（§5.9）
+    await syncTournamentDocuments(tx, storage, associationId, row.tournamentId);
+  },
+  purge: async (tx, associationId, id, _now, _reasonKind, storage) => {
+    const [row] = await tx
+      .select({ tournamentId: tournamentDocuments.tournamentId, deletedAt: tournamentDocuments.deletedAt })
+      .from(tournamentDocuments)
+      .where(and(eq(tournamentDocuments.associationId, associationId), eq(tournamentDocuments.id, id)))
+      .limit(1);
+    await requireDeleted(row, "資料");
+    const document = await findDocument(tx, associationId, row.tournamentId, id, { includeDeleted: true });
+    if (document) await removeDocumentFiles(tx, storage, associationId, document);
+    await deleteDocumentRow(tx, associationId, id);
+    return 0;
   },
 };
 
@@ -682,6 +749,7 @@ export const TRASH_TABLES: Record<TrashTable, TrashDefinition> = {
   members: membersDefinition,
   tournaments: tournamentsDefinition,
   tournament_categories: tournamentCategoriesDefinition,
+  tournament_documents: tournamentDocumentsDefinition,
   entries: entriesDefinition,
   contact_messages: contactMessagesDefinition,
 };
@@ -741,9 +809,10 @@ export async function restoreFromTrash(
   associationId: string,
   table: TrashTable,
   id: string,
-  storage: StorageAdapter = getStorage(),
+  options: { storage?: StorageAdapter } = {},
 ): Promise<void> {
   assertId(id);
+  const storage = options.storage ?? getStorage();
   return withTenantOn(
     db,
     associationId,
@@ -768,9 +837,10 @@ export async function purgeFromTrash(
   // 人物を消すときの申込の記録の扱いが変わる（§5.16）。選ばれていなければ「その他」（氏名も消す側）
   reasonKind: PurgeReasonKind = "other",
   now: Date = new Date(),
-  storage: StorageAdapter = getStorage(),
+  options: { storage?: StorageAdapter } = {},
 ): Promise<{ cascadedCount: number }> {
   assertId(id);
+  const storage = options.storage ?? getStorage();
   // 記録は「理由の種類：メモ」。「その他」はメモだけを残す
   const trimmedReason = [reasonKind === "other" ? "" : PURGE_REASON_LABEL[reasonKind], reason.trim()]
     .filter(Boolean)

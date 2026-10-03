@@ -1,6 +1,6 @@
--- 大会資料の RLS とロールの権限（設計書 §5.14「漏れを機構で防ぐ」・docs/adr/0002）
--- 0003・0012 と同じ「enable → force → policy → grant」をそのまま写す
--- app_job は日次ジョブの後始末（公開用バケットに残った迷子のファイルを消す・§6.5.1 ⑥）で読む
+-- 大会資料の表の RLS とロールの権限（設計書 §5.14「漏れを機構で防ぐ」・付録 A。書き方の決まりは docs/adr/0002）
+-- 0003・0012 と同じ「enable → force → policy → grant」の 5 文をそのまま写す
+-- app_job は日次ジョブの後始末（公開用・保管用の消し忘れの掃除、物理削除・C-02）で読み書きする
 
 alter table tournament_documents enable row level security;
 --> statement-breakpoint

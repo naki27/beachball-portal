@@ -1,62 +1,86 @@
-import { getDb } from "@/db/client";
-import { withTenant } from "@/db/tenant";
+import type { TeamKind } from "@/db/schema";
+import type { Db } from "@/db/client";
+import { withTenantOn } from "@/db/tenant";
 import type { Principal } from "@/lib/authz";
-import { currentFiscalYear, renewalState } from "@/lib/membership";
-import { findAssociationById } from "@/lib/repo/associations";
-import { findMembershipPeriod, listDeclaredTeamIds } from "@/lib/repo/memberships";
+import { findOpenMembershipPeriod, isRenewalTarget, listDeclaredTeamIds, type MembershipPeriod } from "@/lib/repo/memberships";
 import { listTeamsAdminedBy } from "@/lib/repo/teams";
 import { deadlineText } from "@/lib/tournaments/deadline-text";
+import { fiscalYearLabel } from "./period-input";
 
-// 年度更新の案内（設計書 §5.12「受付開始」・§5.17「あなたのやること」・D-02）
-// **協会員の登録をするチーム（teams.membership_renewal_target）の代表者にだけ**出す。
-// 大会ごとに作る寄せ集めのチームには出さない。受付期間中（開始後・締切前）だけ出す
+// 年度更新の案内（設計書 §5.12「受付開始」・§5.17「あなたのやること」）
+// 受付中（開始 ≦ now ≦ 締切）の年度があるとき、**対象のチーム**（協会員の登録をするチーム・個人登録）の代表者にだけ出す
+// 対象でないチームには出さない（大会ごとに作る寄せ集めチームにまで届かないように）
 
 export type RenewalNotice = {
-  year: number;
   teamId: string;
   teamName: string;
-  // その年度の申告を送ったか（membership_declarations に行があるか）
-  declared: boolean;
+  kind: TeamKind;
+  year: number;
   closesAt: Date;
+  // その年度の申告を送ったか（締切までは直せる）
+  declared: boolean;
 };
 
-// その協会で、自分が代表者を務める対象のチームの案内。受付がなければ空
-export async function loadRenewalNotices(
-  principal: Principal,
-  associationId: string,
-  now: Date = new Date(),
-): Promise<RenewalNotice[]> {
+// トップの「あなたのやること」用。自分が代表を務める対象チームと個人登録の分
+export async function listRenewalNotices(db: Db, principal: Principal, associationId: string, now: Date = new Date()): Promise<RenewalNotice[]> {
   if (!principal.userId) return [];
   const userId = principal.userId;
-  // associations はテナントに属さない表なので withTenant の外で読む（§5.14）
-  const startMonth = (await findAssociationById(getDb(), associationId))?.fiscalYearStartMonth ?? 4;
-  const year = currentFiscalYear(startMonth, now);
-
-  return withTenant(
+  return withTenantOn(
+    db,
     associationId,
     async (tx) => {
-      const period = await findMembershipPeriod(tx, associationId, year);
-      // 受付の開始前・締切後は案内を出さない（締切後の追加の申告の案内は D-04）
-      if (renewalState(period, now) !== "open" || !period) return [];
-      const teams = (await listTeamsAdminedBy(tx, associationId, userId)).filter(
-        (team) => team.membershipRenewalTarget && team.status === "active",
-      );
+      const period = await findOpenMembershipPeriod(tx, associationId, now);
+      if (!period) return [];
+      const teams = (await listTeamsAdminedBy(tx, associationId, userId)).filter(isRenewalTarget);
       if (teams.length === 0) return [];
-      const declared = await listDeclaredTeamIds(tx, associationId, year);
+      const declared = await listDeclaredTeamIds(tx, associationId, period.year);
       return teams.map((team) => ({
-        year,
         teamId: team.id,
         teamName: team.name,
-        declared: declared.has(team.id),
+        kind: team.kind,
+        year: period.year,
         closesAt: period.closesAt,
+        declared: declared.has(team.id),
       }));
     },
     { userId },
   );
 }
 
-// 「2027年度も登録する人を選んでください（6月30日（水）まで　あと5日）」（§4.4）
-export function renewalNoticeText(notice: RenewalNotice, now: Date = new Date()): string {
-  if (notice.declared) return `${notice.year}年度の協会員の申告を送りました`;
-  return `${notice.year}年度も登録する人を選んでください（${deadlineText(notice.closesAt, now)}）`;
+// 文言（§4.4: 「2027年度も登録する人を選んでください（6月30日（水）まで　あと5日）」）
+export function renewalNoticeText(notice: Pick<RenewalNotice, "year" | "closesAt" | "declared">, now: Date): string {
+  const deadline = deadlineText(notice.closesAt, now);
+  return notice.declared
+    ? `${fiscalYearLabel(notice.year)}の協会員の申告を送りました（${deadline}は直せます）`
+    : `${fiscalYearLabel(notice.year)}も登録する人を選んでください（${deadline}）`;
+}
+
+export function renewalHref(slug: string, teamId: string): string {
+  return `/${slug}/teams/${teamId}/membership`;
+}
+
+export type RenewalTodo = { key: string; text: string; href: string };
+
+export function renewalTodos(slug: string, notices: RenewalNotice[], now: Date): RenewalTodo[] {
+  return notices.map((notice) => ({
+    key: `membership-${notice.teamId}`,
+    text: notice.kind === "individual" ? renewalNoticeText(notice, now) : `${notice.teamName}: ${renewalNoticeText(notice, now)}`,
+    href: renewalHref(slug, notice.teamId),
+  }));
+}
+
+// チームのページ用。対象でない・受付中でない・削除済み・無効なら null
+export async function getTeamRenewalNotice(
+  db: Db,
+  associationId: string,
+  team: { id: string; name: string; kind: TeamKind; membershipRenewalTarget: boolean; status: string; deletedAt: Date | null },
+  now: Date = new Date(),
+): Promise<(RenewalNotice & { period: MembershipPeriod }) | null> {
+  if (!isRenewalTarget(team)) return null;
+  return withTenantOn(db, associationId, async (tx) => {
+    const period = await findOpenMembershipPeriod(tx, associationId, now);
+    if (!period) return null;
+    const declared = await listDeclaredTeamIds(tx, associationId, period.year);
+    return { teamId: team.id, teamName: team.name, kind: team.kind, year: period.year, closesAt: period.closesAt, declared: declared.has(team.id), period };
+  });
 }

@@ -1,34 +1,26 @@
-import Link from "next/link";
-import { Badge, Card, Section } from "@/components/ui/layout";
-import { formatFileSize } from "@/lib/documents/document-input";
-import type { RecentDocument } from "@/lib/public/tournaments";
+import { DocumentLink } from "@/components/tournaments/document-link";
+import { formatBytes } from "@/lib/documents/document-input";
+import type { RecentPublicDocument } from "@/lib/public/documents";
 
-// トップページの「新しい資料」（設計書 §5.17「表示」の既定の並び 3 つめ）。誰でも見られる
-// 並びのカスタマイズは P1。ここは既定の表示だけ
-export function RecentDocuments({ slug, documents }: { slug: string; documents: RecentDocument[] }) {
+// 協会のトップの「新しい資料」ブロック（設計書 §5.17 の既定の並び・§5.9）。公開中の資料がなければ枠ごと出さない
+export function RecentDocuments({ slug, documents }: { slug: string; documents: RecentPublicDocument[] }) {
   if (documents.length === 0) return null;
   return (
-    <Section id="recent-documents" title="新しい資料">
-      <ul className="bb-stagger grid gap-3 md:grid-cols-2">
-        {documents.map((document) => (
-          <li key={document.id}>
-            <Link
-              href={`/${slug}/tournaments/${document.tournamentId}/documents/${document.id}`}
-              className="block h-full no-underline"
-            >
-              <Card interactive className="flex h-full flex-col gap-1">
-                <span className="font-semibold break-words">{document.title}</span>
-                <span className="text-sm text-muted">{document.tournamentName}</span>
-                <span className="mt-auto pt-1">
-                  <Badge tone="accent">
-                    {document.docType}・PDF {formatFileSize(document.sizeBytes)}
-                  </Badge>
-                </span>
-              </Card>
-            </Link>
+    <section aria-labelledby="recent-documents" className="flex flex-col gap-3">
+      <h2 id="recent-documents" className="text-lg font-bold">
+        新しい資料
+      </h2>
+      <ul className="flex flex-col gap-2">
+        {documents.map((d) => (
+          <li key={d.id}>
+            <DocumentLink
+              href={`/${slug}/tournaments/${d.tournamentId}/documents/${d.id}`}
+              title={d.title}
+              meta={`${d.tournamentName}・${d.docType}・PDF ${formatBytes(d.sizeBytes)}`}
+            />
           </li>
         ))}
       </ul>
-    </Section>
+    </section>
   );
 }

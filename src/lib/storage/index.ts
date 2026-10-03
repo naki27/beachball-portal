@@ -5,7 +5,8 @@ import type { StorageAdapter, StorageBucket } from "./types";
 // 保存先の選び方（設計書 §6.3）。`STORAGE_DRIVER` が `r2` なら R2、それ以外はローカル
 // 呼ぶ側はこの関数だけを使い、driver の違いを知らない
 
-export const LOCAL_STORAGE_ROOT = process.env.LOCAL_STORAGE_DIR ?? ".local-storage";
+// .env.example は値を空にして置いてあるので、空文字も「未設定」として既定値を使う（?? ではなく ||）
+export const LOCAL_STORAGE_ROOT = process.env.LOCAL_STORAGE_DIR || ".local-storage";
 
 let cached: StorageAdapter | null = null;
 
@@ -16,8 +17,7 @@ function required(name: string): string {
 }
 
 export function createStorage(): StorageAdapter {
-  // 空欄（.env の既定）は「決めていない」として扱う。ローカルは開発時だけのルートを同じオリジンで返す（§5.9・C-02）
-  const publicBaseUrl = process.env.PUBLIC_FILES_BASE_URL || "/dev-files";
+  const publicBaseUrl = process.env.PUBLIC_FILES_BASE_URL || "http://localhost:3000/dev-files";
   if (process.env.STORAGE_DRIVER !== "r2") return createLocalStorage(LOCAL_STORAGE_ROOT, publicBaseUrl);
 
   const bucket = required("R2_BUCKET");

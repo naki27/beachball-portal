@@ -43,8 +43,6 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/teams", methods: ["POST"], guard: { kind: "tenant", action: "createTeam" } },
   { path: "[slug]/teams/[teamId]", methods: ["PATCH"], guard: { kind: "tenant", action: "editTeam" } },
   { path: "[slug]/teams/[teamId]/members", methods: ["GET"], guard: { kind: "tenant", action: "viewOwnTeamRoster" } },
-  // 年度更新の申告（§5.12）。締切後・対象でないチームは 409
-  { path: "[slug]/teams/[teamId]/membership", methods: ["POST"], guard: { kind: "tenant", action: "declareMembership" } },
   { path: "[slug]/teams/[teamId]/members", methods: ["POST"], guard: { kind: "tenant", action: "manageRoster" } },
   { path: "[slug]/teams/[teamId]/members/[teamMemberId]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageRoster" } },
   { path: "[slug]/teams/[teamId]/members/[teamMemberId]/leave", methods: ["POST"], guard: { kind: "tenant", action: "manageRoster" } },
@@ -55,6 +53,8 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/teams/[teamId]/admins/[userId]", methods: ["DELETE"], guard: { kind: "tenant", action: "manageTeamAdmins" } },
   // 前回コピー（§5.5(b)）。前回の選手の氏名を返すので、そのチームの代表者だけ
   { path: "[slug]/teams/[teamId]/entries/latest", methods: ["GET"], guard: { kind: "tenant", action: "manageEntries" } },
+  // 年度更新の申告（§5.12）。締切後の代表者は 409（テナント管理者は代理で送れる）
+  { path: "[slug]/teams/[teamId]/membership", methods: ["POST"], guard: { kind: "tenant", action: "declareMembership" } },
   // 紐づけの解除は本人とテナント管理者だけ（§3.2 の注）。サービス層で本人かを見る
   { path: "[slug]/members/[memberId]/link", methods: ["DELETE"], guard: { kind: "tenant", action: "viewOwnTeamRoster" } },
   // 申込の選手枠のサジェストと「この方ですか？」（§8.4・§8.3）。候補は代表者を務めるチームの選手だけなので、
@@ -82,20 +82,18 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   { path: "[slug]/admin/tournaments/[tournamentId]/categories", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/categories/[categoryId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/age-reference/confirm", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
-  // 大会資料（§5.9）。アップロード・種別／タイトル／公開の変更・削除はテナント管理者だけ
+  // 大会資料（§5.9）。アップロードと差し替え（PUT）は multipart、編集は JSON。削除は論理削除（完全に削除するのは /admin/trash から）
   { path: "[slug]/admin/tournaments/[tournamentId]/documents", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/documents/[documentId]", methods: ["PATCH", "PUT", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
-
-  // 年度更新（§5.12）。受付の開始・期間の変更はテナント管理者だけ
-  { path: "[slug]/admin/memberships", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
-  { path: "[slug]/admin/memberships/[year]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageMemberships" } },
-  { path: "[slug]/admin/memberships/[year]/approvals", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
-  // 運営の代理の申告・修正（締切後も可・§5.12）
-  { path: "[slug]/admin/memberships/[year]/declarations", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
   // 協会の設定（K-02）。いまは「個人で登録する」を受け付けるかだけ
   { path: "[slug]/admin/association", methods: ["PATCH"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets/[presetId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
+  // 年度更新の受付（§5.12「受付開始」）。会員の承認の行
+  { path: "[slug]/admin/memberships/periods", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
+  { path: "[slug]/admin/memberships/periods/[periodId]", methods: ["PATCH"], guard: { kind: "tenant", action: "manageMemberships" } },
+  // 申告の一括承認（通常・追加）。年度は URL の数字
+  { path: "[slug]/admin/memberships/[year]/approve", methods: ["POST"], guard: { kind: "tenant", action: "manageMemberships" } },
   { path: "[slug]/admin/contacts", methods: ["PATCH"], guard: { kind: "tenant", action: "manageContacts" } },
   { path: "[slug]/admin/contacts/[id]", methods: ["DELETE"], guard: { kind: "tenant", action: "manageContacts" } },
   { path: "[slug]/admin/trash", methods: ["GET"], guard: { kind: "tenant", action: "physicalDelete" } },

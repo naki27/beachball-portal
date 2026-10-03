@@ -1,22 +1,24 @@
 import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
-import { tournamentDocuments, tournaments } from "@/db/schema";
+import { type DocumentType, tournamentDocuments, tournaments } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
-import type { DocType } from "@/lib/documents/document-input";
+import { type ReadOptions, tenantScope } from "./scope";
 
-// 大会資料（tournament_documents）のデータアクセス（設計書 §5.9）。削除済みは既定で除く
-// association_id はすべてのクエリに入れる（RLS だけに頼らない）
+// 大会資料のデータアクセス（設計書 §5.9・付録 A）。すべての関数が associationId を受け取り、削除済みは既定で除く
+// public_key は「公開用バケットに置いてあるファイルの名前」。公開の状態を揃える処理は src/lib/documents/publish.ts
 
 export type TournamentDocument = {
   id: string;
   tournamentId: string;
-  docType: DocType;
+  docType: DocumentType;
   title: string;
   storageKey: string;
   publicKey: string | null;
+  contentType: string;
   sizeBytes: number;
   isPublic: boolean;
   sortOrder: number;
   createdAt: Date;
+  deletedAt: Date | null;
 };
 
 const COLUMNS = {
@@ -26,200 +28,144 @@ const COLUMNS = {
   title: tournamentDocuments.title,
   storageKey: tournamentDocuments.storageKey,
   publicKey: tournamentDocuments.publicKey,
+  contentType: tournamentDocuments.contentType,
   sizeBytes: tournamentDocuments.sizeBytes,
   isPublic: tournamentDocuments.isPublic,
   sortOrder: tournamentDocuments.sortOrder,
   createdAt: tournamentDocuments.createdAt,
+  deletedAt: tournamentDocuments.deletedAt,
 };
 
-export async function listTournamentDocuments(tx: Tx, associationId: string, tournamentId: string): Promise<TournamentDocument[]> {
+// 並び順 → 追加した順
+export async function listDocuments(tx: Tx, associationId: string, tournamentId: string, options: ReadOptions = {}): Promise<TournamentDocument[]> {
+  return tx
+    .select(COLUMNS)
+    .from(tournamentDocuments)
+    .where(and(tenantScope(tournamentDocuments, associationId, options), eq(tournamentDocuments.tournamentId, tournamentId)))
+    .orderBy(asc(tournamentDocuments.sortOrder), asc(tournamentDocuments.createdAt));
+}
+
+// 公開ページに出す分（公開中で、公開用のファイルが置いてあるもの）。大会が公開されているかは呼ぶ側が見る
+export async function listPublicDocuments(tx: Tx, associationId: string, tournamentId: string): Promise<TournamentDocument[]> {
   return tx
     .select(COLUMNS)
     .from(tournamentDocuments)
     .where(
       and(
-        eq(tournamentDocuments.associationId, associationId),
+        tenantScope(tournamentDocuments, associationId),
         eq(tournamentDocuments.tournamentId, tournamentId),
-        isNull(tournamentDocuments.deletedAt),
+        eq(tournamentDocuments.isPublic, true),
+        isNotNull(tournamentDocuments.publicKey),
       ),
     )
     .orderBy(asc(tournamentDocuments.sortOrder), asc(tournamentDocuments.createdAt));
 }
 
-export async function findTournamentDocument(
+export async function findDocument(
   tx: Tx,
   associationId: string,
   tournamentId: string,
-  documentId: string,
+  id: string,
+  options: ReadOptions = {},
 ): Promise<TournamentDocument | null> {
   const [row] = await tx
     .select(COLUMNS)
     .from(tournamentDocuments)
     .where(
       and(
-        eq(tournamentDocuments.associationId, associationId),
+        tenantScope(tournamentDocuments, associationId, options),
         eq(tournamentDocuments.tournamentId, tournamentId),
-        eq(tournamentDocuments.id, documentId),
-        isNull(tournamentDocuments.deletedAt),
+        eq(tournamentDocuments.id, id),
       ),
     )
     .limit(1);
   return row ?? null;
 }
 
-export type NewTournamentDocument = {
+// 追加した資料を末尾に置くための番号（いまの最大 + 1。なければ 0）
+export async function nextSortOrder(tx: Tx, associationId: string, tournamentId: string): Promise<number> {
+  const [row] = await tx
+    .select({ value: sql<number>`(coalesce(max(${tournamentDocuments.sortOrder}), -1) + 1)::int` })
+    .from(tournamentDocuments)
+    .where(and(tenantScope(tournamentDocuments, associationId), eq(tournamentDocuments.tournamentId, tournamentId)));
+  return row?.value ?? 0;
+}
+
+export type NewDocument = {
+  // ファイルのキーに使うので、呼ぶ側が先に決める
   id: string;
   tournamentId: string;
-  docType: DocType;
+  docType: DocumentType;
   title: string;
   storageKey: string;
-  publicKey: string | null;
+  contentType: string;
   sizeBytes: number;
   isPublic: boolean;
   sortOrder: number;
   uploadedBy: string;
 };
 
-export async function insertTournamentDocument(tx: Tx, associationId: string, row: NewTournamentDocument): Promise<void> {
-  await tx.insert(tournamentDocuments).values({ associationId, contentType: "application/pdf", ...row });
+export async function insertDocument(tx: Tx, associationId: string, values: NewDocument): Promise<TournamentDocument> {
+  const [row] = await tx
+    .insert(tournamentDocuments)
+    .values({ associationId, ...values })
+    .returning(COLUMNS);
+  return row;
 }
 
-export type TournamentDocumentValues = {
-  docType: DocType;
-  title: string;
-  isPublic: boolean;
-  sortOrder: number;
-  publicKey: string | null;
-};
+export type DocumentPatch = Partial<Pick<TournamentDocument, "docType" | "title" | "isPublic" | "sortOrder" | "publicKey" | "sizeBytes">>;
 
-export async function updateTournamentDocument(
+// includeDeleted は公開の状態を揃える処理（削除済みの資料の公開用を取り下げる）だけが使う
+export async function updateDocument(
   tx: Tx,
   associationId: string,
-  documentId: string,
-  values: TournamentDocumentValues,
-): Promise<boolean> {
-  const updated = await tx
+  id: string,
+  patch: DocumentPatch,
+  options: ReadOptions = {},
+): Promise<TournamentDocument | null> {
+  const [row] = await tx
     .update(tournamentDocuments)
-    .set(values)
-    .where(
-      and(
-        eq(tournamentDocuments.associationId, associationId),
-        eq(tournamentDocuments.id, documentId),
-        isNull(tournamentDocuments.deletedAt),
-      ),
-    )
-    .returning({ id: tournamentDocuments.id });
-  return updated.length > 0;
+    .set(patch)
+    .where(and(tenantScope(tournamentDocuments, associationId, options), eq(tournamentDocuments.id, id)))
+    .returning(COLUMNS);
+  return row ?? null;
 }
 
-// ファイルを差し替えたときの大きさの更新（差し替えは同じ保管用のキーに上書きする・§5.9）
-export async function updateTournamentDocumentSize(tx: Tx, associationId: string, documentId: string, sizeBytes: number): Promise<void> {
-  await tx
-    .update(tournamentDocuments)
-    .set({ sizeBytes })
-    .where(
-      and(
-        eq(tournamentDocuments.associationId, associationId),
-        eq(tournamentDocuments.id, documentId),
-        isNull(tournamentDocuments.deletedAt),
-      ),
-    );
-}
-
-export async function softDeleteTournamentDocument(tx: Tx, associationId: string, documentId: string, deletedBy: string): Promise<boolean> {
-  const updated = await tx
-    .update(tournamentDocuments)
-    .set({ deletedAt: new Date(), deletedBy, publicKey: null })
-    .where(
-      and(
-        eq(tournamentDocuments.associationId, associationId),
-        eq(tournamentDocuments.id, documentId),
-        isNull(tournamentDocuments.deletedAt),
-      ),
-    )
-    .returning({ id: tournamentDocuments.id });
-  return updated.length > 0;
-}
-
-// 大会を draft に戻したときなど、まとめて公開用から下ろす（§5.9）。**下ろす前の**公開用のキーを返す
-// UPDATE の RETURNING は更新後の値（NULL）を返すので、先に読んでから消す
-export async function clearPublicKeys(tx: Tx, associationId: string, tournamentId: string): Promise<string[]> {
-  const where = and(
-    eq(tournamentDocuments.associationId, associationId),
-    eq(tournamentDocuments.tournamentId, tournamentId),
-    isNotNull(tournamentDocuments.publicKey),
-  );
-  const rows = await tx.select({ publicKey: tournamentDocuments.publicKey }).from(tournamentDocuments).where(where);
-  if (rows.length === 0) return [];
-  await tx.update(tournamentDocuments).set({ publicKey: null }).where(where);
-  return rows.map((row) => row.publicKey).filter((key): key is string => !!key);
-}
-
-// その大会の資料が使っている保存先のキー（**論理削除済みも含む**）。大会を物理削除するときの後始末に使う
-export async function listKeysForTournament(tx: Tx, associationId: string, tournamentId: string): Promise<{ storageKey: string; publicKey: string | null }[]> {
-  return tx
-    .select({ storageKey: tournamentDocuments.storageKey, publicKey: tournamentDocuments.publicKey })
-    .from(tournamentDocuments)
-    .where(and(eq(tournamentDocuments.associationId, associationId), eq(tournamentDocuments.tournamentId, tournamentId)));
-}
-
-// いま公開用に置いてあるべきキー（日次ジョブの後始末で「迷子のファイル」を見つけるのに使う・§6.5.1 ⑥）
-export async function listLivePublicKeys(tx: Tx, associationId: string): Promise<string[]> {
+export async function softDeleteDocument(tx: Tx, associationId: string, id: string, deletedBy: string): Promise<boolean> {
   const rows = await tx
-    .select({ publicKey: tournamentDocuments.publicKey })
+    .update(tournamentDocuments)
+    .set({ deletedAt: new Date(), deletedBy })
+    .where(and(eq(tournamentDocuments.associationId, associationId), eq(tournamentDocuments.id, id), isNull(tournamentDocuments.deletedAt)))
+    .returning({ id: tournamentDocuments.id });
+  return rows.length > 0;
+}
+
+export async function deleteDocumentRow(tx: Tx, associationId: string, id: string): Promise<void> {
+  await tx.delete(tournamentDocuments).where(and(eq(tournamentDocuments.associationId, associationId), eq(tournamentDocuments.id, id)));
+}
+
+// 後始末（日次ジョブ）用。削除済みも含めた ID と、公開用のファイルの名前をすべて返す
+export async function listDocumentIds(tx: Tx, associationId: string): Promise<string[]> {
+  const rows = await tx.select({ id: tournamentDocuments.id }).from(tournamentDocuments).where(eq(tournamentDocuments.associationId, associationId));
+  return rows.map((r) => r.id);
+}
+
+export async function listPublicKeys(tx: Tx, associationId: string): Promise<string[]> {
+  const rows = await tx
+    .select({ key: tournamentDocuments.publicKey })
     .from(tournamentDocuments)
     .where(and(eq(tournamentDocuments.associationId, associationId), isNotNull(tournamentDocuments.publicKey)));
-  return rows.map((row) => row.publicKey).filter((key): key is string => !!key);
+  return rows.flatMap((r) => (r.key ? [r.key] : []));
 }
 
-// 保管用のキー（物理削除の後始末に使う。**論理削除済みも含める**。消すのは行ごと消えたものだけ）
-export async function listStorageKeys(tx: Tx, associationId: string): Promise<string[]> {
-  const rows = await tx
-    .select({ storageKey: tournamentDocuments.storageKey })
-    .from(tournamentDocuments)
-    .where(eq(tournamentDocuments.associationId, associationId));
-  return rows.map((row) => row.storageKey);
-}
-
-// 資料の数（大会の一覧・公開ページに出す）
-export async function countPublicDocuments(tx: Tx, associationId: string, tournamentId: string): Promise<number> {
-  const [row] = await tx
-    .select({ value: sql<number>`count(*)::int` })
-    .from(tournamentDocuments)
-    .where(
-      and(
-        eq(tournamentDocuments.associationId, associationId),
-        eq(tournamentDocuments.tournamentId, tournamentId),
-        eq(tournamentDocuments.isPublic, true),
-        isNotNull(tournamentDocuments.publicKey),
-        isNull(tournamentDocuments.deletedAt),
-      ),
-    );
-  return row?.value ?? 0;
-}
-
-// トップページの「新しい資料」（§5.17「表示」）。公開中の資料を新しい順に。大会名も返す
-export type RecentPublicDocument = {
-  id: string;
-  tournamentId: string;
-  tournamentName: string;
-  docType: DocType;
-  title: string;
-  sizeBytes: number;
-  createdAt: Date;
-};
-
-export async function listRecentPublicDocuments(tx: Tx, associationId: string, limit: number): Promise<RecentPublicDocument[]> {
+// 協会のトップの「新しい資料」（§5.17）。公開中の大会（準備中・削除済みを除く）の公開中の資料を、新しい順に
+export async function listRecentPublicDocuments(
+  tx: Tx,
+  associationId: string,
+  limit: number,
+): Promise<(TournamentDocument & { tournamentName: string })[]> {
   return tx
-    .select({
-      id: tournamentDocuments.id,
-      tournamentId: tournamentDocuments.tournamentId,
-      tournamentName: tournaments.name,
-      docType: tournamentDocuments.docType,
-      title: tournamentDocuments.title,
-      sizeBytes: tournamentDocuments.sizeBytes,
-      createdAt: tournamentDocuments.createdAt,
-    })
+    .select({ ...COLUMNS, tournamentName: tournaments.name })
     .from(tournamentDocuments)
     .innerJoin(
       tournaments,
@@ -227,13 +173,11 @@ export async function listRecentPublicDocuments(tx: Tx, associationId: string, l
     )
     .where(
       and(
-        eq(tournamentDocuments.associationId, associationId),
+        tenantScope(tournamentDocuments, associationId),
         eq(tournamentDocuments.isPublic, true),
         isNotNull(tournamentDocuments.publicKey),
-        isNull(tournamentDocuments.deletedAt),
-        // 準備中・削除済みの大会の資料は出さない（公開用にも置かれていないが、念のため両方で見る）
-        ne(tournaments.status, "draft"),
         isNull(tournaments.deletedAt),
+        ne(tournaments.status, "draft"),
       ),
     )
     .orderBy(desc(tournamentDocuments.createdAt))

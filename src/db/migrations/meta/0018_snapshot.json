@@ -1,6 +1,6 @@
 {
   "id": "a9d81fbe-47df-4db9-ae67-3cf87cb1d2d4",
-  "prevId": "533302ed-23f5-4f1a-b534-96ff8c6c4f28",
+  "prevId": "2aa4fee3-410c-4d0f-a989-2b77cde7d3fb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3846,89 +3846,52 @@
           "notNull": false
         }
       },
-      "indexes": {
-        "tournament_documents_tournament_idx": {
-          "name": "tournament_documents_tournament_idx",
-          "columns": [
-            {
-              "expression": "association_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "tournament_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sort_order",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "tournament_documents_uploaded_by_users_id_fk": {
           "name": "tournament_documents_uploaded_by_users_id_fk",
           "tableFrom": "tournament_documents",
-          "tableTo": "users",
           "columnsFrom": [
             "uploaded_by"
           ],
+          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "tournament_documents_deleted_by_users_id_fk": {
           "name": "tournament_documents_deleted_by_users_id_fk",
           "tableFrom": "tournament_documents",
-          "tableTo": "users",
           "columnsFrom": [
             "deleted_by"
           ],
+          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "tournament_documents_tournament_fk": {
           "name": "tournament_documents_tournament_fk",
           "tableFrom": "tournament_documents",
-          "tableTo": "tournaments",
           "columnsFrom": [
             "association_id",
             "tournament_id"
           ],
+          "tableTo": "tournaments",
           "columnsTo": [
             "association_id",
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "tournament_documents_association_id_id_unique": {
-          "name": "tournament_documents_association_id_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "association_id",
-            "id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
         "tournament_documents_doc_type_check": {
@@ -3938,10 +3901,6 @@
         "tournament_documents_content_type_check": {
           "name": "tournament_documents_content_type_check",
           "value": "\"tournament_documents\".\"content_type\" = 'application/pdf'"
-        },
-        "tournament_documents_size_check": {
-          "name": "tournament_documents_size_check",
-          "value": "\"tournament_documents\".\"size_bytes\" > 0"
         }
       },
       "isRLSEnabled": false

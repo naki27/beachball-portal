@@ -6,8 +6,10 @@ import { associationAdmins, associations, mailLogs, members, platformAdmins, tea
 import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
 import { withTenantOn } from "@/db/tenant";
 import { ACTIONS, type Action, ANONYMOUS, can, type Principal, type Role, ROLES } from "@/lib/authz";
+import { getDocumentsForAdmin } from "@/lib/admin/documents";
+import { listMembershipPeriodsForAdmin } from "@/lib/admin/membership-periods";
+import { getDeclarationView } from "@/lib/memberships/declaration";
 import { getAdminEntries } from "@/lib/admin/entries";
-import { getMembershipsForAdmin } from "@/lib/admin/memberships";
 import { addCategoriesFromPresets, getCategoriesForAdmin } from "@/lib/admin/categories";
 import { createTournament, listTournamentsForAdmin } from "@/lib/admin/tournaments";
 import { getEntryDetail } from "@/lib/entries/entry-detail";
@@ -20,7 +22,6 @@ import { searchMembersForAdmin } from "@/lib/admin/members";
 import { normalizeName } from "@/lib/normalize";
 import { getTeamAdmins } from "@/lib/teams/admins";
 import { TeamError } from "@/lib/teams/errors";
-import { getDeclarationForm } from "@/lib/memberships/declaration";
 import { addPlayer, getPlayerForEdit, getRoster, updatePlayer } from "@/lib/teams/roster";
 import { editTeam, registerTeam } from "@/lib/teams/teams";
 
@@ -157,14 +158,8 @@ afterAll(async () => {
   await closeDb(app);
 });
 
-// 表の行（ACTIONS）と、その行を守っている入口の対応。○ のロールで成功し、× のロールで 403 になること
-// passes: 権限を通ったときの結果。業務上の条件（締切・受付なし）で 409 になる入口はそれを書く（403 かどうかを見る）
-type Case = {
-  action: Action;
-  name: string;
-  run: (actor: Principal & { userId: string }) => Promise<unknown>;
-  passes?: "ok" | 409;
-};
+// 表の行（ACTIONS）と、1a でその行を守っている入口の対応。○ のロールで成功し、× のロールで 403 になること
+type Case = { action: Action; name: string; run: (actor: Principal & { userId: string }) => Promise<unknown> };
 
 const CASES: readonly Case[] = [
   { action: "viewOwnTeamRoster", name: "選手一覧を見る", run: (a) => getRoster(app, a, S, teamX) },
@@ -180,9 +175,11 @@ const CASES: readonly Case[] = [
   { action: "viewOwnTeamEntries", name: "自チームの申込を見る", run: (a) => getEntryDetail(app, a, S, entryId) },
   { action: "manageEntries", name: "申込の変更の画面", run: (a) => getEntryEditData(app, a, S, entryId) },
   { action: "manageTournaments", name: "申込一覧（管理）", run: (a) => getAdminEntries(app, a, S, tournamentId) },
-  // 1d（年度更新・§5.12）。受付を開いていない協会では 409 になるので、403 かどうかだけを見る
-  { action: "declareMembership", name: "年度更新の申告の画面", run: (a) => getDeclarationForm(app, a, S, teamX), passes: 409 },
-  { action: "manageMemberships", name: "年度更新の受付（管理）", run: (a) => getMembershipsForAdmin(app, a, S) },
+  // 1c（大会資料・§5.9）
+  { action: "manageTournaments", name: "大会資料の一覧（管理）", run: (a) => getDocumentsForAdmin(app, a, S, tournamentId) },
+  // 1d（年度更新・§5.12）
+  { action: "manageMemberships", name: "年度更新の受付の一覧（管理）", run: (a) => listMembershipPeriodsForAdmin(app, a, S) },
+  { action: "declareMembership", name: "年度更新の申告の画面", run: (a) => getDeclarationView(app, a, S, teamX) },
 ];
 
 describe("権限表（§3.2）どおりに API が応える", () => {
@@ -190,7 +187,7 @@ describe("権限表（§3.2）どおりに API が応える", () => {
     for (const c of CASES) expect(ACTIONS[c.action]).toBeDefined();
     // 1a の API が守っている行は、すべてケースにしている
     const covered = new Set(CASES.map((c) => c.action));
-    // 1a・1b・1d の API が守っている行は、すべてケースにしている
+    // 1a・1b の API が守っている行は、すべてケースにしている
     for (const action of [
       "viewOwnTeamRoster",
       "manageRoster",
@@ -202,7 +199,6 @@ describe("権限表（§3.2）どおりに API が応える", () => {
       "viewOwnTeamEntries",
       "manageEntries",
       "manageTournaments",
-      "declareMembership",
     ] as const) {
       expect(covered.has(action)).toBe(true);
     }
@@ -212,7 +208,7 @@ describe("権限表（§3.2）どおりに API が応える", () => {
     it.each(COLUMNS)(`${c.name}（${c.action}）: %s`, async (column) => {
       const allowed = can(column as Role, c.action);
       const result = await statusOf(() => c.run(actorOf(column)));
-      expect(result).toBe(allowed ? (c.passes ?? "ok") : 403);
+      expect(result).toBe(allowed ? "ok" : 403);
     });
   }
 

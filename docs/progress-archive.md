@@ -2,6 +2,24 @@
 
 `docs/progress.md` から移した古い申し送り（新しいものを上に）。タスクでは読まない。
 
+### D-02（2026-09-25）
+- やったこと: `/admin/memberships`（受付の開始: 対象年度・開始日・締切日・承認を省く。一覧は状態・対象チーム数・申告済み数。期間と承認は直せる、年度は変えられない）。`src/lib/admin/membership-periods.ts`・`memberships/period-input.ts`・`repo/memberships.ts`（受付・申告済みチーム・対象チーム `listRenewalTargetTeams` / `isRenewalTarget` = 登録をするチーム＋個人登録、有効・未削除）。案内は `memberships/renewal-notice.ts`（受付中だけ。トップの「あなたのやること」の先頭と、チーム・登録情報のページの帯。代表者以上に）。API `POST /api/[slug]/admin/memberships/periods`・`PATCH …/[periodId]`（`manageMemberships`）
+- 次への申し送り: 依頼メールの一斉送信・督促は P1
+
+### C-03（2026-09-25）
+- やったこと: E2E `tests/e2e/documents.spec.ts`（管理者が偽 PDF を拒否され本物を上げる → 未ログインの 375×667 で大会ページから開く（302 → PDF・「開いています…」）→ トップの「新しい資料」→ 非公開で 404）、`RecentDocuments`（トップ・新しい順 5 件・`listRecentDocumentsForPublic`）、`DocumentLink`（押した直後に「開いています…」）
+- 動作確認: E2E `documents` を WebKit と Chromium で。`.env` の `PUBLIC_FILES_BASE_URL=`（空）で公開用の URL が壊れていたのを E2E が見つけ、`createStorage()` を `||` に直した
+- 次への申し送り: E2E の流し方（Turbopack・`.next/dev`・ウォームアップ）は `docs/progress.md` の「作業の注意」
+
+### C-02（2026-09-25）
+- やったこと: ADR 0026（配信は第 1 案。第 2 案でも `PUBLIC_FILES_BASE_URL` を変えるだけ）。`src/lib/documents/publish.ts`（公開すべき条件と、公開用への置き直し・取り下げを 1 か所で。名前は `documents/<32 桁>.pdf`、Content-Disposition と Cache-Control 1 時間）。資料の追加・編集・差し替え（`PUT`）・削除（`DELETE`）、大会の編集（状態）・削除、削除済みデータの復元・完全に削除、日次ジョブ ⑥（整合と消し忘れの掃除・`document-cleanup.ts`）のすべてから同じ sync を呼ぶ。`/[スラッグ]/tournaments/[id]/documents/[docId]` → 302（非公開・削除・draft は 404）、`/dev-files/…`（開発時だけ）、大会詳細の「大会資料」、`/admin/trash` に「大会資料」。ローカルの保存先は `<キー>.meta.json` に Content-Type などを持つ
+- 動作確認: lint / typecheck / test（TZ 2 回・72 ファイル）、E2E は `public-tournaments` / `admin-tournaments` / `trash` を WebKit と Chromium で
+- 次への申し送り: タイトルを変えても公開用の名前は変えない。R2 の Content-Disposition・Cache-Control は本物で未確認（X-01）
+
+### C-01（2026-09-24）
+- やったこと: `tournament_documents`（`0016` 表・`0017` RLS と権限。app_job にも delete）、`src/lib/documents/document-input.ts`（10 MB・Content-Type・先頭の `%PDF-`・種別／タイトル／公開／並び順の検査）、`src/lib/repo/tournament-documents.ts`、`src/lib/admin/documents.ts`（保管用 `private` バケットの `documents/<協会>/<大会>/<資料>.pdf`。行を入れてからファイルを置き、置けなければ戻る）、`POST …/admin/tournaments/[id]/documents`（multipart）・`PATCH …/documents/[docId]`、画面 `/admin/tournaments/[id]/documents`（追加・種別・タイトル・公開／非公開・並び順・「個人情報が含まれていないか確認してください」）
+- 動作確認: lint / typecheck / test（TZ 2 回・70 ファイル。単体 10 本・DB 7 本）、E2E `admin-tournaments`
+- 次への申し送り: `0016` は drizzle が出した SQL から、`0014` で手で足した `entries.submit_token` の分を取り除いた（snapshot はこれで追いついた）
 ### U-06 仕上げ・K-01 審判の資格（2026-09-21）
 - **U-06**: `tests/e2e/screens.spec.ts` を追加。主要な 10 画面 × 幅 375/768/1280 × 文字サイズ 100/150/200% で、
   はみ出し・タップ領域（44px）を機械で確かめ、スクリーンショットを 90 枚残す。流し方は `docs/ops.md` §6-2（**プロジェクトは 1 つだけ指定する**）
@@ -34,25 +52,6 @@
   - ヘッダのように `truncate` を使うときは、親の flex 要素にも `min-w-0` が要る（375px で 10px はみ出していた）
   - **選手側に `loading.tsx` は置けない**（403・404 が 200 になる・ADR 0029）。骨組みが要る所は `DelayedSkeleton` を部品として使う
 
-### C-01〜C-03・D-01〜D-05（2026-09-20）
-- やったこと:
-  - C-01: 大会資料の表と RLS（マイグレーション 0016・0017）。アプリ経由のアップロード（10 MB 以下・Content-Type・先頭の `%PDF-` を検証。拡張子だけ `.pdf` の画像は通らない）、保管用（private）に保存、管理画面の一覧（種別・タイトル・公開／非公開・並び順・個人情報の注意書き）
-  - C-02: 公開中の資料だけを公開用バケットへ（ランダムな名前・`Content-Disposition`・キャッシュ 1 時間）。非公開・削除・大会を draft に戻す・大会の削除で公開用から消し、復元で戻す。差し替えは新しい名前。`/[スラッグ]/tournaments/[id]/documents/[docId]` → 302（開けない資料は 404）。ローカルは `/dev-files/…`。日次ジョブ ⑥ 迷子のファイルの後始末
-  - C-03: E2E（アップロード → 未ログインで開く → 非公開で 404）、トップの「新しい資料」、物理削除時のファイル削除、ADR 0026（配信方法は `PUBLIC_FILES_BASE_URL` 1 か所。実際の選択は X-05）
-  - D-01: `src/lib/membership.ts`（付録 F）。**年度を渡さずに呼べない**形。`isMember` / `decideMembershipDisplay` / `membershipDisplays` / `renewalState` / 画面と CSV の文言
-  - D-02: `/admin/memberships` で受付開始（対象年度・受付期間・承認を省くか）。対象チームの代表者のトップとチームの画面に案内
-  - D-03: `/teams/[id]/membership` の申告（昨年度の会員に初期チェック・「12人中10人を…」・締切前の送り直しで変えていない人はそのまま）、申告の控えのメール
-  - D-04: 未申告の一覧・まとめて承認・承認のメール・追加の申告（締切後〜年度末・増やすだけ・承認を省く年度でも承認待ち）・運営の代理の申告
-  - D-05: 申込一覧・CSV の協会員区分（開催日の年度・「更新の受付中（昨年度は協会員）」・データのない年度は空欄）、チーム管理の今年度の状態、権限表のテストに 1d の行、申告の E2E
-- 動作確認: lint / typecheck / test（TZ 2 回・791 本）、E2E は 1c・1d の新しい 2 本を WebKit 375×667 と Chromium 360×640 で、影響のある既存の 15 本を WebKit で流した（ファイルを分けて）
-- 次への申し送り・既知の課題:
-  - **大会資料の配信方法（§5.9 の第 1〜3 案）は未決定**。`PUBLIC_FILES_BASE_URL` の値だけで切り替わる形にした（ADR 0026）。X-05 で決める
-  - R2 のアダプタは**本物の R2 につないで確かめていない**（X-01）。`Content-Disposition` / `Cache-Control` を PUT で付けるようにしたので、そこも一緒に確かめる
-  - 依頼メールの一斉送信・督促（P1）、前年度の名簿の取り込み（P1）、名簿の各形式の出力（P1）は未実装。初年度は初期チェックなしで全チームが選ぶことになる
-  - 「追加の申告」で会員を**外す**のは運営の代理だけ（§5.12【仮】のまま）
-  - 管理者が定員を超えて登録するときの確認は未実装（1b からの持ち越し）
-  - E2E は全部いちどに流すと dev サーバーが落ちる（コンテナのメモリ）。ファイルを分けて流す
-- 使った枠（/usage の変化）: 未計測
 
 ### B-08〜B-10（2026-09-20）
 - やったこと:
