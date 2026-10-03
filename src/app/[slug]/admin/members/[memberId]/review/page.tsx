@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getMergeView, type MergeView } from "@/lib/admin/merge-members";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -30,9 +31,9 @@ export default async function MemberReviewPage({ params }: Props) {
 
   const { member } = view;
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/admin/members/${member.id}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin/members/${member.id}`} className="bb-link">
           ← {member.name}
         </Link>
       </p>
@@ -86,6 +87,6 @@ export default async function MemberReviewPage({ params }: Props) {
       </table>
 
       <MergeControls slug={association.slug} member={member} candidates={view.candidates} />
-    </main>
+    </PageMain>
   );
 }

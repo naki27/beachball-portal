@@ -1,18 +1,33 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Spinner } from "./spinner";
 
-export type ButtonVariant = "primary" | "secondary" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "accent" | "danger" | "ghost";
+export type ButtonSize = "md" | "sm";
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-on-primary active:bg-primary-strong",
-  secondary: "border border-border bg-background text-foreground active:bg-surface",
-  danger: "border border-danger bg-background text-danger active:bg-danger-surface",
+  primary: "bg-primary text-on-primary shadow-sm hover:bg-primary-strong hover:shadow-md active:bg-primary-strong",
+  secondary:
+    "border border-border-strong bg-background text-foreground hover:border-primary hover:bg-primary-soft active:bg-surface",
+  accent: "bg-accent text-on-primary shadow-sm hover:bg-accent-strong hover:shadow-md active:bg-accent-strong",
+  danger: "border border-danger bg-background text-danger hover:bg-danger-surface active:bg-danger-surface",
+  ghost: "text-primary hover:bg-primary-soft active:bg-primary-soft",
 };
 
+const SIZE_CLASS: Record<ButtonSize, string> = {
+  // 48px は指で押しやすい大きさ（§4.3）。主要操作はこちら
+  md: "min-h-12 px-5 text-base",
+  // 一覧の中の補助的な操作。44px までは小さくしてよい（§4.3）
+  sm: "min-h-11 px-3 text-sm",
+};
+
+const BASE =
+  "bb-pressable inline-flex items-center justify-center gap-2 rounded-md text-center font-semibold disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none";
+
 // ボタン（§4.5「共通」）。押した瞬間に色が濃くなり沈む。送信中は文字が「送信しています…」になり押せなくなる（二度押しを防ぐ）
-// 高さ 48px 以上（指で押しやすい大きさ・§4.3）。主要操作の画面下部への固定は、使う画面の側で行う
+// マウスのある端末だけ、乗せたときに色が濃くなり影が増す（指の端末では起きない）
 export function Button({
   variant = "primary",
+  size = "md",
   pending = false,
   pendingLabel = "送信しています…",
   fullWidth = false,
@@ -23,6 +38,7 @@ export function Button({
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
+  size?: ButtonSize;
   // 送信中。true の間は押せない
   pending?: boolean;
   pendingLabel?: string;
@@ -34,7 +50,7 @@ export function Button({
       type={type}
       disabled={disabled || pending}
       aria-busy={pending || undefined}
-      className={`bb-pressable inline-flex min-h-12 items-center justify-center gap-2 rounded-md px-4 text-center text-base font-semibold disabled:opacity-60 ${VARIANT_CLASS[variant]} ${fullWidth ? "w-full" : ""} ${className}`}
+      className={`${BASE} ${SIZE_CLASS[size]} ${VARIANT_CLASS[variant]} ${fullWidth ? "w-full" : ""} ${className}`}
       {...rest}
     >
       {pending ? (
@@ -50,6 +66,6 @@ export function Button({
 }
 
 // リンクをボタンの見た目にするときの class（next/link と組み合わせる）
-export function buttonClass(variant: ButtonVariant = "primary", fullWidth = false): string {
-  return `bb-pressable inline-flex min-h-12 items-center justify-center gap-2 rounded-md px-4 text-center text-base font-semibold ${VARIANT_CLASS[variant]} ${fullWidth ? "w-full" : ""}`;
+export function buttonClass(variant: ButtonVariant = "primary", fullWidth = false, size: ButtonSize = "md"): string {
+  return `${BASE} no-underline ${SIZE_CLASS[size]} ${VARIANT_CLASS[variant]} ${fullWidth ? "w-full" : ""}`;
 }

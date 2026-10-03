@@ -1,4 +1,4 @@
-# 0028 本番のドメインは `portal.fukuoka-city-beachball.org` にする
+# 0034 本番のドメインは `portal.fukuoka-city-beachball.org` にする
 
 ## 背景
 

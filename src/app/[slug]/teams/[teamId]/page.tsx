@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TeamStatusControls } from "@/components/teams/team-status-controls";
+import { buttonClass } from "@/components/ui/button";
+import { Card, DescriptionList, DescriptionRow, PageHeader, PageMain, Section } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { withTenant } from "@/db/tenant";
@@ -37,13 +39,13 @@ export default async function TeamPage({ params, searchParams }: Props) {
   const association = await requireAssociation(slug);
   const { team, role, principal } = await requireTeam(association, teamId, "viewOwnTeamRoster");
   const canEdit = can(role, "editTeam");
-  // 年度更新の案内（受付中で、このチームが対象のときだけ・§5.12）。代表者以上に出す
+  // 年度更新の案内（協会員の登録をするチームの代表者だけ・受付期間中だけ・§5.12）
   const now = new Date();
-  const renewal = canEdit ? await getTeamRenewalNotice(getDb(), association.id, team, now) : null;
-  const renewalBanner = renewal ? (
-    <Message kind="info" title={renewalNoticeText(renewal, now)}>
-      <Link href={renewalHref(association.slug, team.id)} className="font-semibold underline underline-offset-2">
-        {renewal.declared ? "申告の内容を見る・直す" : "登録する人を選ぶ"}
+  const notice = canEdit ? await getTeamRenewalNotice(getDb(), association.id, team, now) : null;
+  const renewalBanner = notice ? (
+    <Message kind={notice.declared ? "success" : "info"} title={renewalNoticeText(notice, now)}>
+      <Link href={renewalHref(association.slug, team.id)} className="bb-link font-semibold text-primary">
+        {notice.declared ? `${notice.year}年度の申告を見直す` : `${notice.year}年度も登録する人を選ぶ`}
       </Link>
     </Message>
   ) : null;
@@ -53,13 +55,13 @@ export default async function TeamPage({ params, searchParams }: Props) {
     const me = roster.items[0];
     const birth = me?.personal ? parsePlainDate(me.personal.birthDate) : null;
     return (
-      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+      <PageMain>
         {created === "1" ? <Message kind="success" title="個人で登録しました" /> : null}
         {updated === "1" ? <Message kind="success" title="登録情報を保存しました" /> : null}
         {renewalBanner}
-        <h1 className="text-2xl font-bold">あなたの登録情報</h1>
+        <PageHeader title="あなたの登録情報" />
         {me ? (
-          <div className="flex flex-col gap-1 rounded-md border border-border px-4 py-3">
+          <Card className="flex flex-col gap-1">
             <p className="text-lg font-semibold break-words">{me.name}</p>
             {me.kana ? <p className="text-sm text-muted">{me.kana}</p> : null}
             {me.personal && birth ? (
@@ -69,70 +71,66 @@ export default async function TeamPage({ params, searchParams }: Props) {
             ) : null}
             {roster.canManage ? (
               <p className="pt-2">
-                <Link href={`/${association.slug}/teams/${team.id}/members/${me.teamMemberId}/edit`} className="font-semibold underline underline-offset-2">
+                <Link
+                  href={`/${association.slug}/teams/${team.id}/members/${me.teamMemberId}/edit`}
+                  className="bb-link font-semibold text-primary"
+                >
                   登録情報を修正する
                 </Link>
               </p>
             ) : null}
-          </div>
+          </Card>
         ) : null}
         <p className="text-sm text-muted">協会員の登録（毎年の更新）の対象です。大会に出るときは、チームを作るか、ほかのチームの申し込みに選手として入れてもらってください。</p>
-      </main>
+      </PageMain>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain width="wide" gap="lg">
       {created === "1" ? <Message kind="success" title="チームを登録しました。あなたがこのチームの代表者です" /> : null}
       {updated === "1" ? <Message kind="success" title="チーム情報を保存しました" /> : null}
-      {renewalBanner}
       {team.status === "inactive" ? (
         <Message kind="info" title="このチームは無効になっています">
           大会に申し込めず、招待もできません。代表者は「有効に戻す」でいつでも戻せます。
         </Message>
       ) : null}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold break-words">{team.name}</h1>
-        {team.kana ? <p className="text-sm text-muted">{team.kana}</p> : null}
-      </div>
+      <PageHeader
+        title={team.name}
+        lead={team.kana ?? undefined}
+        actions={
+          <Link href={`/${association.slug}/teams/${team.id}/members`} className={buttonClass("primary")}>
+            選手一覧
+          </Link>
+        }
+      />
 
-      <p>
-        <Link
-          href={`/${association.slug}/teams/${team.id}/members`}
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-border px-4 font-semibold no-underline"
-        >
-          選手一覧
-        </Link>
-      </p>
+      {renewalBanner}
 
-      <section aria-labelledby="team-info" className="flex flex-col gap-3">
-        <h2 id="team-info" className="text-lg font-bold">
-          チーム情報
-        </h2>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-          <dt className="text-muted">協会員の登録</dt>
-          <dd>{team.membershipRenewalTarget ? "するチーム" : "しないチーム"}</dd>
+      <Section id="team-info" title="チーム情報">
+        <DescriptionList>
+          <DescriptionRow label="協会員の登録">{team.membershipRenewalTarget ? "するチーム" : "しないチーム"}</DescriptionRow>
           {can(role, "viewTeamContact") ? (
             <>
-              <dt className="text-muted">メール</dt>
-              <dd className="break-all">{team.contactEmail ?? "未登録"}</dd>
-              <dt className="text-muted">電話</dt>
-              <dd>{team.contactPhone ?? "未登録"}</dd>
+              <DescriptionRow label="メール">
+                <span className="break-all">{team.contactEmail ?? "未登録"}</span>
+              </DescriptionRow>
+              <DescriptionRow label="電話">{team.contactPhone ?? "未登録"}</DescriptionRow>
             </>
           ) : null}
-        </dl>
+        </DescriptionList>
         {canEdit ? (
-          <p className="flex flex-wrap gap-x-4 gap-y-2">
-            <Link href={`/${association.slug}/teams/${team.id}/edit`} className="font-semibold underline underline-offset-2">
+          <p className="flex flex-wrap gap-2">
+            <Link href={`/${association.slug}/teams/${team.id}/edit`} className={buttonClass("secondary", false, "sm")}>
               チーム情報を変える
             </Link>
-            <Link href={`/${association.slug}/teams/${team.id}/admins`} className="font-semibold underline underline-offset-2">
-              代表者
+            <Link href={`/${association.slug}/teams/${team.id}/admins`} className={buttonClass("secondary", false, "sm")}>
+              代表者を追加・変更する
             </Link>
           </p>
         ) : null}
-      </section>
+      </Section>
       {canEdit ? <TeamStatusControls slug={association.slug} teamId={team.id} status={team.status} /> : null}
-    </main>
+    </PageMain>
   );
 }

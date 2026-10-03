@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ConflictScreen } from "@/components/conflict-screen";
 import { EntryForm, type EntryFormCategoryView } from "@/components/entries/entry-form";
 import { EntrySteps } from "@/components/entries/entry-steps";
+import { PageHeader, PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -34,11 +35,11 @@ export default async function EntryPage({ params }: Props) {
     // 締切後・受付前は 409。問い合わせフォームへ案内する（§5.5d）
     if (error instanceof TeamError && error.status === 409) {
       return (
-        <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+        <PageMain>
           <ConflictScreen title={error.message} contactHref={`/${association.slug}/contact?tournament=${tournamentId}`}>
             <p>締切を過ぎてからの変更や申し込みは、問い合わせフォームからご連絡ください。</p>
           </ConflictScreen>
-        </main>
+        </PageMain>
       );
     }
     pageErrorFrom(error);
@@ -46,14 +47,14 @@ export default async function EntryPage({ params }: Props) {
 
   const { tournament } = data;
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/tournaments/${tournament.id}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/tournaments/${tournament.id}`} className="bb-link text-primary">
           ← {tournament.name}
         </Link>
       </p>
       <EntrySteps current="input" />
-      <h1 className="text-2xl font-bold break-words">{tournament.name}に申し込む</h1>
+      <PageHeader eyebrow={tournament.name} title={`${tournament.name}に申し込む`} />
       {data.isAssociationAdmin ? (
         <Message kind="info" title="協会の管理者として開いています">
           <p>締切を過ぎた部にも申し込めます。</p>
@@ -72,7 +73,7 @@ export default async function EntryPage({ params }: Props) {
         showMembersOnly={data.showMembersOnly}
         token={data.token}
       />
-    </main>
+    </PageMain>
   );
 }
 

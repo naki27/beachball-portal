@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EMPTY_TOURNAMENT, TournamentForm } from "@/components/tournaments/tournament-form";
+import { PageMain } from "@/components/ui/layout";
 import { getMembership, getPrincipal } from "@/lib/auth/principal";
 import { checkAccess, resolveRole } from "@/lib/authz";
 import { assertAccessOrDeny } from "@/lib/page/forbidden";
@@ -20,9 +21,9 @@ export default async function NewTournamentPage({ params }: Props) {
   assertAccessOrDeny(checkAccess(role, "manageTournaments", principal));
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
-        <Link href={`/${association.slug}/admin/tournaments`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin/tournaments`} className="bb-link">
           ← 大会の管理
         </Link>
       </p>
@@ -31,6 +32,6 @@ export default async function NewTournamentPage({ params }: Props) {
         「準備中」で作ると、まだ誰にも見えません。出場する部を追加してから「受付中」にしてください。
       </p>
       <TournamentForm slug={association.slug} mode="create" initial={EMPTY_TOURNAMENT} />
-    </main>
+    </PageMain>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PlayerForm } from "@/components/teams/player-form";
 import { SelfConfirm } from "@/components/teams/self-confirm";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { denyPage } from "@/lib/page/forbidden";
@@ -32,9 +33,9 @@ export default async function NewPlayerPage({ params, searchParams }: Props) {
   if (self === "1") {
     const person = await getMyPerson(getDb(), me, association.id);
     return (
-      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+      <PageMain>
         <p>
-          <Link href={membersPath} className="underline underline-offset-2">
+          <Link href={membersPath} className="bb-link">
             ← 選手一覧
           </Link>
         </p>
@@ -61,25 +62,25 @@ export default async function NewPlayerPage({ params, searchParams }: Props) {
                 label: "選手一覧に追加する",
                 pendingLabel: "追加しています…",
               }}
-              initial={{ name: "", kana: "", birthDate: null, sex: "" }}
+              initial={{ name: "", kana: "", birthDate: null, sex: "", refereeGrade: "", refereeNo: "" }}
             />
           </>
         )}
-      </main>
+      </PageMain>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
-        <Link href={membersPath} className="underline underline-offset-2">
+        <Link href={membersPath} className="bb-link">
           ← 選手一覧
         </Link>
       </p>
       <h1 className="text-2xl font-bold">選手の追加</h1>
       {!alreadyIn ? (
         <p>
-          <Link href={`${membersPath}/new?self=1`} className="font-semibold underline underline-offset-2">
+          <Link href={`${membersPath}/new?self=1`} className="font-semibold bb-link">
             自分を選手として登録する
           </Link>
         </p>
@@ -95,8 +96,8 @@ export default async function NewPlayerPage({ params, searchParams }: Props) {
           label: "選手一覧に追加する",
           pendingLabel: "追加しています…",
         }}
-        initial={{ name: "", kana: "", birthDate: null, sex: "" }}
+        initial={{ name: "", kana: "", birthDate: null, sex: "", refereeGrade: "", refereeNo: "" }}
       />
-    </main>
+    </PageMain>
   );
 }

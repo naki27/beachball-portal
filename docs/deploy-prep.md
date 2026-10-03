@@ -67,14 +67,14 @@ API の有効化・サービスアカウント・Workload Identity Federation・
 - [x] R2 を有効にする（無料枠でも支払い方法の登録が要る）
 - [x] バケットを 3 つ作る。ロケーションのヒントは **Asia-Pacific（APAC）**。3 つとも非公開のまま作る
   - 保管用（`beachball-origin-files`）。`R2_BUCKET`
-  - 公開用（`beachball-public-files`）。`R2_PUBLIC_BUCKET`。配信は Workers（ADR 0027・X-05）
+  - 公開用（`beachball-public-files`）。`R2_PUBLIC_BUCKET`。配信は Workers（ADR 0033・X-05）
   - バックアップ用（`beachball-backup-files`）。`R2_BACKUP_BUCKET`（名前が `R2_BUCKET`＋`-backup` でないので必ず書く）。全員の生年月日を含むので、ほかと必ず分ける
   - ストレージクラスは 3 つとも Standard（無料枠は Standard だけ）
 - [x] R2 の API トークンを作る（Account API token）
   - アプリ用: 保管用・公開用のバケットだけに「Object Read & Write」
   - バックアップ用: バックアップ用のバケットだけ。画面で選べる権限に「書き込みだけ」はないので、ひとまず「Object Read & Write」。X-03 で見直す
   - ⚠️ いまのコード（`src/lib/storage/index.ts`）は 3 つのバケットに 1 組のキーを使う。バックアップ用のキーを渡す環境変数を X-03 で足すまで、本番の日次ジョブのバックアップは権限がなくて失敗する
-- [x] `entry.` のサブドメインを Cloudflare に任せられるか確かめる（§14.9 D-4）→ **任せられない**。無料プランはルートドメインしか追加できない（Subdomain setup は Enterprise だけ）。ドメイン全体の DNS を移すのは影響が大きいので、公開用は Workers で配信する（ADR 0027）
+- [x] `entry.` のサブドメインを Cloudflare に任せられるか確かめる（§14.9 D-4）→ **任せられない**。無料プランはルートドメインしか追加できない（Subdomain setup は Enterprise だけ）。ドメイン全体の DNS を移すのは影響が大きいので、公開用は Workers で配信する（ADR 0033）
 - [x] Notifications で、使用量に応じた請求の通知（Usage Based Billing）を設定する（R2 は無料枠を超えると止まらずに請求される）
 
 ライフサイクルの設定（バックアップの日次 30 世代＋月初 3 世代）は X-03 で行う。

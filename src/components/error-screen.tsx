@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { primaryButtonClass, secondaryButtonClass } from "@/components/button-classes";
+import { PageMain } from "@/components/ui/layout";
 import { resolveAssociation } from "@/lib/resolve-association";
 import { slugFromUrl } from "@/lib/slug";
 
@@ -35,7 +36,7 @@ export async function ErrorScreen({
 }) {
   const top = await topLink();
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <h1 className="text-2xl font-bold">{title}</h1>
       {children ? <div className="leading-relaxed">{children}</div> : null}
       <div className="flex flex-col gap-3">
@@ -48,6 +49,6 @@ export async function ErrorScreen({
           {top.label}
         </Link>
       </div>
-    </main>
+    </PageMain>
   );
 }

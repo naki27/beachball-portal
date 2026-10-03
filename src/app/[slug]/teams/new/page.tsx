@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { PlayerForm } from "@/components/teams/player-form";
 import { SelfConfirm } from "@/components/teams/self-confirm";
 import { TeamForm } from "@/components/teams/team-form";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { withTenant } from "@/db/tenant";
@@ -28,6 +30,9 @@ export default async function NewTeamPage({ params, searchParams }: Props) {
   assertAccessOrDeny(checkAccess(role, "createTeam", principal));
   const userId = principal.userId as string;
   const individual = kind === "individual";
+  // 「個人で登録する」を受け付けない協会では、その入口はない（K-02・ADR 0032）。API 側でも同じ検査をする
+  const canIndividual = association.individualRegistrationEnabled;
+  if (individual && !canIndividual) notFound();
 
   const tabClass = (active: boolean) =>
     `flex min-h-12 items-center justify-center rounded-md border px-4 font-semibold no-underline ${
@@ -35,18 +40,20 @@ export default async function NewTeamPage({ params, searchParams }: Props) {
     }`;
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <h1 className="text-2xl font-bold">{individual ? "個人で登録" : "チームで登録"}</h1>
-      <nav aria-label="登録の種類" className="grid grid-cols-2 gap-2">
-        <Link href={`/${association.slug}/teams/new`} aria-current={individual ? undefined : "page"} className={tabClass(!individual)}>
-          チームで登録
-        </Link>
-        <Link href={`/${association.slug}/teams/new?kind=individual`} aria-current={individual ? "page" : undefined} className={tabClass(individual)}>
-          個人で登録
-        </Link>
-      </nav>
+      {canIndividual ? (
+        <nav aria-label="登録の種類" className="grid grid-cols-2 gap-2">
+          <Link href={`/${association.slug}/teams/new`} aria-current={individual ? undefined : "page"} className={tabClass(!individual)}>
+            チームで登録
+          </Link>
+          <Link href={`/${association.slug}/teams/new?kind=individual`} aria-current={individual ? "page" : undefined} className={tabClass(individual)}>
+            個人で登録
+          </Link>
+        </nav>
+      ) : null}
       {individual ? <IndividualSection slug={association.slug} associationId={association.id} userId={userId} /> : <TeamSection slug={association.slug} />}
-    </main>
+    </PageMain>
   );
 }
 
@@ -70,7 +77,7 @@ async function IndividualSection({ slug, associationId, userId }: { slug: string
   if (existing) {
     return (
       <Message kind="info" title="個人の登録はすでにあります">
-        <Link href={`/${slug}/teams/${existing.id}`} className="font-semibold underline underline-offset-2">
+        <Link href={`/${slug}/teams/${existing.id}`} className="font-semibold bb-link">
           あなたの登録情報を見る
         </Link>
       </Message>
@@ -99,7 +106,7 @@ async function IndividualSection({ slug, associationId, userId }: { slug: string
             label: "個人で登録する",
             pendingLabel: "登録しています…",
           }}
-          initial={{ name: "", kana: "", birthDate: null, sex: "" }}
+          initial={{ name: "", kana: "", birthDate: null, sex: "", refereeGrade: "", refereeNo: "" }}
         />
       )}
     </>

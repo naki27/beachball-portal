@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { UiGallery } from "./ui-gallery";
+import { PageMain } from "@/components/ui/layout";
 
 export const metadata: Metadata = { title: "部品の一覧（開発用）" };
 
@@ -8,9 +9,9 @@ export const metadata: Metadata = { title: "部品の一覧（開発用）" };
 export default function DevUiPage() {
   if (process.env.NODE_ENV === "production") notFound();
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-10 px-4 py-8">
+    <PageMain gap="xl">
       <h1 className="text-2xl font-bold">部品の一覧（開発用）</h1>
       <UiGallery />
-    </main>
+    </PageMain>
   );
 }

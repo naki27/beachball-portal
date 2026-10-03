@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ビーチボール">
+  <!-- サイトの印（ビーチボール）。公式球（緑の球＋白い帯）をデフォルメしたもの。
+       タブ・ホーム画面用なので色は変数にできない。ヘッダの印は src/components/layout/site-mark.tsx -->
+  <defs>
+    <clipPath id="ball"><circle cx="16" cy="16" r="14"/></clipPath>
+  </defs>
+  <circle cx="16" cy="16" r="14" fill="#42b036"/>
+  <path d="M0 11Q16 7 32 11L32 21Q16 25 0 21Z" fill="#ffffff" clip-path="url(#ball)"/>
+  <ellipse cx="11" cy="7.5" rx="4.5" ry="2.6" fill="#ffffff" opacity="0.35" transform="rotate(-25 11 7.5)"/>
+  <circle cx="16" cy="16" r="14" fill="none" stroke="#2c7a22" stroke-width="1.6"/>
+</svg>

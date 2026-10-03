@@ -2,32 +2,104 @@
 @import "./tokens.css";
 
 /*
-  tokens.css の変数を Tailwind のクラス名（bg-primary・text-muted・border-border など）で使えるようにする。
+  tokens.css の変数を Tailwind のクラス名（bg-primary・text-muted・rounded-lg・shadow-md など）で使えるようにする。
   同じ名前を参照しているが、tokens.css の :root（レイヤーなし）が Tailwind の @layer theme より優先されるので循環しない
 */
 @theme inline {
+  /* 役割ごとの色 */
   --color-background: var(--color-background);
   --color-foreground: var(--color-foreground);
   --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
   --color-primary: var(--color-primary);
   --color-primary-strong: var(--color-primary-strong);
+  --color-primary-soft: var(--color-primary-soft);
+  --color-brand: var(--color-brand);
   --color-on-primary: var(--color-on-primary);
+  --color-accent: var(--color-accent);
+  --color-accent-strong: var(--color-accent-strong);
+  --color-accent-soft: var(--color-accent-soft);
   --color-muted: var(--color-muted);
   --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
   --color-danger: var(--color-danger);
   --color-danger-surface: var(--color-danger-surface);
   --color-success: var(--color-success);
   --color-success-surface: var(--color-success-surface);
   --color-warning: var(--color-warning);
+  --color-warning-surface: var(--color-warning-surface);
   --color-info-surface: var(--color-info-surface);
   --color-highlight: var(--color-highlight);
   --color-focus: var(--color-focus);
+
+  /* 審判級（K-01） */
+  --color-referee-a: var(--referee-a);
+  --color-referee-a-surface: var(--referee-a-surface);
+  --color-referee-a-border: var(--referee-a-border);
+  --color-referee-a-mark: var(--referee-a-mark);
+  --color-referee-b: var(--referee-b);
+  --color-referee-b-surface: var(--referee-b-surface);
+  --color-referee-b-border: var(--referee-b-border);
+  --color-referee-b-mark: var(--referee-b-mark);
+  --color-referee-c: var(--referee-c);
+  --color-referee-c-surface: var(--referee-c-surface);
+  --color-referee-c-border: var(--referee-c-border);
+  --color-referee-c-mark: var(--referee-c-mark);
+
+  /* 色の段階（図・帯・薄い面で使う） */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-accent-50: var(--accent-50);
+  --color-accent-100: var(--accent-100);
+  --color-accent-200: var(--accent-200);
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
+  --color-accent-800: var(--accent-800);
+  --color-accent-900: var(--accent-900);
+
+  /* 角丸・影・イージング */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --ease-out: var(--ease-out);
+  --ease-spring: var(--ease-spring);
 }
 
 html {
   /* 選手側の画面は 375px 幅が基準（設計書 §4.3）。横スクロールを出さない */
   overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/*
+  格子（grid）の升目は既定で min-width: auto なので、長い大会名や「10月1日（木）まで　あと10日」のような
+  切れ目のない文字列が入ると升目ごと広がり、ページが横にはみ出す。文字サイズを大きくした端末（150%・200%）で起きる（U-06）。
+  この画面の格子はどれも「縮んで折り返す」のが正しいので、まとめて 0 にする。
+  :where() で詳細度を 0 にしてあるので、個別に min-w-* を付ければそちらが勝つ
+*/
+:where(.grid) > * {
+  min-width: 0;
 }
 
 body {
@@ -42,12 +114,30 @@ body {
     Meiryo,
     sans-serif;
   overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+
+/* 見出しは行間を詰める（本文は 1.7 のまま読みやすく） */
+h1,
+h2,
+h3 {
+  line-height: 1.35;
+}
+
+/* ヘッダが上に貼り付いているので、# で飛んだ先が隠れないようにする */
+[id] {
+  scroll-margin-top: 5rem;
+}
+
+::selection {
+  background: var(--brand-100);
 }
 
 /* キーボード操作の見える印（すべての操作できる要素で同じ） */
 :focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* 動きの部品（§4.5）。長さは tokens.css の変数。「視差効果を減らす」では 0ms になり、文字の表示だけが残る */
@@ -55,10 +145,13 @@ body {
   animation: bb-shake var(--motion-slow) ease-in-out 1;
 }
 .bb-slide-in {
-  animation: bb-slide-in var(--motion-base) ease-out 1;
+  animation: bb-slide-in var(--motion-base) var(--ease-out) 1;
 }
 .bb-fade-out {
   animation: bb-fade-out var(--motion-base) ease-in 1 forwards;
+}
+.bb-rise-in {
+  animation: bb-rise-in var(--motion-base) var(--ease-out) 1 backwards;
 }
 .bb-draw {
   stroke-dasharray: 48;
@@ -71,18 +164,198 @@ body {
 .bb-highlight {
   animation: bb-highlight 1s ease-out 1;
 }
+.bb-nudge {
+  animation: bb-nudge var(--motion-slow) var(--ease-out) 1;
+}
+.bb-grow {
+  transform-origin: left center;
+  animation: bb-grow var(--motion-slow) var(--ease-out) 1;
+}
+
+/* 節目（申込・申告の完了）だけの演出（ADR 0027・§4.5）。1 回だけで止まる */
+.bb-pop {
+  animation: bb-pop var(--motion-celebrate) var(--ease-spring) 1 backwards;
+}
+.bb-confetti-piece {
+  animation: bb-confetti 1.6s var(--ease-out) 1 forwards;
+}
+/* 「視差効果を減らす」では紙吹雪そのものを出さない（文字とチェックは残る） */
+@media (prefers-reduced-motion: reduce) {
+  .bb-confetti {
+    display: none;
+  }
+}
+
+/* 一覧のカードを少しずつ遅らせて出す。6 個目からは遅らせない（待たせない） */
+.bb-stagger > * {
+  animation: bb-rise-in var(--motion-base) var(--ease-out) 1 backwards;
+}
+.bb-stagger > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+.bb-stagger > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+.bb-stagger > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+.bb-stagger > *:nth-child(5) {
+  animation-delay: 160ms;
+}
 
 /* ボタンを押した瞬間: 色が濃くなり、わずかに沈む（§4.5） */
 .bb-pressable {
   transition:
-    transform var(--motion-fast) ease-out,
-    background-color var(--motion-fast) ease-out;
+    transform var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
 }
 .bb-pressable:active:not(:disabled) {
   transform: translateY(1px) scale(0.98);
 }
+
+/* カード: マウスを乗せるとわずかに浮く（指の端末では起きない） */
+.bb-liftable {
+  transition:
+    transform var(--motion-base) var(--ease-out),
+    box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) {
+  .bb-liftable:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--brand-300);
+  }
+}
+
+/* 一覧の行（中にリンクやボタンがある）: マウスを乗せると枠と影がはっきりする。位置は動かさない */
+.bb-hoverable {
+  transition:
+    box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) {
+  .bb-hoverable:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--brand-300);
+  }
+}
+
+/*
+  リンク（下線の引き方はここだけ）。マウスを乗せると下線が太くなる。
+  下線は文字に付ける（背の高いリンク（44px）でも文字のすぐ下に出る）。色は文字と同じ
+*/
+.bb-link {
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-thickness var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) {
+  .bb-link:hover,
+  .bb-row:hover .bb-link {
+    text-decoration-thickness: 3px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .bb-pressable:active:not(:disabled) {
+  .bb-pressable:active:not(:disabled),
+  .bb-liftable:hover {
     transform: none;
+  }
+}
+
+/*
+  入力の部品（§4.5「共通」）。画面ごとに <input> / <select> を直に書いているので、
+  枠・影の変わり方はここ 1 か所で全部にそろえる。色と枠の変化だけで、位置は動かさない
+*/
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  input:not([type="checkbox"]):not([type="radio"]):hover:not(:disabled):not([aria-invalid="true"]),
+  select:hover:not(:disabled),
+  textarea:hover:not(:disabled) {
+    border-color: var(--color-primary);
+  }
+}
+
+/* チェック・ラジオ: 印の色をそろえ、押せることが分かるようにする */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-primary);
+  transition: transform var(--motion-fast) var(--ease-spring);
+}
+@media (prefers-reduced-motion: no-preference) {
+  input[type="checkbox"]:checked,
+  input[type="radio"]:checked {
+    transform: scale(1.12);
+  }
+}
+
+/* 選ぶ行（チェックの付いた行）。has-[:checked]: と一緒に使い、選んだ行が薄い緑に変わるのを見せる（§4.5「内容が変わった」） */
+.bb-choice {
+  transition:
+    background-color var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
+}
+
+/*
+  ページの入れ替え（§4.5「実装」・ADR 0031）。本文だけを短くクロスフェードする。
+  View Transitions API に対応していないブラウザでは、これまでどおり瞬時に入れ替わる（操作には影響しない）
+*/
+@keyframes bb-vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes bb-vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+::view-transition-group(.bb-page) {
+  animation-duration: var(--motion-base);
+}
+::view-transition-old(.bb-page) {
+  animation: bb-vt-out var(--motion-fast) ease-in both;
+}
+::view-transition-new(.bb-page) {
+  animation: bb-vt-in var(--motion-base) var(--ease-out) both;
+}
+
+/* 「今いるところ」の印（管理の案内・申込の進み具合）は、前の位置から今の位置へ移る */
+::view-transition-group(admin-nav-current),
+::view-transition-group(entry-step-now) {
+  animation-duration: var(--motion-base);
+  animation-timing-function: var(--ease-out);
+}
+
+/* 入れ替えの最中も、下のページは押せるままにする（押したのに反応しない、を作らない） */
+::view-transition {
+  pointer-events: none;
+}
+
+/* 「視差効果を減らす」: 入れ替えの動きもなくす（内容は同じ） */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }

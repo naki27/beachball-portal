@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Card, EmptyState, PageHeader, PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { requireAssociation } from "@/lib/page/require-association";
 import { pageErrorFrom } from "@/lib/page/team-errors";
@@ -17,36 +18,48 @@ export default async function EntriesPage({ params }: Props) {
   const { tournament, groups } = await getEntryTeamsForPublic(getDb(), association.id, tournamentId).catch(pageErrorFrom);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain width="wide">
       <p>
-        <Link href={`/${association.slug}/tournaments/${tournament.id}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/tournaments/${tournament.id}`} className="bb-link text-primary">
           ← {tournament.name}
         </Link>
       </p>
-      <h1 className="text-2xl font-bold">参加チーム一覧</h1>
-      <p className="text-sm text-muted">全 {tournament.teams} チーム。選手のお名前は出していません。</p>
+      <PageHeader
+        eyebrow={tournament.name}
+        title="参加チーム一覧"
+        lead={`全 ${tournament.teams} チーム。選手のお名前は出していません。`}
+      />
       {groups.length === 0 ? (
-        <p className="leading-relaxed">部はまだ決まっていません。</p>
+        <EmptyState title="部はまだ決まっていません" />
       ) : (
-        groups.map((group) => (
-          <section key={group.categoryId} aria-labelledby={`group-${group.categoryId}`} className="flex flex-col gap-2">
-            <h2 id={`group-${group.categoryId}`} className="text-lg font-bold break-words">
-              {group.label}（{group.teams.length} チーム）
-            </h2>
-            {group.teams.length === 0 ? (
-              <p className="leading-relaxed text-muted">まだ申し込みはありません。</p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {group.teams.map((team, index) => (
-                  <li key={`${group.categoryId}-${index}`} className="break-words">
-                    {team}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        ))
+        // 大会当日にスマホでも読む画面（§4.3）。横スクロールさせず、部ごとのカードを並べる
+        <div className="bb-stagger grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {groups.map((group) => (
+            <section key={group.categoryId} aria-labelledby={`group-${group.categoryId}`}>
+              <Card hoverable className="flex h-full flex-col gap-2">
+                <h2 id={`group-${group.categoryId}`} className="flex items-center gap-2 text-lg font-bold break-words">
+                  <span aria-hidden="true" className="h-5 w-1 shrink-0 rounded-full bg-brand" />
+                  {group.label}（{group.teams.length} チーム）
+                </h2>
+                {group.teams.length === 0 ? (
+                  <p className="leading-relaxed text-muted">まだ申し込みはありません。</p>
+                ) : (
+                  <ol className="flex flex-col gap-1">
+                    {group.teams.map((team, index) => (
+                      <li key={`${group.categoryId}-${index}`} className="flex gap-2 break-words">
+                        <span aria-hidden="true" className="w-5 shrink-0 text-right text-sm text-muted">
+                          {index + 1}
+                        </span>
+                        {team}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </Card>
+            </section>
+          ))}
+        </div>
       )}
-    </main>
+    </PageMain>
   );
 }

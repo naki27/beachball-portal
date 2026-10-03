@@ -6,7 +6,7 @@ import { requireTenantUser, teamErrorResponse } from "@/lib/api/tenant";
 
 type Props = { params: Promise<{ slug: string; presetId: string }> };
 
-// PATCH — 「よく使う部」の編集（記号は不変・§5.4）。テナント管理者だけ
+// PATCH — 「よく使う部門」の編集（記号は不変・§5.4）。テナント管理者だけ
 export async function PATCH(request: Request, { params }: Props): Promise<Response> {
   const { slug, presetId } = await params;
   const gate = await requireTenantUser(request, slug);
@@ -21,7 +21,7 @@ export async function PATCH(request: Request, { params }: Props): Promise<Respon
   }
 }
 
-// DELETE — 「よく使う部」の削除（論理削除）。大会で使われていれば 409
+// DELETE — 「よく使う部門」の削除（論理削除）。大会で使われていれば 409
 export async function DELETE(request: Request, { params }: Props): Promise<Response> {
   const { slug, presetId } = await params;
   const gate = await requireTenantUser(request, slug);

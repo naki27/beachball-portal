@@ -85,6 +85,8 @@ export const API_PERMISSIONS: readonly ApiPermission[] = [
   // 大会資料（§5.9）。アップロードと差し替え（PUT）は multipart、編集は JSON。削除は論理削除（完全に削除するのは /admin/trash から）
   { path: "[slug]/admin/tournaments/[tournamentId]/documents", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/tournaments/[tournamentId]/documents/[documentId]", methods: ["PATCH", "PUT", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
+  // 協会の設定（K-02）。いまは「個人で登録する」を受け付けるかだけ
+  { path: "[slug]/admin/association", methods: ["PATCH"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets", methods: ["POST"], guard: { kind: "tenant", action: "manageTournaments" } },
   { path: "[slug]/admin/category-presets/[presetId]", methods: ["PATCH", "DELETE"], guard: { kind: "tenant", action: "manageTournaments" } },
   // 年度更新の受付（§5.12「受付開始」）。会員の承認の行

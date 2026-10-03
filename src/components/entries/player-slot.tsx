@@ -40,6 +40,7 @@ export function PlayerSlotField({
   referenceDate,
   errors,
   notice = null,
+  highlight = false,
 }: {
   index: number;
   slot: PlayerSlot;
@@ -54,6 +55,8 @@ export function PlayerSlotField({
   errors: PlayerSlotErrors;
   // 枠に添える知らせ（申込の変更で、選手一覧からいなくなった人の印・§5.5）
   notice?: string | null;
+  // 足した直後・前回コピーで入った直後だけ 1 秒強調する（§4.5「内容が変わった」）
+  highlight?: boolean;
 }) {
   const uid = useId();
   const id = (part: string) => `slot-${index}-${part}`;
@@ -127,11 +130,14 @@ export function PlayerSlotField({
   const chosen = slot.kind === "pick" && slot.memberId;
 
   return (
-    <li className="flex flex-col gap-3 rounded-md border border-border p-3">
+    <li
+      id={`entry-slot-${index}`}
+      className={`flex flex-col gap-3 rounded-lg border border-border bg-background p-3 shadow-sm ${highlight ? "bb-highlight" : ""}`}
+    >
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-bold">{index + 1}人目</h3>
         {onRemove ? (
-          <button type="button" onClick={onRemove} className="min-h-11 px-2 text-sm underline underline-offset-2">
+          <button type="button" onClick={onRemove} className="min-h-11 px-2 text-sm bb-link">
             この枠を外す
           </button>
         ) : null}
@@ -175,7 +181,7 @@ export function PlayerSlotField({
             </Message>
           ) : null}
           {candidates && candidates.length > 0 ? (
-            <div className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3">
+            <div className="bb-slide-in flex flex-col gap-2 rounded-md border border-border bg-surface p-3">
               <p className="font-semibold">この方ですか？</p>
               {candidates.map((c) => (
                 <div key={c.member_id} className="flex items-center justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
@@ -197,7 +203,7 @@ export function PlayerSlotField({
                   setCandidates(null);
                   setManual("declinedSameName", true);
                 }}
-                className="min-h-11 self-start px-1 underline underline-offset-2"
+                className="min-h-11 self-start px-1 bb-link"
               >
                 いいえ、別の方です
               </button>
@@ -226,7 +232,7 @@ export function PlayerSlotField({
                 <label
                   key={choice.id}
                   className={`flex min-h-12 flex-1 items-center justify-center gap-2 rounded-md border px-3 ${
-                    slot.sex === choice.id ? "border-primary bg-primary-surface font-semibold" : "border-border"
+                    slot.sex === choice.id ? "border-primary bg-primary-soft font-semibold" : "border-border-strong"
                   }`}
                 >
                   <input
@@ -242,7 +248,7 @@ export function PlayerSlotField({
             </div>
             {errors.sex ? <p className="text-sm font-semibold text-danger">{errors.sex}</p> : null}
           </fieldset>
-          <button type="button" onClick={clear} className="min-h-11 self-start px-1 underline underline-offset-2">
+          <button type="button" onClick={clear} className="min-h-11 self-start px-1 bb-link">
             選手を選ぶに戻る
           </button>
         </div>
@@ -263,7 +269,7 @@ export function PlayerSlotField({
             id={id("select")}
             value=""
             onChange={(e) => (e.target.value === MANUAL ? toManual() : pick(e.target.value))}
-            className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+            className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
           >
             <option value="">選んでください</option>
             {choices.map((p) => (

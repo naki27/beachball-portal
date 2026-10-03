@@ -11,3 +11,14 @@ export function deadlineText(deadline: Date, now: Date = new Date()): string {
   if (left === 0) return `${date}まで　今日までです`;
   return `${date}まで　あと${left}日`;
 }
+
+// 締切の切迫ぐあい（設計書 §4.5「あと3日」以内は橙、当日は赤）。色の名前ではなく意味を返す
+export type DeadlineTone = "past" | "today" | "soon" | "normal";
+
+export function deadlineTone(deadline: Date, now: Date = new Date()): DeadlineTone {
+  const left = daysUntilDeadline(deadline, now);
+  if (left < 0) return "past";
+  if (left === 0) return "today";
+  if (left <= 3) return "soon";
+  return "normal";
+}

@@ -22,7 +22,8 @@ playwright-report/
 test-results/
 coverage/
 
-# ログ
+# ログ（操作ログ。ACCESS_LOG_DRIVER=file のとき logs/access.log に書く）
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

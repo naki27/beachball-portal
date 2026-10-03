@@ -8,6 +8,7 @@ import {
   formatPlainDate,
   isValidPlainDate,
   formatDateTimeTokyo,
+  formatTimestampTokyo,
   parsePlainDate,
   startOfDayTokyo,
   todayInTokyo,
@@ -121,5 +122,13 @@ describe("日時の表示（§5.13 の CSV・記録）", () => {
     expect(formatDateTimeTokyo(new Date("2026-09-20T03:04:00Z"))).toBe("2026-09-20 12:04");
     // 日本時間では翌日の 0:30
     expect(formatDateTimeTokyo(new Date("2026-09-20T15:30:00Z"))).toBe("2026-09-21 00:30");
+  });
+});
+
+describe("記録の時刻（操作ログ）", () => {
+  it("日本時間の ISO 8601（ミリ秒まで）。サーバーの TZ に関係なく同じ", () => {
+    expect(formatTimestampTokyo(new Date("2026-09-21T03:34:56.789Z"))).toBe("2026-09-21T12:34:56.789+09:00");
+    // 日本時間では翌日の 0:00
+    expect(formatTimestampTokyo(new Date("2026-09-20T15:00:00.000Z"))).toBe("2026-09-21T00:00:00.000+09:00");
   });
 });

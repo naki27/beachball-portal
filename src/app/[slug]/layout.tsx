@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import type { ReactNode } from "react";
+import { type ReactNode, ViewTransition } from "react";
 import { AuthMenu } from "@/components/layout/auth-menu";
 import { EnteredBanner } from "@/components/layout/entered-banner";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -29,7 +29,10 @@ export default async function AssociationLayout({ children, params }: Props) {
     <>
       {entered ? <EnteredBanner associationId={association.id} associationName={association.name} /> : null}
       <SiteHeader title={association.name} href={`/${association.slug}`} right={<AuthMenu currentPath={currentPath} currentSlug={association.slug} />} />
-      {children}
+      {/* ページが入れ替わるときに本文だけを短くクロスフェードする（§4.5「実装」・ADR 0031）。ヘッダは動かない */}
+      <ViewTransition default="none" update="bb-page">
+        {children}
+      </ViewTransition>
     </>
   );
 }

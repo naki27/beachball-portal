@@ -89,7 +89,7 @@ beforeAll(async () => {
   await withTenantOn(owner, A, (tx) => tx.insert(associationAdmins).values({ associationId: A, userId: adminId }));
   await withTenantOn(owner, B, (tx) => tx.insert(associationAdmins).values({ associationId: B, userId: otherAdminId }));
 
-  // この協会の「よく使う部」（本番の 18 件とは別に、試験で使う分だけ作る）
+  // この協会の「よく使う部門」（本番の 18 件とは別に、試験で使う分だけ作る）
   await withTenantOn(owner, A, async (tx) => {
     const made = await tx
       .insert(categoryPresets)
@@ -353,7 +353,7 @@ describe("年齢の基準日の変更（§14-21）", () => {
   });
 });
 
-describe("「よく使う部」の管理（テナント設定）", () => {
+describe("「よく使う部門」の管理（テナント設定）", () => {
   it("足す・直す（記号は変わらない）・使われていれば消せない", async () => {
     const created = await createPreset(app, as(adminId), A, {
       code: `w_50_${random()}`,

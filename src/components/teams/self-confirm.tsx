@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { RefereeBadge } from "@/components/teams/referee-badge";
 import { Button } from "@/components/ui/button";
 import { Message } from "@/components/ui/message";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -60,6 +61,11 @@ export function SelfConfirm({
         {birth ? (
           <p className="text-sm">
             {formatBirthDateLong(birth)}・{person.age}歳・{SEX_LABEL[person.sex]}
+          </p>
+        ) : null}
+        {person.refereeGrade ? (
+          <p className="pt-1">
+            <RefereeBadge grade={person.refereeGrade} no={person.refereeNo} />
           </p>
         ) : null}
       </div>

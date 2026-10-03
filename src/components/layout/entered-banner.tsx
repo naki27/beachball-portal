@@ -27,7 +27,7 @@ export function EnteredBanner({ associationId, associationName }: { associationI
           type="button"
           onClick={leave}
           disabled={pending}
-          className="bb-pressable min-h-10 shrink-0 rounded-md border border-on-primary/70 px-3 text-sm font-semibold disabled:opacity-60"
+          className="bb-pressable min-h-11 shrink-0 rounded-md border border-on-primary/70 px-3 text-sm font-semibold disabled:opacity-60"
         >
           {pending ? "出ています…" : "出る"}
         </button>

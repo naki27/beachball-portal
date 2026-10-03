@@ -52,6 +52,8 @@ async function addPlayer(
   sex: string,
   // 今日時点で 15 歳未満・80 歳以上のときは「◯歳で合っていますか？」に答える（§4.3）
   confirmAge = false,
+  // 審判の資格（任意・K-01）
+  referee?: { grade: string; no: string },
 ) {
   await page.goto(`/sawara/teams/${teamId}/members/new`);
   await page.locator("form[data-hydrated]").waitFor();
@@ -62,6 +64,10 @@ async function addPlayer(
   await page.getByLabel("月", { exact: true }).fill(month);
   await page.getByLabel("日", { exact: true }).fill(day);
   await page.getByRole("radiogroup", { name: "性別" }).getByText(sex, { exact: true }).click();
+  if (referee) {
+    await page.getByRole("radiogroup", { name: "審判級" }).getByText(referee.grade, { exact: true }).click();
+    await page.getByLabel("審判No").fill(referee.no);
+  }
   if (confirmAge) {
     await expect(page.getByText(/^\d+歳で合っていますか？$/)).toBeVisible();
     await page.getByRole("button", { name: "はい、合っています" }).click();
@@ -85,7 +91,7 @@ test("選手を 4 人追加 → 1 人外す → 元に戻す。別のチーム�
     const teamA = await createTeam(page, `${tag} A`);
 
     // 4 人追加（昭和・平成・令和・西暦をひととおり）
-    await addPlayer(page, teamA, `${tag} 一郎`, "昭和", "40", "5", "3", "男性");
+    await addPlayer(page, teamA, `${tag} 一郎`, "昭和", "40", "5", "3", "男性", false, { grade: "A級（赤）", no: "123456" });
     await addPlayer(page, teamA, `${tag} 二郎`, "平成", "5", "4", "1", "男性");
     await addPlayer(page, teamA, `${tag} 三子`, "令和", "3", "1", "1", "女性", true);
     await addPlayer(page, teamA, `${tag} 四子`, "西暦", "1999", "12", "31", "女性");
@@ -93,6 +99,10 @@ test("選手を 4 人追加 → 1 人外す → 元に戻す。別のチーム�
     await expect(page.getByText("1965年（昭和40年）5月3日", { exact: false })).toBeVisible();
     await expect(page.locator("li", { hasText: `${tag} 三子` })).toContainText("女性");
     await expect(page.getByRole("button", { name: "選手一覧から外す" })).toHaveCount(4);
+    // 審判の資格（K-01）。代表者には級と審判Noが見える。入れていない人には何も出ない
+    await expect(page.locator("li", { hasText: `${tag} 一郎` })).toContainText("審判 A級（赤）");
+    await expect(page.locator("li", { hasText: `${tag} 一郎` })).toContainText("No.123456");
+    await expect(page.locator("li", { hasText: `${tag} 二郎` })).not.toContainText("審判");
 
     // 1 人外す → 「外しました［元に戻す］」→ 元に戻す
     await page.locator("[data-hydrated]").first().waitFor();
@@ -107,6 +117,8 @@ test("選手を 4 人追加 → 1 人外す → 元に戻す。別のチーム�
     const teamB = await createTeam(page, `${tag} B`);
     await addPlayer(page, teamB, `${tag} 一郎`, "昭和", "40", "5", "3", "男性");
     await expect(page.locator("li", { hasText: `${tag} 一郎` })).toBeVisible();
+    // 追加の画面は審判の欄が空でも、既にある人物の資格を消さない（ADR 0030）
+    await expect(page.locator("li", { hasText: `${tag} 一郎` })).toContainText("審判 A級（赤）");
     const ichiro = await withTenantOn(owner, SAWARA_ASSOCIATION_ID, (tx) =>
       tx.select({ id: members.id }).from(members).where(eq(members.nameNormalized, normalizeName(`${tag} 一郎`))),
     );

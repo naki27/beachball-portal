@@ -1,5 +1,5 @@
 import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
-import { type MemberSex, type MemberStatus, members } from "@/db/schema";
+import { type MemberSex, type MemberStatus, members, type RefereeGrade } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 import { type ReadOptions, tenantScope } from "./scope";
 
@@ -12,6 +12,9 @@ export type NewMember = {
   sex: MemberSex;
   nameNormalized: string; // src/lib/normalize.ts（A-04）で作る
   kanaNormalized?: string | null;
+  // 審判の資格（任意・K-01）。なしは null
+  refereeGrade?: RefereeGrade | null;
+  refereeNo?: string | null;
   userId?: string | null;
   status?: MemberStatus; // 名寄せで判断を保留したら needs_review（§8.3）
 };
@@ -45,7 +48,23 @@ export async function updateMemberPerson(
   tx: Tx,
   associationId: string,
   memberId: string,
-  input: Pick<NewMember, "name" | "kana" | "birthDate" | "sex" | "nameNormalized" | "kanaNormalized">,
+  input: Pick<NewMember, "name" | "kana" | "birthDate" | "sex" | "nameNormalized" | "kanaNormalized" | "refereeGrade" | "refereeNo">,
+): Promise<boolean> {
+  const rows = await tx
+    .update(members)
+    .set({ ...input, updatedAt: new Date() })
+    .where(and(tenantScope(members, associationId), eq(members.id, memberId)))
+    .returning({ id: members.id });
+  return rows.length > 0;
+}
+
+// 審判の資格だけを書き換える（K-01）。選手の追加で、すでにある人物に結びついたときに使う
+// （追加の画面は今の値を出していないので、入力があったときだけ呼ぶ・ADR 0030）
+export async function updateMemberReferee(
+  tx: Tx,
+  associationId: string,
+  memberId: string,
+  input: Pick<NewMember, "refereeGrade" | "refereeNo">,
 ): Promise<boolean> {
   const rows = await tx
     .update(members)

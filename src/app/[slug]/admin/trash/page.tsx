@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageHeader, PageMain, Toolbar } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { countTrash, isTrashTable, listTrash, TRASH_LABEL, TRASH_TABLE_KEYS } from "@/lib/admin/trash";
@@ -26,31 +27,34 @@ export default async function AdminTrashPage({ params, searchParams }: Props) {
   const items = await listTrash(db, me, association.id, current).catch(pageErrorFrom);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain width="full">
       <p>
-        <Link href={`/${association.slug}/admin`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin`} className="bb-link text-primary">
           ← 管理
         </Link>
       </p>
-      <h1 className="text-2xl font-bold">削除済みデータ</h1>
-      <p className="leading-relaxed">
-        削除されたものは、ここから元に戻せます。完全に削除すると元に戻せません。
-      </p>
+      <PageHeader title="削除済みデータ" lead="削除されたものは、ここから元に戻せます。完全に削除すると元に戻せません。" />
 
-      <nav aria-label="種類で絞り込み" className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-        {TRASH_TABLE_KEYS.map((key) => (
-          <Link
-            key={key}
-            href={`/${association.slug}/admin/trash?table=${key}`}
-            aria-current={key === current ? "page" : undefined}
-            className={key === current ? "font-semibold" : "underline underline-offset-2"}
-          >
-            {TRASH_LABEL[key]}（{counts[key]}）
-          </Link>
-        ))}
-      </nav>
+      <Toolbar>
+        <nav aria-label="種類で絞り込み" className="flex flex-wrap gap-2">
+          {TRASH_TABLE_KEYS.map((key) => (
+            <Link
+              key={key}
+              href={`/${association.slug}/admin/trash?table=${key}`}
+              aria-current={key === current ? "page" : undefined}
+              className={`bb-pressable inline-flex min-h-11 items-center rounded-md px-3 text-sm font-semibold no-underline ${
+                key === current
+                  ? "bg-primary text-on-primary"
+                  : "border border-border-strong bg-background hover:border-primary hover:bg-primary-soft"
+              }`}
+            >
+              {TRASH_LABEL[key]}（{counts[key]}）
+            </Link>
+          ))}
+        </nav>
+      </Toolbar>
 
       <TrashList slug={association.slug} table={current} label={TRASH_LABEL[current]} items={items} />
-    </main>
+    </PageMain>
   );
 }

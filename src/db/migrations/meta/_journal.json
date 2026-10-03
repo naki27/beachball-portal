@@ -127,6 +127,20 @@
       "when": 1790236497251,
       "tag": "0017_rls-tournament-documents",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790236498251,
+      "tag": "0018_referee-qualification",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790236499251,
+      "tag": "0019_individual-registration-switch",
+      "breakpoints": true
     }
   ]
 }

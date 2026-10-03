@@ -91,7 +91,7 @@ export function AdminTeamControls({ slug, teamId, admins }: { slug: string; team
                 {a.displayName ? <span className="text-sm text-muted break-all">{a.email}</span> : null}
               </span>
               {admins.length > 1 ? (
-                <Button variant="secondary" className="min-h-10" onClick={() => void revoke(a)} pending={pending === `revoke:${a.userId}`} pendingLabel="外しています…">
+                <Button variant="secondary" size="sm" onClick={() => void revoke(a)} pending={pending === `revoke:${a.userId}`} pendingLabel="外しています…">
                   外す
                 </Button>
               ) : null}
@@ -122,15 +122,15 @@ export function AdminTeamControls({ slug, teamId, admins }: { slug: string; team
           削除
         </h2>
         {confirmDelete ? (
-          <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
+          <div className="bb-slide-in flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
             <p className="text-sm">
               このチームを削除します。画面から見えなくなり、返事待ちの招待は取り消されます。締切後・開催済みの申し込みはそのまま残ります。あとで「削除済みデータ」から戻せます。
             </p>
             <div className="flex flex-wrap gap-2">
-              <Button variant="danger" className="min-h-10" onClick={() => void remove()} pending={pending === "delete"} pendingLabel="削除しています…">
+              <Button variant="danger" size="sm" onClick={() => void remove()} pending={pending === "delete"} pendingLabel="削除しています…">
                 削除する
               </Button>
-              <Button variant="secondary" className="min-h-10" onClick={() => setConfirmDelete(false)}>
+              <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>
                 やめる
               </Button>
             </div>

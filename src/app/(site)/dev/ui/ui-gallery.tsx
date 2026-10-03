@@ -3,6 +3,10 @@
 import { type ReactNode, useState } from "react";
 import { type BirthDateValue, BirthDateField } from "@/components/ui/birth-date-field";
 import { Button } from "@/components/ui/button";
+import { Celebrate } from "@/components/ui/celebrate";
+import { EnvelopeIcon } from "@/components/ui/envelope-icon";
+import { RefereeBadge } from "@/components/teams/referee-badge";
+import { ActionBar, Badge, Card, DescriptionList, DescriptionRow, EmptyState, PageHeader, Toolbar } from "@/components/ui/layout";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { DelayedSkeleton } from "@/components/ui/loading";
 import { Message } from "@/components/ui/message";
@@ -23,6 +27,22 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+const SCALE = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
+
+const CHOICES = ["山田 太郎", "鈴木 花子"] as const;
+const ROLES = [
+  "primary",
+  "primary-strong",
+  "brand",
+  "accent",
+  "surface",
+  "muted",
+  "border-strong",
+  "success",
+  "warning",
+  "danger",
+] as const;
+
 const DEMO_DRAFT_KEY = draftKey({ associationId: "dev", screen: "ui-gallery" });
 
 export function UiGallery() {
@@ -34,6 +54,8 @@ export function UiGallery() {
   const [removed, setRemoved] = useState(false);
   const [loading, setLoading] = useState(false);
   const [memo, setMemo] = useState("");
+  const [envelopeKey, setEnvelopeKey] = useState(0);
+  const [picked, setPicked] = useState<string[]>([]);
   const draft = useDraft<string>(DEMO_DRAFT_KEY, { onRestore: setMemo });
   const [birth, setBirth] = useState<BirthDateValue>({ date: null, ready: false });
   const birthDate = birth.date ? parsePlainDate(birth.date) : null;
@@ -47,6 +69,139 @@ export function UiGallery() {
 
   return (
     <div className="flex flex-col gap-10" data-hydrated={hydrated || undefined}>
+      <Section title="色（tokens.css）">
+        <p className="text-sm text-muted">
+          ベース #ffffff・メイン #42B036（--brand-500）・アクセントはティール。文字と塗りつぶしのボタンには 700 以上を使う。
+        </p>
+        <div className="grid grid-cols-5 gap-1 sm:grid-cols-10">
+          {SCALE.map((step) => (
+            <div key={`brand-${step}`} className="flex flex-col items-center gap-1">
+              <span className="h-10 w-full rounded-sm border border-border" style={{ background: `var(--brand-${step})` }} />
+              <span className="text-xs text-muted">{step}</span>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-5 gap-1 sm:grid-cols-10">
+          {SCALE.map((step) => (
+            <div key={`accent-${step}`} className="flex flex-col items-center gap-1">
+              <span className="h-10 w-full rounded-sm border border-border" style={{ background: `var(--accent-${step})` }} />
+              <span className="text-xs text-muted">{step}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {ROLES.map((name) => (
+            <span key={name} className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-sm">
+              <span className="size-4 rounded-full border border-border" style={{ background: `var(--color-${name})` }} />
+              {name}
+            </span>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="ページの器（PageHeader・Card・Badge）">
+        <PageHeader
+          headingLevel={3}
+          tone="hero"
+          eyebrow="早良区ビーチボール協会"
+          title="第 12 回 区民大会"
+          lead="9月30日（水）まで　あと5日"
+          actions={<Button variant="secondary">この大会を見る</Button>}
+        />
+        <Toolbar>
+          <span className="text-sm font-semibold">絞り込み</span>
+          <Badge tone="brand">受付中 3</Badge>
+          <Badge tone="warning">まもなく締切 1</Badge>
+          <Badge tone="neutral">終了 8</Badge>
+        </Toolbar>
+        <div className="bb-stagger grid gap-3 sm:grid-cols-2">
+          <Card interactive>
+            <p className="font-bold">混合の部</p>
+            <p className="text-sm text-muted">男子 1 人・女子 3 人</p>
+          </Card>
+          <Card interactive tone="soft">
+            <p className="font-bold">女子の部</p>
+            <p className="text-sm text-muted">4 人〜7 人</p>
+          </Card>
+        </div>
+        <EmptyState
+          title="まだ申し込みはありません"
+          description="受付が始まると、ここに表示されます。"
+          action={<Button variant="secondary">大会を見る</Button>}
+        />
+      </Section>
+
+      <Section title="見出しと値の一覧（DescriptionList・K-02）">
+        <p className="text-sm text-muted">文字の大きさと空白だけで区切らず、行のあいだに線を引く。スマホでは縦に積む</p>
+        <DescriptionList>
+          <DescriptionRow label="開催日">2026年9月30日（水）</DescriptionRow>
+          <DescriptionRow label="会場">早良市民センター</DescriptionRow>
+          <DescriptionRow label="1 チームの人数">4 人以上 7 人以内</DescriptionRow>
+          <DescriptionRow label="備考">
+            <span className="whitespace-pre-wrap">ビブスの貸し出しを希望します</span>
+          </DescriptionRow>
+        </DescriptionList>
+      </Section>
+
+      <Section title="マウスを乗せたとき・選んだとき（U-07）">
+        <p className="text-sm text-muted">
+          §4.5 原則 1「楽しさは動きではなく色・影・カードの浮き・マウスを乗せたときの反応で出す」。指の端末では浮かない
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Card interactive>
+            <p className="font-bold">interactive</p>
+            <p className="text-sm text-muted">カードそのものがリンク。乗せると浮く</p>
+          </Card>
+          <Card hoverable>
+            <p className="font-bold">hoverable</p>
+            <p className="text-sm text-muted">中にリンクやボタンがある一覧の行。枠と影だけ変わる</p>
+          </Card>
+        </div>
+        <ul className="flex flex-col gap-2">
+          {CHOICES.map((choice) => (
+            <li key={choice}>
+              <label className="bb-choice flex min-h-14 items-center gap-3 rounded-md border border-border px-3 py-2 has-[:checked]:border-brand-300 has-[:checked]:bg-primary-soft">
+                <input
+                  type="checkbox"
+                  className="size-5"
+                  checked={picked.includes(choice)}
+                  onChange={(e) => setPicked((prev) => (e.target.checked ? [...prev, choice] : prev.filter((v) => v !== choice)))}
+                />
+                <span className="font-semibold">{choice}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm font-semibold" aria-live="polite">
+          {CHOICES.length}人中{picked.length}人を選んでいます
+        </p>
+        <p className="text-sm text-muted">
+          ページを移るときは、本文だけが 200ms でクロスフェードする（ヘッダと管理の案内は動かず、案内の印だけが移る）。
+          対応していないブラウザでは、これまでどおり瞬時に入れ替わる
+        </p>
+      </Section>
+
+      <Section title="審判の資格（K-01）">
+        <p className="text-sm text-muted">
+          級ごとに色（A=赤・B=黄・C=白）を変えるが、色だけに頼らず必ず級の文字を入れる（§4.5 原則 2）。審判Noは生年月日と同じ範囲の人にだけ出す
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <RefereeBadge grade="a" />
+          <RefereeBadge grade="b" />
+          <RefereeBadge grade="c" />
+          <RefereeBadge grade="a" no="123456" />
+        </div>
+      </Section>
+
+      <Section title="節目の演出（申込・申告の完了だけ）">
+        <p className="text-sm text-muted">
+          ADR 0028。1 回だけで止まる。OS の「視差効果を減らす」が ON なら紙吹雪は出ず、チェックと文字だけが残る。
+        </p>
+        <Celebrate title="申し込みが完了しました">
+          <p>控えのメールをお送りしました。</p>
+        </Celebrate>
+      </Section>
+
       <Section title="ボタン">
         <div className="flex flex-col gap-3">
           <Button
@@ -59,9 +214,30 @@ export function UiGallery() {
             申し込む（押すと 2 秒だけ送信中になる）
           </Button>
           <Button variant="secondary">戻る</Button>
+          <Button variant="accent">資料を見る</Button>
           <Button variant="danger">申し込みを取り消す</Button>
+          <Button variant="ghost">あとで</Button>
           <Button disabled>押せないボタン</Button>
+          <Button size="sm" variant="secondary">
+            小さいボタン（一覧の中で使う）
+          </Button>
         </div>
+        <ActionBar sticky={false}>
+          <Button fullWidth>確認へ</Button>
+          <Button variant="secondary" fullWidth>
+            下書きを保存
+          </Button>
+        </ActionBar>
+      </Section>
+
+      <Section title="封筒（確認番号を送ったとき）">
+        <p className="flex items-start gap-2">
+          <EnvelopeIcon key={envelopeKey} className="mt-0.5 size-7 shrink-0" />
+          <span>メールを送りました。届いた 6 けたの数字を入れてください。</span>
+        </p>
+        <Button variant="secondary" onClick={() => setEnvelopeKey((n) => n + 1)}>
+          もう一度送ったことにする（封筒が 1 回動く）
+        </Button>
       </Section>
 
       <Section title="入力欄と誤りの表示">
@@ -146,7 +322,7 @@ export function UiGallery() {
         </label>
         <textarea
           id="demo-memo"
-          className="min-h-24 w-full rounded-md border border-border px-3 py-2 text-base"
+          className="min-h-24 w-full rounded-md border border-border-strong px-3 py-2 text-base"
           value={memo}
           onChange={(e) => {
             setMemo(e.target.value);

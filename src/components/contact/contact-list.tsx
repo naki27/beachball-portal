@@ -69,16 +69,16 @@ export function ContactList({ rows, endpoint, deleteEndpoint }: Props) {
           </p>
           <p className="whitespace-pre-wrap break-words leading-relaxed">{row.body}</p>
           <p className="text-sm break-all">
-            返信先: <a href={`mailto:${row.senderEmail}`} className="underline underline-offset-2">{row.senderEmail}</a>
+            返信先: <a href={`mailto:${row.senderEmail}`} className="bb-link">{row.senderEmail}</a>
           </p>
           {confirmId === row.id ? (
             <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-3 py-2">
               <p className="text-sm">このお問い合わせを削除します。削除済みデータから元に戻せます。</p>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="danger" className="min-h-10" pending={pendingId === row.id} onClick={() => remove(row.id)}>
+                <Button type="button" variant="danger" size="sm" pending={pendingId === row.id} onClick={() => remove(row.id)}>
                   削除する
                 </Button>
-                <Button type="button" variant="secondary" className="min-h-10" onClick={() => setConfirmId(null)}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmId(null)}>
                   やめる
                 </Button>
               </div>

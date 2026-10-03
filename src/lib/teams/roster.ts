@@ -1,12 +1,14 @@
 import type { Db } from "@/db/client";
-import type { MemberSex } from "@/db/schema";
+import type { MemberSex, RefereeGrade } from "@/db/schema";
 import { withTenantOn } from "@/db/tenant";
 import { ageAt } from "@/lib/age";
 import { can, type Principal } from "@/lib/authz";
-import { parsePlainDate, type PlainDate, todayInTokyo } from "@/lib/date";
+import { fiscalYear, parsePlainDate, type PlainDate, todayInTokyo } from "@/lib/date";
 import { isUuid } from "@/lib/ids";
 import { matchKeysOf, resolveMember } from "@/lib/matching";
-import { updateMemberPerson } from "@/lib/repo/members";
+import { membershipDisplayLabel, membershipDisplays } from "@/lib/membership";
+import { findAssociationById } from "@/lib/repo/associations";
+import { updateMemberPerson, updateMemberReferee } from "@/lib/repo/members";
 import { listTeamInvitations } from "@/lib/repo/team-invitations";
 import {
   addTeamMember,
@@ -27,13 +29,13 @@ import { parsePlayerInput, type PlayerInput } from "./player-input";
 // 見せる範囲は §3.2: 選手にはほかの人の生年月日・年齢・性別を返さない（本人の分は返す）
 
 // 外してから元に戻せる時間（§5.11・30 分【仮】）
-import { fiscalYear } from "@/lib/date";
-import { membershipDisplayLabel, membershipDisplays } from "@/lib/membership";
-import { findAssociationById } from "@/lib/repo/associations";
 
 export const UNDO_LEAVE_WINDOW_MS = 30 * 60 * 1000;
 
 export type Personal = { birthDate: string; age: number; sex: MemberSex };
+
+// 審判の資格（K-01）。級はチームの人なら見られる。審判Noは生年月日と同じ範囲（代表者以上と本人）に限る（ADR 0030）
+export type Referee = { grade: RefereeGrade | null; no: string | null };
 
 // 本人のアカウントとの紐づけの状態（代表者以上にだけ入る・§5.15）
 export type AccountState = {
@@ -52,6 +54,8 @@ export type RosterItem = {
   isSelf: boolean;
   // 生年月日・年齢・性別。代表者以上と本人にだけ入る（§3.2）
   personal: Personal | null;
+  // 審判の資格（K-01）。審判Noは personal と同じ範囲の人にだけ入る
+  referee: Referee;
   // 代表者以上にだけ入る
   account: AccountState | null;
   // 今年度の協会員区分の言い方（§5.12「表示」・§4.4）。代表者以上と本人にだけ入る。受付も取り込みもない年度は null
@@ -86,7 +90,7 @@ export async function getRoster(
   teamId: string,
   now: Date = new Date(),
 ): Promise<Roster> {
-  // 「今年度」は協会の年度開始月で決める（§5.12）
+  // 「今年度」は協会の年度開始月で決める（§5.12）。associations はテナントに属さないので withTenant の外で読む（§5.14）
   const startMonth = (await findAssociationById(db, associationId))?.fiscalYearStartMonth ?? 4;
   return withTenantOn(
     db,
@@ -116,6 +120,7 @@ export async function getRoster(
           kana: row.kana,
           isSelf,
           personal: showPersonal ? personalOf(row, today) : null,
+          referee: { grade: row.refereeGrade, no: showPersonal ? row.refereeNo : null },
           // 協会員かどうかは代表者以上と本人にだけ（§3.2 viewMembershipStatus）。受付も取り込みもない年度は出さない
           membership: can(role, "viewMembershipStatus", { self: isSelf })
             ? membershipDisplayLabel(displays.get(row.memberId) ?? "no_data", membershipYear)
@@ -170,6 +175,10 @@ export async function addPlayer(
       if (await findActiveTeamMember(tx, associationId, teamId, resolved.memberId)) {
         throw new TeamError(409, "この方はすでに選手一覧にいます");
       }
+      // 審判の資格（K-01）。すでにある人物に結びついたときは、入力があったときだけ書き換える（空欄で消さない・ADR 0030）
+      if (parsed.value.refereeGrade || parsed.value.refereeNo) {
+        await updateMemberReferee(tx, associationId, resolved.memberId, parsed.value);
+      }
       const row = await addTeamMember(tx, associationId, teamId, resolved.memberId);
       return { teamMemberId: row.id, memberId: resolved.memberId, created: resolved.created, needsReview: resolved.needsReview };
     },
@@ -193,7 +202,18 @@ export async function getPlayerForEdit(
       const { team } = await authorizeTeam(tx, principal, associationId, teamId, "manageRoster");
       const row = await findTeamMemberRow(tx, associationId, teamId, teamMemberId);
       if (!row || row.leftAt) throw new TeamError(404, "選手が見つかりません");
-      return { team, teamMemberId, player: { name: row.name, kana: row.kana, birthDate: row.birthDate, sex: row.sex } };
+      return {
+        team,
+        teamMemberId,
+        player: {
+          name: row.name,
+          kana: row.kana,
+          birthDate: row.birthDate,
+          sex: row.sex,
+          refereeGrade: row.refereeGrade,
+          refereeNo: row.refereeNo,
+        },
+      };
     },
     { userId: principal.userId },
   );

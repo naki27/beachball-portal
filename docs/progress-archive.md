@@ -20,6 +20,38 @@
 - やったこと: `tournament_documents`（`0016` 表・`0017` RLS と権限。app_job にも delete）、`src/lib/documents/document-input.ts`（10 MB・Content-Type・先頭の `%PDF-`・種別／タイトル／公開／並び順の検査）、`src/lib/repo/tournament-documents.ts`、`src/lib/admin/documents.ts`（保管用 `private` バケットの `documents/<協会>/<大会>/<資料>.pdf`。行を入れてからファイルを置き、置けなければ戻る）、`POST …/admin/tournaments/[id]/documents`（multipart）・`PATCH …/documents/[docId]`、画面 `/admin/tournaments/[id]/documents`（追加・種別・タイトル・公開／非公開・並び順・「個人情報が含まれていないか確認してください」）
 - 動作確認: lint / typecheck / test（TZ 2 回・70 ファイル。単体 10 本・DB 7 本）、E2E `admin-tournaments`
 - 次への申し送り: `0016` は drizzle が出した SQL から、`0014` で手で足した `entries.submit_token` の分を取り除いた（snapshot はこれで追いついた）
+### U-06 仕上げ・K-01 審判の資格（2026-09-21）
+- **U-06**: `tests/e2e/screens.spec.ts` を追加。主要な 10 画面 × 幅 375/768/1280 × 文字サイズ 100/150/200% で、
+  はみ出し・タップ領域（44px）を機械で確かめ、スクリーンショットを 90 枚残す。流し方は `docs/ops.md` §6-2（**プロジェクトは 1 つだけ指定する**）
+  - 直したもの: **格子の升目が縮まない**（`globals.css` に `:where(.grid) > * { min-width: 0 }` を 1 か所）／`Badge` に `max-w-full`／申込のステッパーを `flex-wrap`（丸も rem で大きくなる）／申込一覧のチーム名に `min-w-0`／44px に足りなかったリンク 8 か所
+  - **`<Button className="min-h-10">` は効いていなかった**（SIZE_CLASS が勝つ）。43 か所を `size="sm"`（44px）と素の要素の `min-h-11` に置き換えた
+  - `tests/unit/tokens-contrast.test.ts` で `tokens.css` のコントラスト比を数える（文字 4.5:1・枠 3:1）
+- **K-01**: `members.referee_grade`（a/b/c・なしは null）と `referee_no`（数字 6 桁・text）を追加（マイグレーション **0018**）。**ADR 0030**
+  - 入力は `PlayerForm`（選手の追加・修正・個人で登録・自分を選手として登録）とメンバー管理。**申込の選手枠には入れない**
+  - 見せる範囲: **級はチームの人みんな、審判Noは生年月日と同じ範囲**（`viewPlayerPersonal`）。名寄せのキーには入れない
+  - **追加の画面の空欄は「変えない」**（既にある人物の資格を消さない）。修正の画面の空欄は「なし」
+  - 色は `--referee-{a,b,c}`（文字・面・枠・丸い印）。赤・黄・白は文字にできないので、**丸い印だけが級の色**。`/dev/ui` にカタログ
+- 動作確認: lint / typecheck / test（TZ 2 回・825 本）・`pnpm build`。E2E は screens（1280 のみ）と、roster・ui・entry-form・entry-manage・admin-tournaments・admin-teams・membership・individual・top・public-tournaments・teams・documents・trash・login-verify・association を WebKit 375 で、roster・admin-tournaments・ui は 1280 でも流した
+
+### 運用フロー図（2026-09-21）
+- やったこと: `docs/ops.md` の先頭に「0. 全体像」を追加。mermaid の図（凡例＋登場人物と入口 / サイトマップ 利用者 / サイトマップ 管理者・運営 / 大会 1 回分の流れ / 1 年の流れ・年度更新 / ジョブ・メール・保存先）。URL は `src/app` の実際のルートから起こした。9 分類（登場人物・公開・ログイン・代表者・申し込み・協会管理者・運営管理者・バックエンド・保管先）で色分け、全図共通の `classDef`（淡い塗り＋濃い文字色でコントラストを確保）。**画面や分類を増やしたらここも直す**
+### 利用者の操作ログ（2026-09-21）
+- やったこと: `src/proxy.ts` から `src/lib/access-log` を呼び、リクエストを 1 行 1 件（JSON Lines）で記録。時刻（日本時間）・メソッド・パス・クエリ（`q`・`name`・`code` などは値を `***`）・協会スラッグ・Server Action の id・セッションのハッシュ（`sessions.session_hash` と同じ）・IP・User-Agent。応答のステータスは残さない（proxy からは見えない）。`ACCESS_LOG_DRIVER`（`file` 既定 / `stdout` / `off`）で切り替え、file は月替わりか 100 MB で退避して 6 世代（半年）残す。ADR 0027・`docs/ops.md`「操作ログ」・`.env.example`
+- 動作確認: lint / typecheck / test（TZ 2 回・813 本）・`pnpm build`。dev サーバーに curl して `logs/access.log` に出ること、`q` が伏せ字になること、`/api/health` が記録されないこと、セッションのハッシュが `sha256` と一致することを確かめた
+- 次への申し送り: **X-01 で本番の環境変数に `ACCESS_LOG_DRIVER=stdout` を入れ、Cloud Logging の保存期間を 180 日にする**（Cloud Run はファイルが消えるのでファイル方式は使えない）
+### UI 刷新 U-01〜U-05（2026-09-21）
+- 背景: 利用者から「PC で使いにくい・一覧と登録が同じページ・見た目が素っ気ない」の指摘。**ADR 0028** と設計書 **v0.9.6**（§4.3・§4.5）で方針を変えた。タスクは `docs/p0-tasks.md` §7（U-01〜U-06）
+- U-01 土台: 配色を白・`#42B036`（`--brand-500`）・ティールに刷新。**`#42B036` は白文字だと 2.8:1 なので、文字と塗りつぶしのボタンは `--brand-700`（5.37:1）**。角丸・影・イージングのトークンと、器の共通部品（`PageMain` / `PageHeader` / `Card` / `Section` / `Toolbar` / `ActionBar` / `Badge` / `EmptyState`）。`max-w-xl` の直書き 53 か所を置き換え。入力欄の枠 3.1:1・補足の文字 5.96:1。`/dev/ui` に色と器のカタログ
+- U-04 一覧と登録の分離: `…/documents/new`・`…/categories/new`・`…/admin/association/presets/new`・`…/admin/memberships/new`。入力欄は `*-fields.tsx` に出して一覧の「直す」と共用。追加のあとは一覧へ戻り、成功のメッセージと足した行の強調（`?added=…`）
+- U-02 選手側: 375 / 768 / 1280 の 3 段。大会は `TournamentCard` ＋ `TournamentGrid`（1 → 2 → 3 列）、締切は `deadlineTone`（3 日以内は橙・当日は赤）。大会詳細は PC で 2 列（申し込みは右に固定）。主要操作はスマホだけ下部固定（`ActionBar`）
+- U-03 管理画面: `[slug]/admin/layout.tsx` ＋ `AdminNav`（PC は左に貼り付き、狭い画面は上）。**管理者でない人には案内を出さない**（403 の画面に項目を出さない）。管理のトップでは案内を出さない（同じリンクを二重にしない）。一覧は Toolbar ＋カードの格子。参加チーム一覧は部ごとのカード
+- U-05 動き: 節目の演出 `Celebrate`（申込の完了・申告の完了だけ。紙吹雪は 1 回・位置と色は固定・「視差効果を減らす」で出さない）。申込の人数表示（下限で緑＋文字も変える）・枠を足したら自動スクロール＋強調・前回コピーで入った枠を強調・外した行がふわっと消える・封筒が 1 回動く。骨組みは `[slug]/admin/loading.tsx` だけ（**`loading.tsx` は 403 を 200 にする**ので管理画面だけにし、管理者かの検査を layout へ。ADR 0029）
+- 動作確認: lint / typecheck / test（TZ 2 回・815 本）・`pnpm build`。E2E は 375×667（WebKit）と **1280×800（Chromium・新しく足した）**の両方で、top・public-tournaments・roster・entry-form・entry-manage・documents・admin-tournaments・admin-teams・trash・membership・login-verify・association・ui を流した（ファイルを分けて）
+- 次への申し送り:
+  - **大会の部の追加だけ、足した行の強調がない**。`addCategoriesFromPresets` が件数しか返さないため（成功のメッセージは出る）
+  - ヘッダのように `truncate` を使うときは、親の flex 要素にも `min-w-0` が要る（375px で 10px はみ出していた）
+  - **選手側に `loading.tsx` は置けない**（403・404 が 200 になる・ADR 0029）。骨組みが要る所は `DelayedSkeleton` を部品として使う
+
 
 ### B-08〜B-10（2026-09-20）
 - やったこと:
@@ -351,4 +383,23 @@
   - 日次ジョブの ①②⑥⑦（DB バックアップ・申込一覧 CSV・R2 の後始末・最小インスタンス数）は未実装。`entry_audits`・`export_logs` の保存期間は B-01 以降に `RETENTION_DAYS` へ足す
   - らくらくスマートフォンの実機は未確認（試用で見せてもらう）。プライバシーポリシー・利用規約の【要確認】は公開前に専門家へ
   - E2E のログイン・選手追加の補助関数は spec ごとに写している（共通化は未着手）
+- 使った枠（/usage の変化）: 未計測
+
+### B-11〜B-18（2026-09-20）
+- やったこと:
+  - B-11: 前回コピー。`GET /api/[スラッグ]/teams/[id]/entries/latest`（選手と部の `code` だけ。生年月日は返さない）、入力ページの「前回と同じ選手にする」、`src/lib/entries/copy-previous.ts`（枠の復元・外した人の理由・`code` での部の対応づけ）。取り消した申込からも戻す（ADR 0025）
+  - B-12: 申込の変更・取消。`PATCH / DELETE /api/[スラッグ]/entries/[id]`、`/entries/[id]/edit`、詳細ページの取消（元に戻せない旨の確認）。締切後は代表者 409・管理者は可で `entry_audits`（生年月日なし）。`entry_updated` / `entry_cancelled` のメール。選手一覧からいなくなった人の印と、同じ大会の別の申込の警告（先に申し込んだ側にも）
+  - B-13: 管理者の申込一覧（`/admin/tournaments/[id]/entries`）と CSV（`src/lib/export/csv.ts`・1 選手 1 行・BOM・生年月日はチェック時だけ・`export_logs`）、「確認済みにする」、`date.ts` の `formatDateTimeTokyo`
+  - B-14: `StorageAdapter`（`local` / `r2`。R2 は SigV4 を自前で付ける。**本物の R2 では未確認**＝ X-01）、バックアップの暗号化（X25519＋AES-256-GCM の公開鍵方式）、日次ジョブ ②（締切後の申込一覧 CSV を開催日の翌日まで毎日）
+  - B-15: 要確認の解消と人物の統合（`/admin/members` の「確認が必要」→ 比較 →「別の人です」／「まとめる」）。1 トランザクションで付け替え、両方が別アカウントに紐づいていたら 409、`admin_access_logs`
+  - B-16: マイページの申込（代表者として操作できる分・選手として出る分）とトップの「あなたのやること」
+  - B-17: `/admin/trash` に大会・部・申込。大会と誤登録の申込の論理削除の API。人物の物理削除での申込の記録の扱い（保存期間＝生年月日だけ消す／本人の依頼・誤登録＝氏名も「（削除済み）」）、`entry_audits` の氏名の置き換え（マイグレーション 0015 の列を指定した GRANT）
+  - B-18: 1b の仕上げ。E2E `tests/e2e/entry-manage.spec.ts`（マイページ → 変更 → 管理者の一覧と CSV → 取消 → 前回コピー）、権限表のテストに 1b の行（`viewOwnTeamEntries` / `manageEntries` / `manageTournaments`）、README と `docs/ops.md`（大会と申込の運用・試験運用の手順）
+- 動作確認: lint / typecheck / test（TZ 2 回・669 本）、E2E は 74 本すべて（WebKit 375×667 と Chromium 360×640。メモリの都合で 3 回に分けて流した）
+- 次への申し送り・既知の課題:
+  - **管理者が定員を超えて登録するときの「定員を超えています」の確認は未実装**（申込ページには入れていない。管理画面の申込一覧に説明文だけ置いた）
+  - 協会員区分は「協会員／非会員」だけ（`memberships` の年度データがなければ空欄）。「更新の受付中（昨年度は協会員）」などは D-05
+  - R2 の実装（`src/lib/storage/r2.ts`）は**本物の R2 につないで確かめていない**。X-01 で確かめる。バックアップの鍵はローカルだと `.local-storage/backup-test-key.json`
+  - E2E は全部いちどに流すと dev サーバーが落ちる（コンテナのメモリ）。ファイルを分けて流す
+  - `docs/p0-tasks.md` の C は B-14 のストレージの土台の上に載る（`StorageAdapter` の `private` / `public` はまだ使っていない）
 - 使った枠（/usage の変化）: 未計測

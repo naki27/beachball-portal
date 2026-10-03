@@ -80,12 +80,16 @@ test("テナント管理者が大会を作り、直して受付中にし、部�
     await expect(page.getByText("保存しました")).toBeVisible({ timeout: 15_000 });
 
     // 部を 5 つ足す（混合は MIX 表記。表示名だけ変わり、突合に使う記号は変わらない・§5.4）
+    // 追加は別のページ（U-04・§4.3「一覧と登録はページを分ける」）
+    await page.getByRole("link", { name: "部を追加する" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("部を追加する", { timeout: 20_000 });
     await page.getByLabel("混合の部の書き方").selectOption("mix");
     const presets = ["男子40歳以上の部", "男子50歳以上の部", "女子40歳以上の部", "女子フリーの部", "混合160オーバーの部"];
     for (const label of presets) {
       await page.locator("label").filter({ hasText: label }).getByRole("checkbox").check();
     }
     await page.getByRole("button", { name: "選んだ 5 つの部を追加する" }).click();
+    // 追加できたら大会の画面へ戻る
     await expect(page.getByText("5 つの部を追加しました")).toBeVisible({ timeout: 15_000 });
     const list = page.getByRole("region", { name: "出場する部" });
     await expect(list.getByRole("listitem").filter({ hasText: "MIX160オーバーの部" })).toHaveCount(1);

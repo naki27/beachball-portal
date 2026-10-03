@@ -45,6 +45,21 @@ test("/dev/ui が開き、横にはみ出さない。部品が動く", async ({ 
   await page.screenshot({ path: testInfo.outputPath("dev-ui.png"), fullPage: true });
 });
 
+// 節目の演出（ADR 0028・§4.5 原則 1 の例外・原則 5）
+// 「視差効果を減らす」が ON なら紙吹雪は出ず、チェックと文字だけが残る
+test("節目の演出: 視差効果を減らすと紙吹雪が出ず、文字は残る", async ({ page }) => {
+  await page.goto("/dev/ui");
+  const celebration = page.getByText("申し込みが完了しました");
+  await expect(celebration).toBeVisible();
+  const confetti = page.locator(".bb-confetti");
+  await expect(confetti).toBeVisible();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await expect(page.getByText("申し込みが完了しました")).toBeVisible();
+  await expect(page.locator(".bb-confetti")).toBeHidden();
+});
+
 test("フッタからプライバシーポリシーと利用規約を開ける（ログインしていなくても）", async ({ page }) => {
   await page.goto("/sawara");
   await expect(page.getByRole("link", { name: "利用規約" })).toHaveAttribute("href", "/terms");
@@ -106,4 +121,38 @@ test("生年月日（和暦）: 昭和5年と平成5年を入れ比べる。年�
   await page.getByLabel("年", { exact: true }).fill("65");
   await expect(page.getByText("昭和は64年までです")).toBeVisible();
   await expect(page.getByLabel("年", { exact: true })).toHaveAttribute("aria-invalid", "true");
+});
+
+// 選ぶ行（U-07・§4.5「内容が変わった」）。チェックすると面の色が変わり、件数もその場で変わる
+test("選ぶ行: チェックすると面の色が変わり、件数がその場で変わる", async ({ page }) => {
+  await page.goto("/dev/ui");
+  const label = page.locator("label.bb-choice").first();
+  const before = await label.evaluate((el) => getComputedStyle(el).backgroundColor);
+  await label.getByRole("checkbox").check();
+  await expect(page.getByText("2人中1人を選んでいます")).toBeVisible();
+  await expect.poll(() => label.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(before);
+});
+
+// ページの入れ替え（U-07・ADR 0031）。対応しているブラウザでだけ View Transitions が走る（未対応でも操作は同じ）
+test("ページを移ると本文がクロスフェードする（対応ブラウザだけ）", async ({ page }) => {
+  await page.addInitScript(() => {
+    const counter = window as unknown as { __viewTransitions: number };
+    counter.__viewTransitions = 0;
+    const original = document.startViewTransition?.bind(document);
+    if (original) {
+      document.startViewTransition = (options?: ViewTransitionUpdateCallback | StartViewTransitionOptions) => {
+        counter.__viewTransitions += 1;
+        return original(options);
+      };
+    }
+  });
+  await page.goto("/privacy");
+  const supported = await page.evaluate(() => typeof document.startViewTransition === "function");
+  test.skip(!supported, "このブラウザは View Transitions に対応していない");
+
+  await page.getByRole("link", { name: "利用規約" }).click();
+  await expect(page).toHaveURL(/\/terms$/, { timeout: 15_000 });
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __viewTransitions: number }).__viewTransitions))
+    .toBeGreaterThan(0);
 });

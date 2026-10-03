@@ -11,7 +11,7 @@ function InlineText({ parts }: { parts: Inline[] }) {
             {part.value}
           </strong>
         ) : part.kind === "link" ? (
-          <Link key={index} href={part.href} className="underline underline-offset-2">
+          <Link key={index} href={part.href} className="bb-link">
             {part.value}
           </Link>
         ) : (

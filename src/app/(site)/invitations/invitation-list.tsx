@@ -62,7 +62,7 @@ export function InvitationList({ invitations }: { invitations: InvitationItem[] 
   return (
     <div className="flex flex-col gap-4" data-hydrated={hydrated || undefined}>
       {notice ? <Message kind={notice.kind} title={notice.title} /> : null}
-      <ul className="flex flex-col gap-4">
+      <ul className="bb-stagger flex flex-col gap-4">
         {invitations.map((i) => {
           const until = formatDateWithWeekday(todayInTokyo(new Date(i.expiresAt)));
           return (

@@ -4,9 +4,9 @@ import { CheckIcon } from "./check-icon";
 export type MessageKind = "success" | "error" | "info";
 
 const KIND_CLASS: Record<MessageKind, string> = {
-  success: "border-success bg-success-surface text-success",
+  success: "border-brand-300 bg-success-surface text-success",
   error: "border-danger bg-danger-surface text-danger",
-  info: "border-border bg-info-surface text-foreground",
+  info: "border-accent-200 bg-info-surface text-foreground",
 };
 
 // 成功・エラー・案内のメッセージ（§4.5 原則 4・6）。自動で消えない（次の操作かページを離れるまで残す）。読み上げ対象
@@ -26,7 +26,7 @@ export function Message({
     <div
       role={kind === "error" ? "alert" : "status"}
       aria-live={kind === "error" ? "assertive" : "polite"}
-      className={`bb-slide-in flex gap-3 rounded-md border px-4 py-3 ${KIND_CLASS[kind]} ${className}`}
+      className={`bb-slide-in flex gap-3 rounded-lg border px-4 py-3 shadow-sm ${KIND_CLASS[kind]} ${className}`}
     >
       {kind === "success" ? <CheckIcon className="mt-0.5 size-6 shrink-0" /> : null}
       <div className="flex flex-col gap-1">

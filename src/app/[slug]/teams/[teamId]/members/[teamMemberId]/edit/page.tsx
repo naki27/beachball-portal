@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PlayerForm } from "@/components/teams/player-form";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
 import { denyPage } from "@/lib/page/forbidden";
@@ -30,9 +31,9 @@ export default async function EditPlayerPage({ params }: Props) {
   const backPath = individual ? `/${association.slug}/teams/${team.id}` : `/${association.slug}/teams/${team.id}/members`;
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
-        <Link href={backPath} className="underline underline-offset-2">
+        <Link href={backPath} className="bb-link">
           ← {individual ? "あなたの登録情報" : "選手一覧"}
         </Link>
       </p>
@@ -50,8 +51,15 @@ export default async function EditPlayerPage({ params }: Props) {
           label: "保存する",
           pendingLabel: "保存しています…",
         }}
-        initial={{ name: player.name, kana: player.kana ?? "", birthDate: player.birthDate, sex: player.sex }}
+        initial={{
+          name: player.name,
+          kana: player.kana ?? "",
+          birthDate: player.birthDate,
+          sex: player.sex,
+          refereeGrade: player.refereeGrade ?? "",
+          refereeNo: player.refereeNo ?? "",
+        }}
       />
-    </main>
+    </PageMain>
   );
 }

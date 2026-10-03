@@ -2,12 +2,13 @@ import { and, eq, inArray, like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb, createDb } from "@/db/client";
 import { requireEnv } from "@/db/env";
-import { members, teamAdmins, teamMembers, teams, users } from "@/db/schema";
+import { associationAdmins, associations, members, teamAdmins, teamMembers, teams, users } from "@/db/schema";
 import { SAWARA_ASSOCIATION_ID } from "@/db/seed";
 import { withTenantOn } from "@/db/tenant";
 import { ANONYMOUS, type Principal } from "@/lib/authz";
 import { normalizeName } from "@/lib/normalize";
 import { TeamError } from "@/lib/teams/errors";
+import { setIndividualRegistration } from "@/lib/admin/association-settings";
 import { addPlayer, getRoster } from "@/lib/teams/roster";
 import { getMyPerson, registerIndividual, registerSelfAsPlayer } from "@/lib/teams/self";
 import { registerTeam } from "@/lib/teams/teams";
@@ -19,7 +20,7 @@ const random = () => Math.random().toString(36).slice(2, 8);
 const S = SAWARA_ASSOCIATION_ID;
 const tag = `個人${random()}`;
 const as = (userId: string): Principal & { userId: string } => ({ ...ANONYMOUS, userId, sessionState: "active" });
-const ids = { a: "", b: "", c: "" };
+const ids = { a: "", b: "", c: "", d: "", admin: "" };
 
 const person = (name: string, extra: Record<string, unknown> = {}) => ({
   name: `${tag} ${name}`,
@@ -47,6 +48,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await owner.update(associations).set({ individualRegistrationEnabled: true }).where(eq(associations.id, S));
+  await withTenantOn(owner, S, (tx) => tx.delete(associationAdmins).where(eq(associationAdmins.userId, ids.admin)));
   await withTenantOn(owner, S, async (tx) => {
     await tx.delete(teams).where(inArray(teams.createdBy, Object.values(ids)));
     await tx.delete(members).where(and(eq(members.associationId, S), like(members.nameNormalized, `${normalizeName(tag)}%`)));
@@ -81,6 +84,23 @@ describe("個人で登録", () => {
 
   it("入力の誤りは 400", async () => {
     expect(await statusOf(() => registerIndividual(app, as(ids.b), S, { name: "" }))).toBe(400);
+  });
+});
+
+// 「個人で登録する」を受け付けるかの切り替え（K-02・ADR 0032）
+describe("個人での登録の受け付け", () => {
+  it("受け付けない協会では登録できない（404）。戻せばまた登録できる", async () => {
+    await withTenantOn(owner, S, (tx) => tx.insert(associationAdmins).values({ associationId: S, userId: ids.admin }));
+    await setIndividualRegistration(app, as(ids.admin), S, false);
+    expect(await statusOf(() => registerIndividual(app, as(ids.d), S, person("止めた後")))).toBe(404);
+    await setIndividualRegistration(app, as(ids.admin), S, true);
+    expect(await statusOf(() => registerIndividual(app, as(ids.d), S, person("戻した後")))).toBe("ok");
+  });
+
+  it("協会の管理者でない人は切り替えられない（403）", async () => {
+    expect(await statusOf(() => setIndividualRegistration(app, as(ids.c), S, false))).toBe(403);
+    const [row] = await owner.select().from(associations).where(eq(associations.id, S));
+    expect(row.individualRegistrationEnabled).toBe(true);
   });
 });
 

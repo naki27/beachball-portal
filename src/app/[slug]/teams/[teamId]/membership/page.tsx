@@ -107,7 +107,7 @@ export default async function MembershipDeclarationPage({ params, searchParams }
                     label: "選手一覧に追加する",
                     pendingLabel: "追加しています…",
                   }}
-                  initial={{ name: "", kana: "", birthDate: null, sex: "" }}
+                  initial={{ name: "", kana: "", birthDate: null, sex: "", refereeGrade: "", refereeNo: "" }}
                 />
               </div>
             </details>

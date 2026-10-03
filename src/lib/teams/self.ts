@@ -1,5 +1,5 @@
 import type { Db } from "@/db/client";
-import type { MemberSex } from "@/db/schema";
+import type { MemberSex, RefereeGrade } from "@/db/schema";
 import { type Tx, withTenantOn } from "@/db/tenant";
 import { ageAt } from "@/lib/age";
 import { type Principal, resolveRole, roleIncludes } from "@/lib/authz";
@@ -7,7 +7,8 @@ import { isUuid } from "@/lib/ids";
 import { readAssociationRoles } from "@/lib/repo/roles";
 import { parsePlainDate, todayInTokyo } from "@/lib/date";
 import { resolveMember } from "@/lib/matching";
-import { findMember, findMemberByUserId, setMemberUser } from "@/lib/repo/members";
+import { findAssociationById } from "@/lib/repo/associations";
+import { findMember, findMemberByUserId, setMemberUser, updateMemberReferee } from "@/lib/repo/members";
 import { addTeamMember, findActiveTeamMember } from "@/lib/repo/team-members";
 import { addTeamAdmin, createTeam, findIndividualTeamOf, type Team } from "@/lib/repo/teams";
 import { authorizeTeam } from "./access";
@@ -18,11 +19,33 @@ import { parsePlayerInput, type PlayerInput } from "./player-input";
 // どちらも「本人のアカウントに人物を紐づける」操作。承諾は要らない（本人の操作だから）
 // 協会内で 1 アカウント = 1 人物なので、すでに紐づいた人物があればそれを使い、入力は省く
 
-export type MyPerson = { memberId: string; name: string; kana: string | null; birthDate: string; age: number; sex: MemberSex };
+// 本人の情報なので審判の資格（K-01）も含めてよい
+export type MyPerson = {
+  memberId: string;
+  name: string;
+  kana: string | null;
+  birthDate: string;
+  age: number;
+  sex: MemberSex;
+  refereeGrade: RefereeGrade | null;
+  refereeNo: string | null;
+};
 
-function personOf(row: { id: string; name: string; kana: string | null; birthDate: string; sex: MemberSex }, now: Date): MyPerson {
+function personOf(
+  row: { id: string; name: string; kana: string | null; birthDate: string; sex: MemberSex; refereeGrade: RefereeGrade | null; refereeNo: string | null },
+  now: Date,
+): MyPerson {
   const birth = parsePlainDate(row.birthDate);
-  return { memberId: row.id, name: row.name, kana: row.kana, birthDate: row.birthDate, age: birth ? ageAt(birth, todayInTokyo(now)) : 0, sex: row.sex };
+  return {
+    memberId: row.id,
+    name: row.name,
+    kana: row.kana,
+    birthDate: row.birthDate,
+    age: birth ? ageAt(birth, todayInTokyo(now)) : 0,
+    sex: row.sex,
+    refereeGrade: row.refereeGrade,
+    refereeNo: row.refereeNo,
+  };
 }
 
 // ログイン中の人に紐づいた人物（本人の情報なので生年月日を含めてよい・§3.2）。なければ null
@@ -56,6 +79,10 @@ async function resolveSelf(tx: Tx, associationId: string, userId: string, raw: R
     }
   }
   await setMemberUser(tx, associationId, resolved.memberId, userId);
+  // 審判の資格（K-01）。入力があったときだけ書き換える（ADR 0030）
+  if (person.refereeGrade || person.refereeNo) {
+    await updateMemberReferee(tx, associationId, resolved.memberId, person);
+  }
   return { memberId: resolved.memberId, name: person.name };
 }
 
@@ -73,6 +100,9 @@ export async function registerIndividual(
     db,
     associationId,
     async (tx) => {
+      // 「個人で登録する」を受け付けない協会では、入口そのものがない（K-02・ADR 0032）
+      const association = await findAssociationById(tx, associationId);
+      if (!association?.individualRegistrationEnabled) throw new TeamError(404, "この協会では個人での登録を受け付けていません");
       const existing = await findIndividualTeamOf(tx, associationId, principal.userId);
       if (existing) throw new TeamError(409, "個人の登録はすでにあります", { teamId: existing.id });
       const self = await resolveSelf(tx, associationId, principal.userId, raw, now);

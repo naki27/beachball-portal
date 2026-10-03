@@ -88,6 +88,12 @@ export function formatDateTimeTokyo(at: Date): string {
   return tokyoDateTimeFormat.format(at).replace(", ", " ");
 }
 
+// 「2026-09-20T12:34:56.789+09:00」（日本時間）。操作ログの時刻に使う（秒とミリ秒まで要るため formatDateTimeTokyo とは別）
+// 日本時間は夏時間がなく常に UTC+9 なので、ずらして ISO 8601 にする。サーバーの TZ には頼らない
+export function formatTimestampTokyo(at: Date): string {
+  return new Date(at.getTime() + TOKYO_OFFSET_HOURS * 60 * 60 * 1000).toISOString().replace("Z", "+09:00");
+}
+
 // 年度（開始年）。開始月が 4 なら 2026-04-01〜2027-03-31 が「2026 年度」（設計書 §5.12）
 // 協会ごとに開始月が違う（associations.fiscal_year_start_month）
 export function fiscalYear(d: PlainDate, startMonth: number): number {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageMain } from "@/components/ui/layout";
 import { getDb } from "@/db/client";
 import { accountDeletionBlock, DELETION_BLOCK_MESSAGE } from "@/lib/account/delete-account";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -21,9 +22,9 @@ export default async function DeleteAccountPage() {
   ]);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <p>
-        <Link href="/mypage" className="underline underline-offset-2">
+        <Link href="/mypage" className="bb-link">
           ← マイページ
         </Link>
       </p>
@@ -38,7 +39,7 @@ export default async function DeleteAccountPage() {
             </p>
           ) : (
             <p className="leading-relaxed">
-              <Link href="/contact" className="font-semibold underline underline-offset-2">
+              <Link href="/contact" className="font-semibold bb-link">
                 お問い合わせフォーム
               </Link>
               からご連絡ください。
@@ -61,6 +62,6 @@ export default async function DeleteAccountPage() {
           <DeleteAccountForm email={profile?.email ?? ""} />
         </>
       )}
-    </main>
+    </PageMain>
   );
 }

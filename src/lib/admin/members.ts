@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, like, ne, or } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { type MemberSex, type MemberStatus, members, teamMembers, teams, users } from "@/db/schema";
+import { type MemberSex, type MemberStatus, members, type RefereeGrade, teamMembers, teams, users } from "@/db/schema";
 import { withTenantOn } from "@/db/tenant";
 import { ageAt } from "@/lib/age";
 import type { Principal } from "@/lib/authz";
@@ -24,6 +24,9 @@ export type AdminMemberRow = {
   birthDate: string;
   age: number;
   sex: MemberSex;
+  // 審判の資格（任意・K-01）。テナント管理者は全員の分を見られる（§3.2）
+  refereeGrade: RefereeGrade | null;
+  refereeNo: string | null;
   status: MemberStatus;
   linked: boolean;
 };
@@ -37,6 +40,8 @@ function rowOf(m: Member, now: Date): AdminMemberRow {
     birthDate: m.birthDate,
     age: birth ? ageAt(birth, todayInTokyo(now)) : 0,
     sex: m.sex,
+    refereeGrade: m.refereeGrade,
+    refereeNo: m.refereeNo,
     status: m.status,
     linked: m.userId !== null,
   };

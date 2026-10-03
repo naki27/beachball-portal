@@ -30,7 +30,14 @@ export async function resolveAssociationSlug(db: Reader, slug: string): Promise<
   return row ? { associationId: row.association_id, currentSlug: row.slug, redirected: row.redirected } : null;
 }
 
-export type AssociationLink = { id: string; name: string; slug: string };
+export type AssociationLink = { id: string; name: string; slug: string; individualRegistrationEnabled: boolean };
+
+const LINK_COLUMNS = {
+  id: associations.id,
+  name: associations.name,
+  slug: associations.slug,
+  individualRegistrationEnabled: associations.individualRegistrationEnabled,
+};
 
 // ログイン中の人が役割（協会の管理者・チームの代表者・選手）を持つ協会（設計書 §5.14「協会をまたぐ画面」）
 // SECURITY DEFINER 関数 my_association_ids() が app.user_id（SET LOCAL）の人の分だけを返す。名前の順
@@ -38,7 +45,7 @@ export async function listMyAssociations(db: Reader, userId: string): Promise<As
   return db.transaction(async (tx) => {
     await tx.execute(sql`select set_config('app.user_id', ${userId}, true)`);
     return tx
-      .select({ id: associations.id, name: associations.name, slug: associations.slug })
+      .select(LINK_COLUMNS)
       .from(associations)
       .where(inArray(associations.id, sql`(select my_association_ids())`))
       .orderBy(asc(associations.name));
@@ -47,8 +54,10 @@ export async function listMyAssociations(db: Reader, userId: string): Promise<As
 
 // すべての協会（運営管理者の切り替えメニュー用・§5.14「テナントの切り替え」）。名前の順
 export async function listAllAssociations(db: Reader): Promise<AssociationLink[]> {
-  return db
-    .select({ id: associations.id, name: associations.name, slug: associations.slug })
-    .from(associations)
-    .orderBy(asc(associations.name));
+  return db.select(LINK_COLUMNS).from(associations).orderBy(asc(associations.name));
+}
+
+// 「個人で登録する」を受け付けるかの切り替え（K-02・ADR 0032）。協会の設定の画面から呼ぶ（権限は lib/admin で見る）
+export async function setIndividualRegistrationEnabled(db: Reader, associationId: string, enabled: boolean): Promise<void> {
+  await db.update(associations).set({ individualRegistrationEnabled: enabled }).where(eq(associations.id, associationId));
 }

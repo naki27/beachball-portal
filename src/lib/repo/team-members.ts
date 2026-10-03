@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, isNotNull, isNull } from "drizzle-orm";
-import { type MemberSex, type MemberStatus, members, teamMembers, teams } from "@/db/schema";
+import { type MemberSex, type MemberStatus, members, type RefereeGrade, teamMembers, teams } from "@/db/schema";
 import type { Tx } from "@/db/tenant";
 
 // 選手一覧（team_members = 人物の所属・§5.15）のリポジトリ。すべて withTenant の tx の中で、associationId を必ず渡して呼ぶ
@@ -16,6 +16,8 @@ export type RosterRow = {
   kana: string | null;
   birthDate: string;
   sex: MemberSex;
+  refereeGrade: RefereeGrade | null;
+  refereeNo: string | null;
   status: MemberStatus;
   userId: string | null;
 };
@@ -30,6 +32,8 @@ const rosterColumns = {
   kana: members.kana,
   birthDate: members.birthDate,
   sex: members.sex,
+  refereeGrade: members.refereeGrade,
+  refereeNo: members.refereeNo,
   status: members.status,
   userId: members.userId,
 };

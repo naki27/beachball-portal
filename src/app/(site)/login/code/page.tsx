@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CodeForm } from "./code-form";
+import { PageMain } from "@/components/ui/layout";
 
 export const metadata: Metadata = { title: "確認番号の入力" };
 
@@ -10,9 +11,9 @@ export default async function LoginCodePage({ searchParams }: Props) {
   const { next } = await searchParams;
   const nextPath = typeof next === "string" ? next : null;
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       <h1 className="text-2xl font-bold">確認番号を入力してください</h1>
       <CodeForm next={nextPath} />
-    </main>
+    </PageMain>
   );
 }

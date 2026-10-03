@@ -3,6 +3,8 @@ import Link from "next/link";
 import { secondaryButtonClass } from "@/components/button-classes";
 import { EntryCancel } from "@/components/entries/entry-cancel";
 import { EntrySteps } from "@/components/entries/entry-steps";
+import { Celebrate } from "@/components/ui/celebrate";
+import { DescriptionList, DescriptionRow, PageHeader, PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -41,15 +43,17 @@ export default async function EntryPage({ params, searchParams }: Props) {
   const deadline = formatDateWithWeekday(todayInTokyo(entry.deadline));
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
+    <PageMain>
       {justDone ? <EntrySteps current="done" /> : null}
-      <h1 className="text-2xl font-bold break-words">
-        {justDone ? `${entry.tournamentName}のお申し込みを受け付けました` : "申し込みの内容"}
-      </h1>
+      <PageHeader
+        eyebrow={justDone ? undefined : entry.tournamentName}
+        title={justDone ? `${entry.tournamentName}のお申し込みを受け付けました` : "申し込みの内容"}
+      />
+      {/* 節目の演出（ADR 0028）。「視差効果を減らす」が ON なら紙吹雪は出ず、チェックと文字だけが残る */}
       {justDone ? (
-        <Message kind="success" title="申し込みが完了しました">
+        <Celebrate title="申し込みが完了しました">
           <p>控えのメールをお送りしました。届かないときは、迷惑メールのフォルダもご確認ください。</p>
-        </Message>
+        </Celebrate>
       ) : null}
       {entry.status === "cancelled" ? (
         <Message kind="info" title="この申し込みは取り消されています">
@@ -62,55 +66,41 @@ export default async function EntryPage({ params, searchParams }: Props) {
         </Message>
       ))}
 
-      <dl className="flex flex-col gap-3">
-        <div>
-          <dt className="font-semibold">申込番号</dt>
-          <dd className="break-all font-mono text-sm">{entry.entryId}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold">大会</dt>
-          <dd>
-            <Link href={`/${association.slug}/tournaments/${entry.tournamentId}`} className="underline underline-offset-2">
-              {entry.tournamentName}
-            </Link>
-          </dd>
-        </div>
-        <div>
-          <dt className="font-semibold">部</dt>
-          <dd>{entry.categoryLabel}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold">チーム名</dt>
-          <dd className="break-words">{entry.teamName}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold">出場する選手</dt>
-          <dd>
-            <ol className="flex flex-col gap-1">
-              {entry.players.map((player) => (
-                <li key={player.position}>
-                  {player.position}. {player.name}
-                  {player.personal ? (
-                    <span className="ml-2 text-sm text-muted">
-                      {[player.personal.age !== null ? `${player.personal.age}歳` : "", SEX_LABEL[player.personal.sex]]
-                        .filter(Boolean)
-                        .join("・")}
-                    </span>
-                  ) : null}
-                  {/* 申込のあとで脱退・削除された人の印。申込の内容はそのまま残る（§5.5「申込はスナップショット」） */}
-                  {player.missingFromRoster ? <span className="ml-2 text-sm font-semibold text-danger">選手一覧にいません</span> : null}
-                </li>
-              ))}
-            </ol>
-          </dd>
-        </div>
+      <DescriptionList>
+        <DescriptionRow label="申込番号">
+          <span className="break-all font-mono text-sm">{entry.entryId}</span>
+        </DescriptionRow>
+        <DescriptionRow label="大会">
+          <Link href={`/${association.slug}/tournaments/${entry.tournamentId}`} className="bb-link">
+            {entry.tournamentName}
+          </Link>
+        </DescriptionRow>
+        <DescriptionRow label="部">{entry.categoryLabel}</DescriptionRow>
+        <DescriptionRow label="チーム名">{entry.teamName}</DescriptionRow>
+        <DescriptionRow label="出場する選手">
+          <ol className="flex flex-col gap-1">
+            {entry.players.map((player) => (
+              <li key={player.position}>
+                {player.position}. {player.name}
+                {player.personal ? (
+                  <span className="ml-2 text-sm text-muted">
+                    {[player.personal.age !== null ? `${player.personal.age}歳` : "", SEX_LABEL[player.personal.sex]]
+                      .filter(Boolean)
+                      .join("・")}
+                  </span>
+                ) : null}
+                {/* 申込のあとで脱退・削除された人の印。申込の内容はそのまま残る（§5.5「申込はスナップショット」） */}
+                {player.missingFromRoster ? <span className="ml-2 text-sm font-semibold text-danger">選手一覧にいません</span> : null}
+              </li>
+            ))}
+          </ol>
+        </DescriptionRow>
         {entry.note ? (
-          <div>
-            <dt className="font-semibold">備考</dt>
-            <dd className="whitespace-pre-wrap break-words">{entry.note}</dd>
-          </div>
+          <DescriptionRow label="備考">
+            <span className="whitespace-pre-wrap">{entry.note}</span>
+          </DescriptionRow>
         ) : null}
-      </dl>
+      </DescriptionList>
 
       {/* 変更方法の文言は §4.4 の定型文（§5.5(d)） */}
       {entry.canEdit ? (
@@ -136,7 +126,7 @@ export default async function EntryPage({ params, searchParams }: Props) {
           )}
           <p className="mt-1">
             変更が必要なときは、
-            <Link href={`/${association.slug}/contact?tournament=${entry.tournamentId}`} className="underline underline-offset-2">
+            <Link href={`/${association.slug}/contact?tournament=${entry.tournamentId}`} className="bb-link">
               問い合わせフォーム
             </Link>
             からご連絡ください。
@@ -145,10 +135,10 @@ export default async function EntryPage({ params, searchParams }: Props) {
       )}
 
       <p>
-        <Link href={`/${association.slug}/tournaments/${entry.tournamentId}`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/tournaments/${entry.tournamentId}`} className="bb-link">
           ← 大会のページへ
         </Link>
       </p>
-    </main>
+    </PageMain>
   );
 }

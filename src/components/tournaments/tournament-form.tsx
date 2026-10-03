@@ -166,7 +166,7 @@ export function TournamentForm({
           rows={5}
           maxLength={TOURNAMENT_DESCRIPTION_MAX}
           aria-describedby="tournament-description-hint"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-base"
+          className="w-full rounded-md border border-border-strong bg-background px-3 py-2 text-base"
         />
         <p id="tournament-description-hint" className="text-sm text-muted">
           参加費や持ち物など、参加する方に伝えることを書いてください。
@@ -257,7 +257,7 @@ export function TournamentForm({
           value={values.status}
           onChange={(e) => set("status", e.target.value)}
           aria-describedby="tournament-status-hint"
-          className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base"
+          className="min-h-12 w-full rounded-md border border-border-strong bg-background px-3 text-base"
         >
           {TOURNAMENT_STATUSES.map((status) => (
             <option key={status} value={status}>

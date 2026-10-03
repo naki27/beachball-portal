@@ -27,7 +27,7 @@ export function UndoBar({
           type="button"
           onClick={onUndo}
           disabled={pending}
-          className="bb-pressable min-h-10 shrink-0 rounded-md border border-background/60 px-3 font-semibold underline-offset-2 disabled:opacity-60"
+          className="bb-pressable min-h-11 shrink-0 rounded-md border border-background/60 px-3 font-semibold underline-offset-2 disabled:opacity-60"
         >
           {pending ? "戻しています…" : undoLabel}
         </button>

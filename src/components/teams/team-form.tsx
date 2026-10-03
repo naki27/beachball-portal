@@ -116,7 +116,7 @@ export function TeamForm({
                 {sameName.mine.map((t) => (
                   <li key={t.id}>
                     あなたが代表者を務める
-                    <Link href={`/${slug}/teams/${t.id}`} className="font-semibold underline underline-offset-2">
+                    <Link href={`/${slug}/teams/${t.id}`} className="font-semibold bb-link">
                       {t.name}
                     </Link>
                     があります

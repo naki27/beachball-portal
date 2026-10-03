@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Card } from "@/components/ui/layout";
 import { formatDateWithWeekday, todayInTokyo } from "@/lib/date";
 import type { MyEntry } from "@/lib/entries/my-entries";
 
@@ -8,13 +9,11 @@ export function MyEntryList({ slug, title, entries, now }: { slug: string; title
   return (
     <div className="flex flex-col gap-2">
       <h3 className="font-semibold">{title}</h3>
-      <ul className="flex flex-col gap-2">
+      <ul className="bb-stagger grid gap-2 md:grid-cols-2">
         {entries.map((entry) => (
           <li key={entry.entryId}>
-            <Link
-              href={`/${slug}/entries/${entry.entryId}`}
-              className="flex min-h-12 flex-col justify-center rounded-md border border-border px-4 py-2 no-underline hover:bg-surface"
-            >
+            <Link href={`/${slug}/entries/${entry.entryId}`} className="block h-full no-underline">
+              <Card interactive className="flex h-full flex-col justify-center gap-0.5 p-3 sm:p-4">
               <span className="font-semibold break-words">
                 {entry.tournamentName}
                 {entry.status === "cancelled" ? <span className="ml-2 text-sm font-normal text-muted">取り消し済み</span> : null}
@@ -27,6 +26,7 @@ export function MyEntryList({ slug, title, entries, now }: { slug: string; title
                     : "・締切は過ぎました"
                   : ""}
               </span>
+              </Card>
             </Link>
           </li>
         ))}

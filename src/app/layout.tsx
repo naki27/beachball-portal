@@ -22,7 +22,7 @@ export const viewport: Viewport = {
 // ヘッダは区画ごとの layout が出す（(site) はサイト名、[slug] は協会名）。フッタと電波の帯は全ページ共通
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ja" className="h-full antialiased">
+    <html lang="ja" className="h-full antialiased" data-scroll-behavior="smooth">
       <body className="flex min-h-full flex-col">
         <OfflineBanner />
         <DraftHousekeeping />

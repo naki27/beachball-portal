@@ -41,16 +41,16 @@ export function DeleteTournament({ slug, tournamentId, entryCount }: { slug: str
       </h2>
       {failure ? <Message kind="error" title={failure} /> : null}
       {confirming ? (
-        <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
+        <div className="bb-slide-in flex flex-col gap-2 rounded-md border border-danger bg-danger-surface px-4 py-3">
           <p className="text-sm">
             削除すると、この大会と{entryCount > 0 ? `${entryCount} 件の申し込みが` : "部が"}公開ページ・一覧から見えなくなります。
             「削除済みデータ」から元に戻せます。
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="danger" className="min-h-10" onClick={remove} pending={pending} pendingLabel="削除しています…">
+            <Button variant="danger" size="sm" onClick={remove} pending={pending} pendingLabel="削除しています…">
               削除する
             </Button>
-            <Button variant="secondary" className="min-h-10" onClick={() => setConfirming(false)} disabled={pending}>
+            <Button variant="secondary" size="sm" onClick={() => setConfirming(false)} disabled={pending}>
               やめる
             </Button>
           </div>

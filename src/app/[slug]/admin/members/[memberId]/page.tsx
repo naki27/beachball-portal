@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PlayerForm } from "@/components/teams/player-form";
+import { RefereeBadge } from "@/components/teams/referee-badge";
+import { PageMain } from "@/components/ui/layout";
 import { Message } from "@/components/ui/message";
 import { getDb } from "@/db/client";
 import { getMemberForAdmin } from "@/lib/admin/members";
@@ -27,9 +29,9 @@ export default async function AdminMemberPage({ params, searchParams }: Props) {
   const { member, linkedEmail, teams } = await getMemberForAdmin(getDb(), { ...principal, userId: principal.userId }, association.id, memberId).catch(pageErrorFrom);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 py-8">
+    <PageMain gap="lg">
       <p>
-        <Link href={`/${association.slug}/admin/members`} className="underline underline-offset-2">
+        <Link href={`/${association.slug}/admin/members`} className="bb-link">
           ← メンバー管理
         </Link>
       </p>
@@ -42,16 +44,21 @@ export default async function AdminMemberPage({ params, searchParams }: Props) {
       ) : null}
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold break-words">{member.name}</h1>
+        {member.refereeGrade ? (
+          <p>
+            <RefereeBadge grade={member.refereeGrade} no={member.refereeNo} />
+          </p>
+        ) : null}
         {member.status === "needs_review" ? (
           <p className="text-sm">
             <span className="rounded bg-highlight px-1">確認が必要</span>
-            <Link href={`/${association.slug}/admin/members/${member.id}/review`} className="ml-2 underline underline-offset-2">
+            <Link href={`/${association.slug}/admin/members/${member.id}/review`} className="ml-2 bb-link">
               別の人か、同じ人かを確かめる
             </Link>
           </p>
         ) : (
           <p className="text-sm">
-            <Link href={`/${association.slug}/admin/members/${member.id}/review`} className="underline underline-offset-2">
+            <Link href={`/${association.slug}/admin/members/${member.id}/review`} className="bb-link">
               似ている登録とまとめる
             </Link>
           </p>
@@ -72,9 +79,16 @@ export default async function AdminMemberPage({ params, searchParams }: Props) {
             label: "保存する",
             pendingLabel: "保存しています…",
           }}
-          initial={{ name: member.name, kana: member.kana ?? "", birthDate: member.birthDate, sex: member.sex }}
+          initial={{
+            name: member.name,
+            kana: member.kana ?? "",
+            birthDate: member.birthDate,
+            sex: member.sex,
+            refereeGrade: member.refereeGrade ?? "",
+            refereeNo: member.refereeNo ?? "",
+          }}
         />
       </section>
-    </main>
+    </PageMain>
   );
 }

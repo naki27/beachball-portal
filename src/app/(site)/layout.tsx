@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import type { ReactNode } from "react";
+import { type ReactNode, ViewTransition } from "react";
 import { AuthMenu } from "@/components/layout/auth-menu";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SITE_NAME } from "@/lib/site";
@@ -12,7 +12,10 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
   return (
     <>
       <SiteHeader title={SITE_NAME} href="/" right={right} />
-      {children}
+      {/* ページが入れ替わるときに本文だけを短くクロスフェードする（§4.5「実装」・ADR 0031）。ヘッダは動かない */}
+      <ViewTransition default="none" update="bb-page">
+        {children}
+      </ViewTransition>
     </>
   );
 }

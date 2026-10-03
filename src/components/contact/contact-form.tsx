@@ -122,7 +122,7 @@ export function ContactForm({ initialName, initialEmail, associationId, associat
                 id="associationId"
                 value={selectedAssociationId}
                 onChange={(event) => setSelectedAssociationId(event.target.value)}
-                className="min-h-12 rounded-md border border-border bg-background px-3 text-base"
+                className="min-h-12 rounded-md border border-border-strong bg-background px-3 text-base"
               >
                 <option value="">選んでください</option>
                 {associations.map((association) => (
@@ -160,7 +160,7 @@ export function ContactForm({ initialName, initialEmail, associationId, associat
               id="subjectType"
               value={subjectType}
               onChange={(event) => setSubjectType(event.target.value)}
-              className="min-h-12 rounded-md border border-border bg-background px-3 text-base"
+              className="min-h-12 rounded-md border border-border-strong bg-background px-3 text-base"
             >
               <option value="">選んでください</option>
               {subjectsFor(destination).map((subject) => (
@@ -177,7 +177,7 @@ export function ContactForm({ initialName, initialEmail, associationId, associat
               maxLength={2000}
               value={body}
               onChange={(event) => setBody(event.target.value)}
-              className="min-h-40 w-full rounded-md border border-border bg-background px-3 py-3 text-base"
+              className="min-h-40 w-full rounded-md border border-border-strong bg-background px-3 py-3 text-base"
             />
           </label>
           {/* 機械よけ（honeypot・§5.10）。人には見せない */}

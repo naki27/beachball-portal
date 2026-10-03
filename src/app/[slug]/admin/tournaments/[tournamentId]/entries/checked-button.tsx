@@ -31,7 +31,7 @@ export function CheckedButton({ slug, entryId }: { slug: string; entryId: string
 
   return (
     <div className="flex flex-col gap-1">
-      <Button variant="secondary" className="min-h-10 self-start" onClick={mark} pending={pending} pendingLabel="記録しています…">
+      <Button variant="secondary" size="sm" className="self-start" onClick={mark} pending={pending} pendingLabel="記録しています…">
         確認済みにする
       </Button>
       {failure ? <p className="text-sm font-semibold text-danger">{failure}</p> : null}
@@ -70,17 +70,17 @@ export function DeleteEntryButton({ slug, entryId }: { slug: string; entryId: st
     <div className="flex flex-col gap-1">
       {failure ? <p className="text-sm font-semibold text-danger">{failure}</p> : null}
       {confirming ? (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="bb-slide-in flex flex-wrap items-center gap-2">
           <span className="text-sm">誤登録として削除します（削除済みデータから元に戻せます）</span>
-          <Button variant="danger" className="min-h-10" onClick={remove} pending={pending} pendingLabel="削除しています…">
+          <Button variant="danger" size="sm" onClick={remove} pending={pending} pendingLabel="削除しています…">
             削除する
           </Button>
-          <Button variant="secondary" className="min-h-10" onClick={() => setConfirming(false)} disabled={pending}>
+          <Button variant="secondary" size="sm" onClick={() => setConfirming(false)} disabled={pending}>
             やめる
           </Button>
         </div>
       ) : (
-        <button type="button" onClick={() => setConfirming(true)} className="min-h-11 self-start px-1 text-sm underline underline-offset-2">
+        <button type="button" onClick={() => setConfirming(true)} className="min-h-11 self-start px-1 text-sm bb-link">
           誤登録として削除する
         </button>
       )}

@@ -84,7 +84,7 @@ function dayFrom(days: number): string {
   return formatPlainDate({ year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1, day: shifted.getUTCDate() });
 }
 
-// 大会 2 つ（受付中・締切後）。部は「よく使う部」から選んで足す（§5.6 の公開ページを試すため）
+// 大会 2 つ（受付中・締切後）。部は「よく使う部門」から選んで足す（§5.6 の公開ページを試すため）
 async function seedTournaments(db: Db): Promise<number> {
   const adminId = await findOrCreateUser(db, KANRI_EMAIL);
   await withTenantOn(db, SAWARA_ASSOCIATION_ID, (tx) =>
