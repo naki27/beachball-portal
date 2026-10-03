@@ -70,9 +70,11 @@ test("受付開始 → 案内 → 申告 → 承認 → 選手一覧の今年度
       await tx.insert(memberships).values({ associationId: S, memberId: lastYear.memberId, year: year - 1, status: "approved", source: "renewal" });
     });
 
-    // 管理者: 受付を開始する
+    // 管理者: 受付を開始する（開始は一覧と別のページ・U-04）
     await login(page, request, adminEmail, `/${SAWARA_SLUG}/admin/memberships`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("会員の管理（年度更新）", { timeout: 20_000 });
+    await page.getByRole("link", { name: "受付を開始する" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("受付を開始する", { timeout: 20_000 });
     await page.locator("[data-hydrated]").first().waitFor();
     await page.getByLabel("対象年度（西暦）").fill(String(year));
     await page.getByLabel("受付の開始日").fill(dayFrom(-1));

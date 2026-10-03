@@ -73,9 +73,11 @@ test("管理者が PDF を上げ、未ログインの人が大会ページから
     });
     const documentsUrl = `/${SAWARA_SLUG}/admin/tournaments/${tournament.id}/documents`;
 
-    // 管理者: 拡張子だけ .pdf の画像は拒否 → 本物の PDF を追加
+    // 管理者: 拡張子だけ .pdf の画像は拒否 → 本物の PDF を追加（追加は一覧と別のページ・U-04）
     await login(page, request, adminEmail, documentsUrl);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("大会資料", { timeout: 20_000 });
+    await page.getByRole("link", { name: "資料を追加する" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("資料を追加する", { timeout: 20_000 });
     await page.locator("[data-hydrated]").first().waitFor();
     await page.getByLabel("PDF ファイル").setInputFiles({ name: "fake.pdf", mimeType: "application/pdf", buffer: pngBytes() });
     await page.getByLabel("タイトル", { exact: true }).fill(`${name} 偽物`);

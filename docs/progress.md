@@ -3,14 +3,16 @@
 タスクの最初に読み、最後に更新する。**50 行以内に保つ**（古い申し送りは docs/progress-archive.md に移す。そちらは読まない）。
 
 ## 今の状態
-- 最後に終わったタスク: **`main` を `feature/cd` に取り込み、重複実装を解消**（C-01〜D-05 を両方のエージェントが別々に実装していた）。**Phase 1a・1b・1c・1d・U・K は完了**
+- 最後に終わったタスク: **`main` を `feature/cd` に取り込み、重複実装を解消**したうえで、**U-04（一覧と登録の分離）を会員管理と大会資料にも適用**。**Phase 1a・1b・1c・1d・U・K は完了**
 - 次のタスク: **X-01**（本番用の設定）。X・H・Y・P のタスクは `docs/p1-tasks.md`（人の準備 `docs/deploy-prep.md` は 2026-10-02 に完了）
 - 起動のしかた: コンテナを起動（`docs/setup.md`。Windows は §7）→ コンテナの中で `pnpm db:roles` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`（Windows は `pnpm dev:poll`）→ http://localhost:3000 （`/api/health` が `{"ok":true}` なら DB につながっている）
 
 ## このマージについて（2026-10-03・必ず読む）
 - **C-01〜D-05（大会資料・年度更新）は `feature/cd` の実装を採用**。`main` 側の同じ機能（`admin/memberships.ts`・`approval-list.tsx`・`period-fields/open-form.tsx`・`document-fields/list/upload-form.tsx`・`documents/keys.ts`・`memberships/new` と `documents/new` の画面・`api/[slug]/admin/memberships/*`）は**削除した**
 - **U-01〜U-07・K-01・K-02・利用者の操作ログ・`docs/ops.md` のサイトマップと運用フロー図は `main` のものを残した**。共有ページ（トップ・大会詳細・チーム詳細・名簿・管理トップ）は main の UI を土台に、feature/cd の資料・会員への導線だけを接いだ
-- **U-04（一覧と登録のページを分ける）が、会員管理と大会資料の画面には効いていない**（feature/cd の実装は一覧の中に登録フォームを置く形）。揃えるなら別タスクにする
+- U-04 を会員管理と大会資料にも適用した: `/admin/memberships/new`（受付の開始）と `/admin/tournaments/[id]/documents/new`（資料の追加）を一覧から分け、
+  成功したら一覧へ戻して `?added=<id>` で `bb-highlight`。入力欄は `period-fields.tsx` / `document-fields.tsx` に分けて行の編集と共用。
+  両画面を `PageMain`/`PageHeader`/`Section`/`Card`/`Badge`/`bb-link` に載せ替えた（素の `<main>` をやめた）
 - ADR の採番が衝突したので、feature/cd の 0027〜0029 を **0033〜0035** に採番し直した（main の 0027〜0032 はそのまま）。参照は `deploy-prep.md`・`p1-tasks.md` を直した
 - マイグレーションは **feature/cd の 0016・0017 ＋ main の 0018・0019**。`meta/0018`・`0019` のスナップショットは `tournament_documents` を feature/cd の形に直し、`prevId` をつなぎ直した（`pnpm db:generate` が余計な差分を出さないこと）
 - README の 1c の節は配信を「独自ドメインで」と書いたままで、**ADR 0033（Workers で配信）と食い違っている**。X-05 で直す
@@ -34,6 +36,7 @@
 - ADR 0007 の表示名 30 文字は §14-13 と突き合わせていない。規約の改定で同意を取り直す（`users.terms_version`）は P1
 
 ### 作業の注意（消さない）
+- **登録ページで `fetch` の応答の本文を 2 回読まない**（`response.json()` のあとに同じ応答からエラーを読むと本文が空で、サーバーの文言が落ちる）。成功と失敗を 1 回の `json()` から取る
 - E2E: **Turbopack（`pnpm dev`）を立てて、spec を 1 本ずつ `--workers=1` で流す**。`dev:poll`（webpack）だとルートの初回コンパイルに 10〜40 秒かかって待ちを超える。Turbopack は 9p でファイルの変更を拾わないので、コードを変えたら **`.next/dev` を消してから**立て直す。**全部いちどに流すと dev サーバーが落ちる**（コンテナのメモリ）のでファイルを分ける。先に全ページ・API を一度 curl で呼ぶ。`tests/e2e/fixtures.ts` の `test` を使い、`[data-hydrated]` を待ってから押す。ヘッドレスは PDF をダウンロードにするので `popup` を待たない
 - **スクリーンショットを撮る前はページの入れ替えの終わりを待つ**（`screens.spec.ts` の `settled()`）。待たないと半透明の途中が写る
 - **dev サーバーを付けっぱなしでスキーマを変えると、古い列のまま動いて 500 になる**（drizzle の `escapeName` で落ちる）。`pnpm db:migrate` のあとは dev サーバーを入れ直す

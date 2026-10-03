@@ -47,7 +47,9 @@ test("/sawara/admin は 403。ログインボタンと、協会のトップへ�
 test("登録のページは未ログインなら 403", async ({ page }) => {
   const id = "00000000-0000-4000-8000-000000000000";
   for (const path of [
+    "/sawara/admin/memberships/new",
     "/sawara/admin/association/presets/new",
+    `/sawara/admin/tournaments/${id}/documents/new`,
     `/sawara/admin/tournaments/${id}/categories/new`,
   ]) {
     const response = await page.goto(path);
