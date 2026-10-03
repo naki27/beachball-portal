@@ -102,9 +102,10 @@ export function createR2Storage(config: R2Config, now: () => Date = () => new Da
     const target = bucketOf(bucket);
     const path = `/${target.name}${key ? `/${encodeKey(key)}` : ""}`;
     const headers = signedHeaders(target.credentials, method, host, path, query, payload, extra, now());
+    // Cloudflare は text/plain などを圧縮して返すとき HEAD の応答から content-length を落とす。圧縮させない（署名には含めない）
     return fetch(`https://${host}${path}${query ? `?${query}` : ""}`, {
       method,
-      headers,
+      headers: method === "HEAD" ? { ...headers, "accept-encoding": "identity" } : headers,
       body: method === "GET" || method === "DELETE" || method === "HEAD" ? undefined : Buffer.from(payload),
     });
   }

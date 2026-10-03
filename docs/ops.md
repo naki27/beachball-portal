@@ -495,11 +495,11 @@ pnpm storage:check
 
 ロール（`app_owner`・`app_user`・`app_job`・`app_backup`・`app_definer`）は `pnpm db:roles` が作る。**本番では人が手元の PC で 1 回流す**。
 
-1. パスワードを 5 つ作る（例: `openssl rand -base64 32`）。**チャットに貼らない**
+1. パスワードを作る（例: `openssl rand -hex 24`。`+` `/` `=` を含まないので URL にそのまま書ける）。**チャットに貼らない**
 2. `.env.production.local` に、Neon の管理用ロール（`neondb_owner`）の `POSTGRES_ADMIN_URL` と、
    ロールごとの接続 URL（`MIGRATION_DATABASE_URL`・`DATABASE_URL`・`JOB_DATABASE_URL`・`BACKUP_DATABASE_URL`）を書く。
    **ユーザー名はロール名と同じにする**（`db:roles` が突き合わせる）
-3. `pnpm db:roles` を流す（何度流してもよい。既にあるロールはパスワードを合わせるだけ）
+3. `pnpm db:roles:prod` を流す（`.env.production.local` を読む。`pnpm db:roles` は `.env`＝ローカルの DB 用なので、本番には使わない。最初に「接続先」のホスト名が Neon（`ep-…neon.tech`）になっているか見る。何度流してもよい。既にあるロールはパスワードを合わせるだけ）
 4. 4 つの接続 URL を Secret Manager に入れる（アプリ用はプール経由の `-pooler`、ほかは直接接続。どちらも `sslmode=require`）
 5. `.env.production.local` は消すか、PC の中だけに残す（Git に入れない）
 

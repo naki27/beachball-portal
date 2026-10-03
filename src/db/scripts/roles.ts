@@ -78,8 +78,16 @@ export async function ensureRoles(adminUrl: string): Promise<void> {
   }
 }
 
+const PRODUCTION_ENV_FILE = ".env.production.local";
+
 async function main(): Promise<void> {
-  loadEnv();
+  // --production: 本番（Neon）の値を使う。ファイルがなければ .env に戻らず止まる（ローカルの DB を本番と取り違えないため）
+  if (process.argv.includes("--production")) {
+    if (!loadEnv(PRODUCTION_ENV_FILE)) throw new Error(`${PRODUCTION_ENV_FILE} がありません`);
+    console.log(`接続先: ${new URL(requireEnv("POSTGRES_ADMIN_URL")).hostname}`);
+  } else {
+    loadEnv();
+  }
   await ensureRoles(requireEnv("POSTGRES_ADMIN_URL"));
 }
 
