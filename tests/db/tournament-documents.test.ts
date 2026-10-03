@@ -35,6 +35,10 @@ function memoryStorage(): StorageAdapter & { files: Map<string, Uint8Array> } {
     async get(bucket, key) {
       return files.get(at(bucket, key)) ?? null;
     },
+    async head(bucket, key) {
+      const body = files.get(at(bucket, key));
+      return body ? { contentType: null, contentDisposition: null, cacheControl: null, size: body.byteLength } : null;
+    },
     async remove(bucket, key) {
       files.delete(at(bucket, key));
     },

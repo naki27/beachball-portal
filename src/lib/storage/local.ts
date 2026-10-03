@@ -1,6 +1,12 @@
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { assertStorageKey, type PutOptions, type StorageAdapter, type StorageBucket } from "./types";
+import {
+  assertStorageKey,
+  type PutOptions,
+  type StorageAdapter,
+  type StorageBucket,
+  type StorageObjectMeta,
+} from "./types";
 
 // ローカルのファイル保存（設計書 §6.3・`STORAGE_DRIVER=local`）。`.local-storage/{private,public,backup}/`
 // 本番では使わない。公開用のファイルは開発時だけのルート（/dev-files/…）が返す（§5.9・C-02）
@@ -43,6 +49,22 @@ export function createLocalStorage(root: string, publicBaseUrl: string): Storage
       } catch {
         return null; // ないときは null（呼ぶ側が 404 にする）
       }
+    },
+
+    async head(bucket, key): Promise<StorageObjectMeta | null> {
+      const path = pathOf(bucket, key);
+      const body = await readFile(path).catch(() => null);
+      if (!body) return null;
+      // R2 ならオブジェクトに付いている情報。ローカルは横の .meta.json から読む
+      const meta: LocalMeta = await readFile(`${path}${META_SUFFIX}`, "utf8")
+        .then((text) => JSON.parse(text) as LocalMeta)
+        .catch(() => ({}));
+      return {
+        contentType: meta.contentType ?? contentTypeByExtension(key),
+        contentDisposition: meta.contentDisposition ?? null,
+        cacheControl: meta.cacheControl ?? null,
+        size: body.byteLength,
+      };
     },
 
     async remove(bucket, key) {

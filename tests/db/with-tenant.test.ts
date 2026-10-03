@@ -1,7 +1,8 @@
 import { sql } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
-import { closeDb, getDb } from "@/db/client";
-import { withTenant, type Tx } from "@/db/tenant";
+import { closeDb, createDb, getDb } from "@/db/client";
+import { requireEnv } from "@/db/env";
+import { withTenant, withTenantOn, type Tx } from "@/db/tenant";
 
 // Postgres（.env の DATABASE_URL）が要る。vitest.config.mts でプールを 1 接続にしているので、
 // 「外」の問い合わせは直前の withTenant と同じ接続で走る（設定が漏れていないことを確かめられる）
@@ -55,5 +56,36 @@ describe("withTenant", () => {
 
   it("associationId が空なら DB に触らずに止まる", async () => {
     await expect(withTenant("", readSettings)).rejects.toThrow("associationId");
+  });
+});
+
+// 本番はトランザクション単位のプール（Neon の -pooler）経由でつなぐ（設計書 §6.3・X-01）。
+// SET LOCAL は BEGIN〜COMMIT の中だけに効くので、接続を使い回しても混ざらないことを確かめる
+describe("プール経由でも SET LOCAL が効く", () => {
+  const pooled = createDb(requireEnv("DATABASE_URL"), { max: 3 });
+  afterAll(() => closeDb(pooled));
+
+  it("同時に走らせても、それぞれのトランザクションが自分の協会を見る", async () => {
+    const ids = [ASSOCIATION_A, ASSOCIATION_B, ASSOCIATION_A, ASSOCIATION_B, ASSOCIATION_A, ASSOCIATION_B];
+    const results = await Promise.all(
+      ids.map((id) =>
+        withTenantOn(pooled, id, async (tx) => {
+          // ほかのトランザクションを割り込ませてから読む（接続の取り合いを起こす）
+          await tx.execute(sql`select pg_sleep(0.02)`);
+          return readSettings(tx);
+        }),
+      ),
+    );
+    expect(results.map((r) => r.associationId)).toEqual(ids);
+    // 接続を使い回している（= プールの振る舞いを確かめられている）
+    expect(new Set(results.map((r) => r.pid)).size).toBeLessThan(ids.length);
+  });
+
+  it("トランザクションを抜けると、同じ接続でも残らない", async () => {
+    const inside = await withTenantOn(pooled, ASSOCIATION_A, readSettings, { userId: USER_ID });
+    const outside = await readSettings(pooled);
+    expect(inside.associationId).toBe(ASSOCIATION_A);
+    expect(outside.associationId).toBeNull();
+    expect(outside.userId).toBeNull();
   });
 });

@@ -403,3 +403,15 @@
   - E2E は全部いちどに流すと dev サーバーが落ちる（コンテナのメモリ）。ファイルを分けて流す
   - `docs/p0-tasks.md` の C は B-14 のストレージの土台の上に載る（`StorageAdapter` の `private` / `public` はまだ使っていない）
 - 使った枠（/usage の変化）: 未計測
+
+## main と feature/cd のマージ（2026-10-03。X-01 の前の状態）
+
+- **C-01〜D-05（大会資料・年度更新）は `feature/cd` の実装を採用**。`main` 側の同じ機能（`admin/memberships.ts`・`approval-list.tsx`・`period-fields/open-form.tsx`・`document-fields/list/upload-form.tsx`・`documents/keys.ts`・`memberships/new` と `documents/new` の画面・`api/[slug]/admin/memberships/*`）は**削除した**
+- **U-01〜U-07・K-01・K-02・利用者の操作ログ・`docs/ops.md` のサイトマップと運用フロー図は `main` のものを残した**。共有ページ（トップ・大会詳細・チーム詳細・名簿・管理トップ）は main の UI を土台に、feature/cd の資料・会員への導線だけを接いだ
+- U-04 を会員管理と大会資料にも適用した: `/admin/memberships/new`（受付の開始）と `/admin/tournaments/[id]/documents/new`（資料の追加）を一覧から分け、
+  成功したら一覧へ戻して `?added=<id>` で `bb-highlight`。入力欄は `period-fields.tsx` / `document-fields.tsx` に分けて行の編集と共用。
+  両画面を `PageMain`/`PageHeader`/`Section`/`Card`/`Badge`/`bb-link` に載せ替えた（素の `<main>` をやめた）
+- ADR の採番が衝突したので、feature/cd の 0027〜0029 を **0033〜0035** に採番し直した（main の 0027〜0032 はそのまま）。参照は `deploy-prep.md`・`p1-tasks.md` を直した
+- マイグレーションは **feature/cd の 0016・0017 ＋ main の 0018・0019**。`meta/0018`・`0019` のスナップショットは `tournament_documents` を feature/cd の形に直し、`prevId` をつなぎ直した（`pnpm db:generate` が余計な差分を出さないこと）
+- README の 1c の節は配信を「独自ドメインで」と書いたままで、**ADR 0033（Workers で配信）と食い違っている**。X-05 で直す
+

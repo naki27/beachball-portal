@@ -16,7 +16,7 @@ import { consumeRateLimits, HOUR_MS } from "@/lib/auth/rate-limit";
 import { endUserSessions } from "@/lib/auth/session";
 import { REQUEST_LIMITS, RESEND_WAIT_SECONDS } from "@/lib/auth/request-login-code";
 import { enqueueMail } from "@/lib/mail/outbox";
-import { composeLoginCodeMail } from "@/lib/mail/templates";
+import { composeLoginCodeMail, mailBranding } from "@/lib/mail/templates";
 import type { MailSender } from "@/lib/mail/types";
 
 // メールアドレスの変更（設計書 §5.19・§9.2）
@@ -96,7 +96,8 @@ export async function requestEmailChange(
   let providerMessageId: string | null = null;
   let error: string | null = null;
   try {
-    providerMessageId = (await sender.send({ to: email, ...mail })).providerMessageId ?? null;
+    // 協会に属さないメール（差出人名はサイト名、返信先は CONTACT_TO）
+    providerMessageId = (await sender.send({ to: email, ...mailBranding(null), ...mail })).providerMessageId ?? null;
   } catch (e) {
     status = "failed";
     error = e instanceof Error ? e.name : "send failed";

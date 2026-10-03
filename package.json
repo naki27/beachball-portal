@@ -23,6 +23,7 @@
     "db:seed": "tsx src/db/scripts/seed.ts",
     "db:seed:dev": "tsx src/db/scripts/seed-dev.ts",
     "dev:grant-admin": "tsx src/db/scripts/grant-admin.ts",
+    "storage:check": "tsx src/scripts/storage-check.ts",
     "job:mail": "tsx src/jobs/mail.ts",
     "job:daily": "tsx src/jobs/daily.ts",
     "mail:test": "tsx src/jobs/mail-test.ts",

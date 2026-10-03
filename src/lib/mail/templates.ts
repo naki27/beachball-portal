@@ -48,6 +48,15 @@ export function subjectWithBrand(ctx: Pick<ComposeContext, "associationName">, s
   return `【${brandOf(ctx)}】${subject}`;
 }
 
+// 差出人の表示名と返信先（§11.1）。表示名は協会の名前（なければサイト名）、返信先は協会の連絡先（なければ CONTACT_TO・§5.10）
+// 送る口がどれでも同じになるよう、ここ 1 か所で決める
+export type MailBranding = { fromName: string; replyTo?: string };
+
+export function mailBranding(associationName: string | null, associationContactEmail: string | null = null): MailBranding {
+  const replyTo = associationContactEmail || process.env.CONTACT_TO || "";
+  return { fromName: brandOf({ associationName }), ...(replyTo ? { replyTo } : {}) };
+}
+
 type Template = (params: Record<string, unknown>, ctx: ComposeContext, tx: Tx | Db) => Promise<Composed>;
 
 function associationTopUrl(ctx: ComposeContext): string {

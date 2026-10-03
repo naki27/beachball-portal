@@ -3,7 +3,7 @@ import type { Db } from "@/db/client";
 import { mailLogs } from "@/db/schema";
 import { setTenant, type Tx } from "@/db/tenant";
 import { findAssociationById } from "@/lib/repo/associations";
-import { composeMail, hasTemplate } from "./templates";
+import { composeMail, hasTemplate, mailBranding } from "./templates";
 import type { MailSender } from "./types";
 
 // 送信ジョブ（設計書 §6.5 の定期ジョブ「メール送信」・§11「送り方」）。app_job（JOB_DATABASE_URL）で動かす
@@ -58,7 +58,8 @@ async function deliver(tx: Tx, row: QueuedRow, sender: MailSender, now: Date, ba
       { associationName: association?.name ?? null, associationSlug: association?.slug ?? null, baseUrl },
       tx,
     );
-    const result = await sender.send({ to: row.toEmail, ...composed });
+    const branding = mailBranding(association?.name ?? null, association?.contactEmail ?? null);
+    const result = await sender.send({ to: row.toEmail, ...branding, ...composed });
     await tx
       .update(mailLogs)
       .set({

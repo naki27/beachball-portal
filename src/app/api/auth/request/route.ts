@@ -23,11 +23,11 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  // 協会のページから来た場合は、件名にその協会名（next の先頭のスラッグから）
+  // 協会のページから来た場合は、件名・差出人名にその協会名、返信先にその協会の連絡先（next の先頭のスラッグから）
   const next = typeof body?.next === "string" ? body.next : "";
   const slug = next.startsWith("/") ? slugFromUrl(next) : null;
   const association = slug ? await resolveAssociation(slug) : null;
-  const associationName = association && association.kind !== "not_found" ? association.association.name : null;
+  const found = association && association.kind !== "not_found" ? association.association : null;
 
   const cookieName = loginAttemptCookieName();
   const existingAttempt = readCookie(request, cookieName);
@@ -36,7 +36,8 @@ export async function POST(request: Request): Promise<Response> {
     email,
     ip: clientIp(request),
     attemptId: existingAttempt,
-    associationName,
+    associationName: found?.name ?? null,
+    associationContactEmail: found?.contactEmail ?? null,
   });
 
   if (result.kind === "rate_limited") {

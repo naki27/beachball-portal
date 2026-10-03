@@ -16,10 +16,20 @@ export type PutOptions = {
   cacheControl?: string;
 };
 
+// 置いたファイルに付いている情報（中身は読まない）。pnpm storage:check が公開用のヘッダを確かめるのに使う
+export type StorageObjectMeta = {
+  contentType: string | null;
+  contentDisposition: string | null;
+  cacheControl: string | null;
+  size: number | null;
+};
+
 export type StorageAdapter = {
   readonly driver: "local" | "r2";
   put(bucket: StorageBucket, key: string, body: Uint8Array, options?: PutOptions): Promise<void>;
   get(bucket: StorageBucket, key: string): Promise<Uint8Array | null>;
+  // 中身を読まずに付いている情報だけを取る。なければ null
+  head(bucket: StorageBucket, key: string): Promise<StorageObjectMeta | null>;
   remove(bucket: StorageBucket, key: string): Promise<void>;
   list(bucket: StorageBucket, prefix: string): Promise<string[]>;
   // 公開用のファイルの URL（PUBLIC_FILES_BASE_URL。ローカルは開発時だけのルート・§5.9）

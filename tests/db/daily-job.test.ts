@@ -44,6 +44,9 @@ const storage: StorageAdapter = {
   async get() {
     return null;
   },
+  async head() {
+    return null;
+  },
   async remove() {},
   async list() {
     return [];

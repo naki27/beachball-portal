@@ -422,3 +422,86 @@ grep '"session":"<①のハッシュ>"' logs/access.log
 - バックアップの復元手順（Phase 0 で確認する）
 - 監視の知らせ先（メール・電話）と、深夜・休日の扱い
 - プライバシーポリシー・利用規約の【要確認】（`docs/legal/*.md` の末尾）を専門家に見てもらう
+
+## 9. 本番の環境変数（X-01・設計書 §6.3）
+
+- **起動時に検査する**。本番（`NODE_ENV=production`）で必須の変数が足りない・値がおかしいと、アプリは起き上がらずに止まる
+  （`src/instrumentation.ts` → `src/lib/env/production.ts`）。ジョブも同じ検査を最初に通す。**出るのは変数の名前と理由だけで、値は出ない**
+- **秘密の値はチャットに貼らない・リポジトリに入れない**。Secret Manager に入れる手順（`gcloud secrets versions add`）は X-02 で書く
+- 控えた値は `docs/deploy-values.local.md`（Git に入れない）
+
+| 変数 | 置き場所 | 渡す先 |
+|---|---|---|
+| `DATABASE_URL` | Secret | アプリだけ |
+| `MIGRATION_DATABASE_URL` | Secret | `migrate` の Job だけ |
+| `JOB_DATABASE_URL` | Secret | メールのジョブ・日次ジョブ |
+| `BACKUP_DATABASE_URL` | Secret | 日次ジョブだけ（`pg_dump`。X-03 で使う） |
+| `SESSION_SECRET` / `LOGIN_CODE_HMAC_KEY` | Secret | アプリだけ |
+| `MAIL_API_KEY` | Secret | アプリ・メールのジョブ |
+| `BREVO_WEBHOOK_TOKEN` | Secret | アプリだけ（Y-06 で使う） |
+| `BACKUP_ENCRYPTION_KEY` | Secret（中身は公開鍵） | 日次ジョブだけ |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Secret | アプリ・日次ジョブ |
+| `R2_BACKUP_ACCESS_KEY_ID` / `R2_BACKUP_SECRET_ACCESS_KEY` | Secret | **日次ジョブだけ**（アプリには渡さない） |
+| `NODE_ENV=production` | 環境変数 | アプリ・ジョブ・`migrate` |
+| `APP_BASE_URL`（`https://…`） | 環境変数 | アプリ・メールのジョブ |
+| `TERMS_VERSION` | 環境変数 | アプリ |
+| `MAIL_PROVIDER=brevo` / `MAIL_FROM` / `CONTACT_TO` | 環境変数 | アプリ・メールのジョブ |
+| `MAIL_DAILY_LIMIT`（省略時 300） | 環境変数 | メールのジョブ |
+| `ACCESS_LOG_DRIVER=stdout` | 環境変数 | アプリ（Cloud Run にファイルは残らない） |
+| `STORAGE_DRIVER=r2` / `R2_ACCOUNT_ID` / `R2_BUCKET` / `R2_PUBLIC_BUCKET` | 環境変数 | アプリ・日次ジョブ |
+| `R2_BACKUP_BUCKET` | 環境変数 | 日次ジョブだけ |
+| `PUBLIC_FILES_BASE_URL` | 環境変数 | アプリ |
+| `DB_POOL_MAX=5` | 環境変数 | アプリ |
+| `SUPER_ADMIN_EMAILS` | 環境変数 | `migrate` の Job だけ（seed が読む） |
+
+- 既定値のあるもの（`LOGIN_CODE_TTL_MINUTES`・`LOGIN_CODE_MAX_ATTEMPTS`・`SESSION_TTL_DAYS` ・`SESSION_SLIDING`）は、既定でよければ渡さない
+- P1 の `WEBAUTHN_RP_ID` ・`WEBAUTHN_ORIGIN`・`MFA_ENCRYPTION_KEY` は P-01 まで渡さない
+
+### DB の接続（Neon）
+
+| 使うもの | 接続 |
+|---|---|
+| アプリ | **プール経由**（ホスト名に `-pooler`）＋ `sslmode=require`。`DB_POOL_MAX=5`（インスタンス数 × 5 が Neon の上限を超えないように） |
+| `migrate`・seed・ジョブ | **直接接続**（`-pooler` なし）＋ `sslmode=require` |
+
+- プールはトランザクション単位なので、`withTenant` の `SET LOCAL` は `BEGIN`〜`COMMIT` の中だけに効く（接続を使い回しても混ざらない。`tests/db/with-tenant.test.ts`）。**セッション単位の `SET` は使わない**
+- `sslmode=require` が入っていない接続文字列は、起動時の検査で止まる
+
+### Cookie
+
+`__Host-` と `Secure` は **`APP_BASE_URL` が `https://` のときだけ**付く（`src/lib/auth/cookies.ts` の 1 か所で決まる）。
+本番で `APP_BASE_URL` が `http://` だと起動時の検査で止まるので、本番では必ず付く（`tests/unit/cookies.test.ts`）。
+
+### R2 につながることを確かめる
+
+```bash
+# 本番の値を .env.production.local に書いてから（Git に入れない）
+pnpm storage:check
+```
+
+3 つのバケットで「置く・情報を取る・読む・一覧に出る・消す」を順に試し、公開用バケットでは
+`Content-Type`・`Content-Disposition`・`Cache-Control` がそのまま返ることも見る。確かめ用のファイルは最後に消す。
+`PUBLIC_FILES_BASE_URL` が `https://` なら、配信の URL からも取ってみる（Workers は X-05・H-06）。
+
+### Brevo の画面でしておくこと
+
+- **クリック計測（リンクの書き換え）を切る**。1 通ごとに切るフィールドは API にないため（docs/adr/0036）。切り忘れると本文の URL が Brevo 経由になる
+- 開封・クリックの記録は、送るときに 1 通ずつ匿名化している（`contactPixelTrackingConsent: false`）
+- SPF・DKIM・DMARC（§11.1）。ルートの `_dmarc` が未設定なら `p=none` から（X-05）
+- 送信数が 1 日の上限の 8 割に達した日は、メールのジョブが `{"alert":"mail_daily_limit",…}` を 1 行だけログに出す。
+  これを拾って知らせる設定は X-04
+
+## 10. 本番の DB のロールを作る（H-01）
+
+ロール（`app_owner`・`app_user`・`app_job`・`app_backup`・`app_definer`）は `pnpm db:roles` が作る。**本番では人が手元の PC で 1 回流す**。
+
+1. パスワードを 5 つ作る（例: `openssl rand -base64 32`）。**チャットに貼らない**
+2. `.env.production.local` に、Neon の管理用ロール（`neondb_owner`）の `POSTGRES_ADMIN_URL` と、
+   ロールごとの接続 URL（`MIGRATION_DATABASE_URL`・`DATABASE_URL`・`JOB_DATABASE_URL`・`BACKUP_DATABASE_URL`）を書く。
+   **ユーザー名はロール名と同じにする**（`db:roles` が突き合わせる）
+3. `pnpm db:roles` を流す（何度流してもよい。既にあるロールはパスワードを合わせるだけ）
+4. 4 つの接続 URL を Secret Manager に入れる（アプリ用はプール経由の `-pooler`、ほかは直接接続。どちらも `sslmode=require`）
+5. `.env.production.local` は消すか、PC の中だけに残す（Git に入れない）
+
+- Neon の管理用ロールで `CREATE ROLE` ができるかは H-01 で確かめる。できなければ Neon の画面でロールを作り、`db:roles` は属性とパスワードの更新だけに使う
+- 表ごとの権限と RLS はマイグレーションが付ける（`migrate` の Job）。`db:roles` は入り口の権限だけ

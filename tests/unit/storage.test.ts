@@ -2,9 +2,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { CHECK_PREFIX, formatCheckResult, runStorageCheck } from "@/lib/storage/check";
 import { decryptBackup, encryptForBackup, generateBackupKeyPair } from "@/lib/storage/encrypt";
 import { createLocalStorage } from "@/lib/storage/local";
-import { assertStorageKey } from "@/lib/storage/types";
+import { assertStorageKey, type StorageAdapter } from "@/lib/storage/types";
 
 // ファイルの保存先とバックアップの暗号化（設計書 §6.3・§6.5「補足」・B-14）
 const root = mkdtempSync(join(tmpdir(), "bbp-storage-"));
@@ -31,6 +32,44 @@ describe("ローカルの保存先", () => {
 
   it("公開用の URL は配信の URL の先頭に続ける", () => {
     expect(storage.publicUrl("documents/abc.pdf")).toBe("http://localhost:3000/dev-files/documents/abc.pdf");
+  });
+
+  it("情報だけを取れる（付けたヘッダと大きさ）。ないものは null", async () => {
+    const body = new TextEncoder().encode("%PDF-1.7\n");
+    await storage.put("public", "documents/head.pdf", body, {
+      contentType: "application/pdf",
+      contentDisposition: "inline; filename=\"head.pdf\"",
+      cacheControl: "public, max-age=3600",
+    });
+    expect(await storage.head("public", "documents/head.pdf")).toEqual({
+      contentType: "application/pdf",
+      contentDisposition: 'inline; filename="head.pdf"',
+      cacheControl: "public, max-age=3600",
+      size: body.byteLength,
+    });
+    expect(await storage.head("public", "documents/none.pdf")).toBeNull();
+    await storage.remove("public", "documents/head.pdf");
+  });
+});
+
+describe("pnpm storage:check の中身", () => {
+  it("ローカルの保存先なら 3 つのバケットで全部通る", async () => {
+    const result = await runStorageCheck(storage);
+    expect(result.steps.filter((s) => !s.ok)).toEqual([]);
+    expect(result.ok).toBe(true);
+    // 確かめ用のファイルを残さない
+    expect(await storage.list("public", CHECK_PREFIX)).toEqual([]);
+    expect(await storage.list("backup", CHECK_PREFIX)).toEqual([]);
+  });
+
+  it("ヘッダを落とす保存先は、どの手順で落ちたかが分かる", async () => {
+    // put のオプションを捨てる（R2 の設定が抜けていたときの見え方）
+    const forgetful: StorageAdapter = { ...storage, put: (bucket, key, body) => storage.put(bucket, key, body) };
+    const result = await runStorageCheck(forgetful);
+    expect(result.ok).toBe(false);
+    const failed = result.steps.filter((s) => !s.ok).map((s) => s.label);
+    expect(failed).toEqual(["public: 付けたヘッダがそのまま付いている"]);
+    expect(formatCheckResult(result)).toContain("1 件が失敗しました");
   });
 });
 

@@ -28,6 +28,10 @@ export type OutgoingMail = {
   to: string;
   subject: string;
   text: string;
+  // 差出人の表示名（協会の名前。協会に属さないメールはサイト名・§11.1）
+  fromName?: string;
+  // 返信先（協会の連絡先。未設定なら CONTACT_TO・§11.1・§5.10）
+  replyTo?: string;
 };
 
 export type SendResult = {

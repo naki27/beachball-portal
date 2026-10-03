@@ -2,7 +2,7 @@ import { and, eq, gt } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { loginCodes, mailLogs } from "@/db/schema";
 import { requireEnv } from "@/db/env";
-import { composeLoginCodeMail } from "@/lib/mail/templates";
+import { composeLoginCodeMail, mailBranding } from "@/lib/mail/templates";
 import type { MailSender } from "@/lib/mail/types";
 import {
   generateAttemptId,
@@ -35,8 +35,10 @@ export type RequestLoginCodeInput = {
   ip: string;
   // 再送のとき、Cookie にある試行 ID。なければ新しく作る
   attemptId?: string | null;
-  // 協会のページから来た場合の協会名（件名に使う）。なければサイト名
+  // 協会のページから来た場合の協会名（件名・差出人名に使う）。なければサイト名
   associationName: string | null;
+  // その協会の連絡先（返信先に使う。なければ CONTACT_TO・§11.1）
+  associationContactEmail?: string | null;
   purpose?: "login";
   now?: Date;
 };
@@ -90,7 +92,8 @@ export async function requestLoginCode(
   let providerMessageId: string | null = null;
   let error: string | null = null;
   try {
-    providerMessageId = (await sender.send({ to: input.email, ...mail })).providerMessageId ?? null;
+    const branding = mailBranding(input.associationName, input.associationContactEmail ?? null);
+    providerMessageId = (await sender.send({ to: input.email, ...branding, ...mail })).providerMessageId ?? null;
   } catch (e) {
     status = "failed";
     error = e instanceof Error ? e.name : "send failed";

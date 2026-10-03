@@ -2,11 +2,13 @@
 // 接続は app_job（JOB_DATABASE_URL）。ログには件数だけを出す（氏名・メールアドレスは出さない）
 import { closeDb, createDb } from "../db/client";
 import { loadEnv, requireEnv } from "../db/env";
+import { assertProductionEnv } from "../lib/env/production";
 import { formatDailyJobResult, runDailyJob } from "../lib/jobs/daily";
 import { sanitizeError } from "../lib/mail/queue";
 
 async function main(): Promise<void> {
   loadEnv();
+  assertProductionEnv("job-daily");
   const db = createDb(requireEnv("JOB_DATABASE_URL"), { max: 1 });
   try {
     console.log(`日次ジョブ: ${formatDailyJobResult(await runDailyJob(db))}`);
